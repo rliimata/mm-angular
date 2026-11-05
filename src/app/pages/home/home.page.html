@@ -1,0 +1,192 @@
+<section class="home">
+  <div class="presets">
+    <button type="button" [class.active]="mode === 'text'" (click)="setMode('text')">Haku</button>
+    <button type="button" [class.active]="mode === 'recent'" (click)="setMode('recent')">Uusimmat</button>
+    <button type="button" [class.active]="mode === 'topRated'" (click)="setMode('topRated')">Parhaat</button>
+    <button type="button" [class.active]="mode === 'rated'" (click)="setMode('rated')">Arvostellut</button>
+    <button type="button" [class.active]="mode === 'owned'" (click)="setMode('owned')">Omistetut</button>
+    <button type="button" [class.active]="mode === 'watchlist'" (click)="setMode('watchlist')">Katsottavat</button>
+    <button type="button" [class.active]="mode === 'birthdays'" (click)="setMode('birthdays')">Syntymäpäivät</button>
+  </div>
+
+  <div class="filters">
+    @if (mode === 'rated' || mode === 'owned' || mode === 'watchlist') {
+      <label>
+        Käyttäjä
+        <select [(ngModel)]="filterUserId" name="filterUserId" (ngModelChange)="runSearch()">
+          @for (u of users; track u.Id) {
+            <option [ngValue]="u.Id">{{ u.Name }}</option>
+          }
+        </select>
+      </label>
+    }
+  </div>
+
+  @if (mode === 'text') {
+    <form class="search" (ngSubmit)="runSearch()">
+      <input
+        type="search"
+        name="query"
+        [(ngModel)]="query"
+        placeholder="Hae elokuvia ja henkilöitä…"
+        autofocus
+      />
+    </form>
+  }
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="muted">Ladataan…</p>
+  } @else if (mode === 'birthdays') {
+    <p class="meta">{{ people().length }} syntymäpäivää tänään</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Henkilö</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of people(); track p.Id) {
+          <tr>
+            <td>
+              <a [routerLink]="['/person', p.Id]">{{ personName(p) }}</a>
+            </td>
+            <td class="row-actions">
+              @if (auth.isSuperUser()) {
+                <a
+                  class="icon-edit"
+                  [routerLink]="['/person', p.Id, 'edit']"
+                  [queryParams]="{ return: '/' }"
+                  title="Muokkaa"
+                  aria-label="Muokkaa"
+                  >✎</a
+                >
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  } @else if (mode === 'owned') {
+    <p class="meta">{{ ownershipTotal() }} omistusta</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Omistus</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (o of ownerships(); track o.Id) {
+          <tr>
+            <td>
+              @if (o.movies.length) {
+                <a [routerLink]="['/movie', o.movies[0].Id]">{{ ownershipLabel(o) }}</a>
+              } @else {
+                {{ ownershipLabel(o) }}
+              }
+            </td>
+            <td class="row-actions">
+              @if (auth.isSuperUser() && o.movies.length) {
+                <a
+                  class="icon-edit"
+                  [routerLink]="['/movie', o.movies[0].Id]"
+                  title="Avaa"
+                  aria-label="Avaa"
+                  >✎</a
+                >
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  } @else {
+    @if (mode === 'text' && people().length) {
+      <section class="result-block">
+        <p class="meta">{{ people().length }} henkilöä</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Henkilö</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of people(); track p.Id) {
+              <tr>
+                <td>
+                  <a [routerLink]="['/person', p.Id]">{{ personName(p) }}</a>
+                </td>
+                <td class="row-actions">
+                  @if (auth.isSuperUser()) {
+                    <a
+                      class="icon-edit"
+                      [routerLink]="['/person', p.Id, 'edit']"
+                      [queryParams]="{ return: '/' }"
+                      title="Muokkaa"
+                      aria-label="Muokkaa"
+                      >✎</a
+                    >
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    }
+
+    <section class="result-block">
+      <p class="meta">{{ total() }} elokuvaa</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Otsikko</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (m of movies(); track m.Id) {
+            <tr>
+              <td><a [routerLink]="['/movie', m.Id]">{{ movieTitle(m) }}</a></td>
+              <td class="extra">
+                @if (m.AvgScore != null) {
+                  <span>{{ formatAvgScore(m.AvgScore) }}</span>
+                }
+                @if (scoreLabel(m.MyScoreId)) {
+                  <span>{{ scoreLabel(m.MyScoreId) }}★</span>
+                }
+                @if (m.FormatLabels && m.FormatLabels.length) {
+                  <span class="tag">{{ m.FormatLabels.join(', ') }}</span>
+                }
+                @if (auth.isSuperUser()) {
+                  <a
+                    class="icon-edit"
+                    [routerLink]="['/movie', m.Id, 'edit']"
+                    [queryParams]="{ return: '/' }"
+                    title="Muokkaa"
+                    aria-label="Muokkaa"
+                    >✎</a
+                  >
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+
+  @if (mode !== 'birthdays' && (mode !== 'text' || !people().length || total() > 0)) {
+    <div class="pager">
+      <button type="button" (click)="go(page - 1)" [disabled]="page <= 1">Edellinen</button>
+      <span>{{ page }} / {{ totalPages }}</span>
+      <button type="button" (click)="go(page + 1)" [disabled]="page >= totalPages">Seuraava</button>
+    </div>
+  }
+</section>

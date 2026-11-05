@@ -1,0 +1,92 @@
+.detail {
+  display: grid;
+  gap: 1.15rem;
+  padding: 1rem;
+  border-radius: 10px;
+}
+
+.detail.gender-male {
+  background: #e7f1fa;
+}
+
+.detail.gender-female {
+  background: #fce8ef;
+}
+
+.nav {
+  display: flex;
+  gap: 0.85rem;
+  align-items: center;
+  margin: 0;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.meta {
+  margin: 0.25rem 0 0;
+  color: #666;
+}
+
+ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+th,
+td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid #e5e5e5;
+  text-align: left;
+}
+
+a {
+  color: #1f4b7a;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.prose {
+  line-height: 1.45;
+}
+
+.error {
+  color: #a40000;
+}
+
+button.ghost {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid #1f4b7a;
+  border-radius: 4px;
+  background: #fff;
+  color: #1f4b7a;
+  font: inherit;
+  cursor: pointer;
+}
+
+.danger-btn,
+button.danger {
+  padding: 0.45rem 0.8rem;
+  border: 0;
+  border-radius: 4px;
+  background: #8b1e1e;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}

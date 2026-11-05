@@ -1,0 +1,131 @@
+.home {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.search {
+  display: block;
+  width: 100%;
+}
+
+.search input {
+  width: 100%;
+}
+
+.presets button,
+.pager button {
+  padding: 0.5rem 0.85rem;
+  border: 1px solid #1f4b7a;
+  border-radius: 4px;
+  background: #1f4b7a;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.presets,
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: end;
+}
+
+.presets button {
+  background: #fff;
+  color: #1f4b7a;
+}
+
+.presets button.active {
+  background: #1f4b7a;
+  color: #fff;
+}
+
+
+.result-block {
+  display: grid;
+  gap: 0.45rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+th,
+td {
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px solid #e5e5e5;
+  text-align: left;
+}
+
+th {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.extra,
+.row-actions {
+  color: #555;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.extra span + span {
+  margin-left: 0.5rem;
+}
+
+.tag {
+  color: #6a4a16;
+}
+
+.icon-edit {
+  display: inline-grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-left: 0.35rem;
+  border-radius: 4px;
+  color: #1f4b7a;
+  text-decoration: none;
+  font-size: 0.95rem;
+  vertical-align: middle;
+}
+
+.icon-edit:hover {
+  background: #e8eef5;
+  text-decoration: none;
+}
+
+a {
+  color: #1f4b7a;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.meta,
+.muted {
+  margin: 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.error {
+  color: #a40000;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.pager button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

@@ -1,0 +1,122 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --mm-ink: #1a2330;
+  --mm-muted: #5c6773;
+  --mm-accent: #1f4b7a;
+  --mm-accent-soft: rgba(31, 75, 122, 0.14);
+  --mm-danger: #c62828;
+  --mm-label-size: 0.72rem;
+  --mm-field-bg: #fbfcfd;
+  --mm-field-border: #d0d8e0;
+  --mm-field-border-hover: #aeb9c5;
+  --mm-field-radius: 8px;
+  --mm-field-pad-y: 0.55rem;
+  --mm-field-pad-x: 0.75rem;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 16px;
+  color: var(--mm-ink);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* Label + control stack used across edit/modals/login/home */
+label:not(.radio):not(.mcs-option),
+.section-label,
+.field-label,
+legend.field-legend {
+  font-size: var(--mm-label-size);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: var(--mm-muted);
+}
+
+label:not(.radio):not(.mcs-option) {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.field-caption {
+  white-space: nowrap;
+}
+
+.req {
+  color: var(--mm-danger);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+label:not(.radio):not(.mcs-option) > input,
+label:not(.radio):not(.mcs-option) > select,
+label:not(.radio):not(.mcs-option) > textarea,
+label:not(.radio):not(.mcs-option) > app-multi-check-select,
+label:not(.radio):not(.mcs-option) > app-flexible-date {
+  font-weight: 400;
+  letter-spacing: normal;
+  color: var(--mm-ink);
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='button']):not([type='submit']),
+select,
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--mm-field-pad-y) var(--mm-field-pad-x);
+  border: 1px solid var(--mm-field-border);
+  border-radius: var(--mm-field-radius);
+  background: var(--mm-field-bg);
+  color: var(--mm-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+input:not([type='checkbox']):not([type='radio']):hover,
+select:hover,
+textarea:hover {
+  border-color: var(--mm-field-border-hover);
+}
+
+input:not([type='checkbox']):not([type='radio']):focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--mm-accent);
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--mm-accent-soft);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  background: #f3f5f7;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 2.75rem;
+  line-height: 1.45;
+}
+
+select {
+  cursor: pointer;
+}

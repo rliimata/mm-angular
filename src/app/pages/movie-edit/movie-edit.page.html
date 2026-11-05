@@ -1,0 +1,584 @@
+<div class="modal-backdrop page-modal" (click)="close()">
+  <div class="modal modal-xl" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+    <header class="modal-head">
+      <h1>{{ id ? 'Muokkaa elokuvaa' : 'Uusi elokuva' }}</h1>
+      <button type="button" class="icon-btn icon-close" (click)="close()" aria-label="Sulje" title="Sulje">×</button>
+    </header>
+
+    <div class="modal-body">
+      @if (error()) {
+        <p class="error">{{ error() }}</p>
+      }
+
+      <form id="movieEditForm" (ngSubmit)="save()">
+        <div class="title-row">
+          <label class="title-field">
+            <span class="field-caption">Alkuperäiskielinen nimi <span class="req">*</span></span>
+            <input [(ngModel)]="title" name="title" required />
+          </label>
+          <label class="year-field">
+            <span class="field-caption">Vuosi <span class="req">*</span></span>
+            <input
+              type="text"
+              inputmode="numeric"
+              appDigitsOnly
+              [(ngModel)]="yearText"
+              name="yearText"
+              maxlength="4"
+              required
+            />
+          </label>
+          <label class="lang-field">
+            <span class="field-caption">Otsikon kieli <span class="req">*</span></span>
+            <select [(ngModel)]="titleLanguageId" name="titleLanguageId" required>
+              @for (r of sortedLookups(languages, titleLanguageId); track r.Id) {
+                <option [ngValue]="r.Id">{{ r.Value }}</option>
+              }
+            </select>
+          </label>
+        </div>
+
+        <div class="compact-row age-ratio-row">
+          <div class="field-with-add age-field">
+            <label>
+              Ikäraja
+              <select [(ngModel)]="age" name="age">
+                @for (a of sortedAgeRatings(); track a.Id) {
+                  <option [ngValue]="ageValue(a)">{{ ageLabel(ageValue(a)) }}</option>
+                }
+              </select>
+            </label>
+            <button
+              type="button"
+              class="icon-btn icon-clear"
+              (click)="clearSelect('age')"
+              [disabled]="age == null"
+              aria-label="Tyhjennä"
+              title="Tyhjennä"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              class="icon-btn icon-add"
+              (click)="openCatalogAdd('AgeRating')"
+              aria-label="Lisää ikäraja"
+              title="Lisää"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              class="icon-btn icon-del"
+              (click)="deleteSelectedCatalog('AgeRating')"
+              [disabled]="age == null"
+              aria-label="Poista"
+              title="Poista"
+            >
+              ×
+            </button>
+          </div>
+          <div class="field-with-add ratio-field">
+            <label>
+              Kuvasuhde
+              <select [(ngModel)]="ratioId" name="ratioId">
+                @for (r of sortedLookups(ratios, ratioId); track r.Id) {
+                  <option [ngValue]="r.Id">{{ r.Value }}</option>
+                }
+              </select>
+            </label>
+            <button
+              type="button"
+              class="icon-btn icon-clear"
+              (click)="clearSelect('ratioId')"
+              [disabled]="!ratioId"
+              aria-label="Tyhjennä"
+              title="Tyhjennä"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              class="icon-btn icon-add"
+              (click)="openCatalogAdd('Ratio')"
+              aria-label="Lisää kuvasuhde"
+              title="Lisää"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              class="icon-btn icon-del"
+              (click)="deleteSelectedCatalog('Ratio')"
+              [disabled]="!ratioId"
+              aria-label="Poista"
+              title="Poista"
+            >
+              ×
+            </button>
+          </div>
+          <label class="runtime-field">
+            Kesto (min)
+            <div class="runtime-row">
+              <input
+                type="text"
+                inputmode="numeric"
+                appDigitsOnly
+                maxlength="4"
+                [ngModel]="runtimeText"
+                (ngModelChange)="onRuntimeText($event)"
+                name="runtimeMinutes"
+              />
+              <select [ngModel]="runtimeUnit" (ngModelChange)="setRuntimeUnit($event)" name="runtimeUnit">
+                <option value="pal">PAL</option>
+                <option value="ntsc">NTSC</option>
+              </select>
+            </div>
+          </label>
+        </div>
+
+        <div class="version-budget-row">
+          <div class="field-with-add version-field">
+            <label>
+              Versio
+              <select [(ngModel)]="versionId" name="versionId">
+                @for (r of sortedLookups(versions, versionId); track r.Id) {
+                  <option [ngValue]="r.Id">{{ r.Value }}</option>
+                }
+              </select>
+            </label>
+            <button
+              type="button"
+              class="icon-btn icon-clear"
+              (click)="clearSelect('versionId')"
+              [disabled]="!versionId"
+              aria-label="Tyhjennä"
+              title="Tyhjennä"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              class="icon-btn icon-add"
+              (click)="openCatalogAdd('Version')"
+              aria-label="Lisää versio"
+              title="Lisää"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              class="icon-btn icon-del"
+              (click)="deleteSelectedCatalog('Version')"
+              [disabled]="!versionId"
+              aria-label="Poista"
+              title="Poista"
+            >
+              ×
+            </button>
+          </div>
+          <label class="budget-field">
+            Budjetti
+            <div class="budget-row">
+              <input
+                type="text"
+                inputmode="numeric"
+                appDigitsOnly
+                [(ngModel)]="budgetText"
+                name="budgetText"
+                maxlength="12"
+              />
+              <select
+                class="currency-field"
+                [(ngModel)]="currencyId"
+                name="currencyId"
+                aria-label="Valuutta"
+              >
+                @for (r of sortedLookups(currencies, currencyId); track r.Id) {
+                  <option [ngValue]="r.Id">{{ r.Value }}</option>
+                }
+              </select>
+            </div>
+          </label>
+        </div>
+
+        <div class="field-with-add multi-field">
+          <label>
+            Genret
+            <app-multi-check-select
+              [options]="categories"
+              [(ngModel)]="categoryIds"
+              name="categoryIds"
+              placeholder="Valitse genret…"
+              [allowDelete]="true"
+              (deleteOption)="deleteCatalogOption('Category', $event)"
+            />
+          </label>
+          <button
+            type="button"
+            class="icon-btn icon-add"
+            (click)="openCatalogAdd('Category')"
+            aria-label="Lisää genre"
+            title="Lisää"
+          >
+            +
+          </button>
+        </div>
+        <div class="field-with-add multi-field">
+          <label>
+            Maat
+            <app-multi-check-select
+              [options]="countries"
+              [(ngModel)]="countryIds"
+              name="countryIds"
+              placeholder="Valitse maat…"
+              [allowDelete]="true"
+              (deleteOption)="deleteCatalogOption('Country', $event)"
+            />
+          </label>
+          <button
+            type="button"
+            class="icon-btn icon-add"
+            (click)="openCatalogAdd('Country')"
+            aria-label="Lisää maa"
+            title="Lisää"
+          >
+            +
+          </button>
+        </div>
+
+        <section class="panel aka-panel">
+          <header class="panel-head"><h2>Tunnetaan myös nimillä</h2></header>
+          <ul class="aka-list">
+            @for (a of aka; track $index) {
+              <li>
+                @if (editingAkaIndex === $index) {
+                  <input [(ngModel)]="akaTitle" [name]="'akaEditTitle' + $index" />
+                  <select [(ngModel)]="akaLangId" [name]="'akaEditLang' + $index">
+                    @for (l of languages; track l.Id) {
+                      <option [ngValue]="l.Id">{{ l.Value }}</option>
+                    }
+                  </select>
+                  <button type="button" class="ghost mini" (click)="addAka()">OK</button>
+                  <button type="button" class="ghost mini" (click)="cancelAkaEdit()">Peru</button>
+                } @else {
+                  <button type="button" class="aka-edit" (click)="editAka($index)">
+                    {{ a.title }}
+                    <span class="soft">({{ labelOf(languages, a.titleLanguageId) }})</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="icon-btn icon-del"
+                    (click)="removeAka($index)"
+                    aria-label="Poista"
+                    title="Poista"
+                  >
+                    ×
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+          @if (editingAkaIndex == null) {
+            <div class="inline-add">
+              <input
+                [(ngModel)]="akaTitle"
+                name="akaTitle"
+                placeholder="Nimi"
+                (keydown.enter)="$event.preventDefault(); addAka()"
+              />
+              <select [(ngModel)]="akaLangId" name="akaLangId">
+                @for (l of languages; track l.Id) {
+                  <option [ngValue]="l.Id">{{ l.Value }}</option>
+                }
+              </select>
+            </div>
+          }
+        </section>
+
+        <div class="field-with-add multi-field">
+          <label>
+            Ääni
+            <app-multi-check-select
+              [options]="sounds"
+              [(ngModel)]="soundIds"
+              name="soundIds"
+              placeholder="Valitse ääniformaatit…"
+              [allowDelete]="true"
+              (deleteOption)="deleteCatalogOption('Sound', $event)"
+            />
+          </label>
+          <button
+            type="button"
+            class="icon-btn icon-add"
+            (click)="openCatalogAdd('Sound')"
+            aria-label="Lisää ääni"
+            title="Lisää"
+          >
+            +
+          </button>
+        </div>
+
+        <section class="plain-block">
+          <h2>Kuvaus</h2>
+          <textarea rows="4" [(ngModel)]="text" name="text" placeholder="Elokuvan kuvaus…"></textarea>
+        </section>
+
+        <section class="plain-block">
+          <h2>Trivia</h2>
+          <ul class="trivia-list">
+            @for (t of triviaItems; track $index) {
+              <li>
+                <p>{{ t }}</p>
+                <button
+                  type="button"
+                  class="icon-btn icon-del"
+                  (click)="removeTrivia($index)"
+                  aria-label="Poista"
+                  title="Poista"
+                >
+                  ×
+                </button>
+              </li>
+            }
+          </ul>
+          <div class="trivia-add">
+            <input
+              type="text"
+              [(ngModel)]="triviaDraft"
+              name="triviaDraft"
+              placeholder="Uusi trivia… (Enter)"
+              autocomplete="off"
+              (keydown.enter)="$event.preventDefault(); addTrivia()"
+            />
+          </div>
+        </section>
+
+        <section class="plain-block roles-block">
+          <h2>Roolit</h2>
+          @for (rt of roleTypes; track rt.Id) {
+            <div class="role-block">
+              <h3>{{ roleLabel(rt.Value) }}</h3>
+              <div class="role-search">
+                <input
+                  [ngModel]="roleQuery[rt.Id] || ''"
+                  (ngModelChange)="onRoleQueryInput(rt.Id, $event)"
+                  [name]="'personQuery' + rt.Id"
+                  placeholder="Hae henkilöä…"
+                  autocomplete="off"
+                />
+                <button type="button" class="ghost" (click)="openNewPerson(rt.Id)" title="Uusi henkilö">
+                  Uusi henkilö
+                </button>
+              </div>
+
+              @if ((roleHits[rt.Id] || []).length) {
+                <ul class="hits">
+                  @for (p of roleHits[rt.Id]; track p.Id) {
+                    <li>
+                      <span class="hit-name">{{ swapNames(p.Name) }}</span>
+                      <span class="hit-actions">
+                        <button
+                          type="button"
+                          class="icon-btn icon-view"
+                          (click)="openPersonPreview(p, rt.Id)"
+                          aria-label="Esikatsele"
+                          title="Esikatsele"
+                        >
+                          👁
+                        </button>
+                        <button
+                          type="button"
+                          class="icon-btn icon-add"
+                          (click)="addPerson(p, rt.Id)"
+                          aria-label="Lisää"
+                          title="Lisää"
+                        >
+                          +
+                        </button>
+                      </span>
+                    </li>
+                  }
+                </ul>
+              }
+
+              @if (rolesFor(rt.Id).length) {
+                <div class="role-chips" (dragover)="onRoleDragOver($event)" (drop)="onRoleDrop(rt.Id, $event)">
+                  @for (r of rolesFor(rt.Id); track r.personId; let i = $index) {
+                    <div
+                      class="role-chip"
+                      draggable="true"
+                      (dragstart)="onRoleDragStart(rt.Id, i, $event)"
+                      (dragend)="onRoleDragEnd()"
+                      (dragover)="onChipDragOver(rt.Id, i, $event)"
+                      (drop)="onChipDrop(rt.Id, i, $event)"
+                      [class.drag-over]="dragOverRoleId === rt.Id && dragOverIndex === i"
+                    >
+                      <span class="chip-label">{{ swapNames(r.name) }}</span>
+                      <button
+                        type="button"
+                        class="icon-btn icon-del"
+                        (click)="removeRole(r.personId, r.roleId)"
+                        aria-label="Poista"
+                        title="Poista"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </section>
+      </form>
+    </div>
+
+    <footer class="modal-foot">
+      <button type="submit" form="movieEditForm" class="primary" [disabled]="saving() || !canSave()">
+        Tallenna
+      </button>
+    </footer>
+
+    @if (saving()) {
+      <div class="saving-overlay" aria-live="polite">
+        <div class="saving-box">
+          <div class="spinner" aria-hidden="true"></div>
+          <span>Tallennetaan...</span>
+        </div>
+      </div>
+    }
+  </div>
+</div>
+
+@if (catalogAddOpen) {
+  <div class="modal-backdrop nested" (click)="closeCatalogAdd()">
+    <div class="modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+      <header class="modal-head">
+        <h2>{{ catalogAddTitle() }}</h2>
+        <button type="button" class="icon-btn icon-close" (click)="closeCatalogAdd()" aria-label="Sulje" title="Sulje">
+          ×
+        </button>
+      </header>
+      <div class="modal-body">
+        <label>
+          Arvo
+          <input
+            [(ngModel)]="catalogAddValue"
+            name="catalogAddValue"
+            (keydown.enter)="$event.preventDefault(); saveCatalogAdd()"
+            autofocus
+          />
+        </label>
+        @if (catalogAddError) {
+          <p class="error">{{ catalogAddError }}</p>
+        }
+      </div>
+      <footer class="modal-foot">
+        <button type="button" class="primary" (click)="saveCatalogAdd()">Tallenna</button>
+      </footer>
+    </div>
+  </div>
+}
+
+@if (personPreviewOpen) {
+  <div class="modal-backdrop nested" (click)="closePersonPreview()">
+    <div class="modal modal-wide" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+      <header class="modal-head">
+        <h2>Vahvista henkilö</h2>
+        <button
+          type="button"
+          class="icon-btn icon-close"
+          (click)="closePersonPreview()"
+          aria-label="Sulje"
+          title="Sulje"
+        >
+          ×
+        </button>
+      </header>
+      <div class="modal-body">
+        @if (personPreviewLoading) {
+          <p>Ladataan…</p>
+        } @else if (personPreview) {
+          <h3>{{ swapNames(personPreview.person.Name) }}</h3>
+          @if (personPreview.person.RealName) {
+            <p class="soft">oik. {{ swapNames(personPreview.person.RealName) }}</p>
+          }
+          @if (personBirthLabel(personPreview)) {
+            <p>{{ personBirthLabel(personPreview) }}</p>
+          }
+          @if (personPreview.filmography.length) {
+            <p class="soft section-label">Filmografia (ote)</p>
+            <ul class="preview-films">
+              @for (f of personPreview.filmography.slice(0, 8); track f.MovieId + '-' + f.RoleId) {
+                <li>{{ f.Title }}{{ f.Year ? ' (' + f.Year + ')' : '' }}, {{ f.Role }}</li>
+              }
+            </ul>
+          }
+        }
+      </div>
+      <footer class="modal-foot">
+        <button type="button" class="primary" (click)="confirmPersonFromPreview()" [disabled]="!personPreview">
+          Lisää rooliin
+        </button>
+      </footer>
+    </div>
+  </div>
+}
+
+@if (newPersonOpen) {
+  <div class="modal-backdrop nested" (click)="closeNewPerson()">
+    <div
+      class="modal modal-wide"
+      [class.gender-male]="newPersonGender === 0"
+      [class.gender-female]="newPersonGender === 1"
+      (click)="$event.stopPropagation()"
+      role="dialog"
+      aria-modal="true"
+    >
+      <header class="modal-head">
+        <div class="head-main">
+          <h2>Uusi henkilö</h2>
+          <div class="gender-toggle" role="radiogroup" aria-label="Sukupuoli">
+            <label class="radio">
+              <input
+                type="radio"
+                name="newPersonGender"
+                [checked]="newPersonGender === 0"
+                (change)="newPf.setGender(0)"
+              />
+              Mies
+            </label>
+            <label class="radio">
+              <input
+                type="radio"
+                name="newPersonGender"
+                [checked]="newPersonGender === 1"
+                (change)="newPf.setGender(1)"
+              />
+              Nainen
+            </label>
+          </div>
+        </div>
+        <button type="button" class="icon-btn icon-close" (click)="closeNewPerson()" aria-label="Sulje" title="Sulje">
+          ×
+        </button>
+      </header>
+      <div class="modal-body">
+        <app-person-form
+          #newPf
+          [initialName]="newPersonInitialName"
+          [showCancel]="false"
+          [showFooter]="false"
+          (saved)="onPersonFormSaved($event)"
+          (genderChange)="newPersonGender = $event"
+        />
+      </div>
+      <footer class="modal-foot">
+        <button type="submit" form="personEditForm" class="primary" [disabled]="newPf.saving() || !newPf.canSave()">
+          Tallenna
+        </button>
+      </footer>
+    </div>
+  </div>
+}

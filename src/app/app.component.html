@@ -1,0 +1,30 @@
+<div class="shell">
+  <header class="top">
+    <a routerLink="/" class="brand">
+      <span class="logo" aria-hidden="true">mm</span>
+      <span class="brand-text">
+        <span class="brand-name">Movie Manager</span>
+        <span class="brand-version">{{ version }}</span>
+      </span>
+    </a>
+    <div class="top-right">
+      @if (auth.isLoggedIn() && auth.isSuperUser()) {
+        <nav class="top-actions">
+          <a routerLink="/movie/new" class="top-btn">Uusi elokuva</a>
+        </nav>
+      }
+      @if (auth.isLoggedIn()) {
+        <div class="user">
+          <span>{{ auth.displayName() }}</span>
+          @if (auth.isSuperUser()) {
+            <span class="badge">admin</span>
+          }
+          <button type="button" (click)="logout()">Kirjaudu ulos</button>
+        </div>
+      }
+    </div>
+  </header>
+  <main>
+    <router-outlet />
+  </main>
+</div>
