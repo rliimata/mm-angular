@@ -78,12 +78,15 @@ export interface OwnershipFormat {
   MediaFormatId: number;
   Sequence: number;
   ReleasePictureId: number | null;
+  RatioId: number | null;
+  Anamorphic: boolean;
 }
 
 export interface OwnershipFormatDraft {
   mediaFormatId: number;
-  releasePictureId: number | null;
-  audioIds: number[];
+  ratioId: number | null;
+  anamorphic: boolean;
+  /** ReleaseSubtitle ids — UI exposes Suomi/Englanti checkboxes. */
   subtitleIds: number[];
 }
 
@@ -92,6 +95,8 @@ export interface OwnershipMovieDraft {
   title: string;
   titleLanguageId: number | null;
   year: number | null;
+  /** Movie.RatioId for "(alkuperäinen)" hint on format aspect ratio. */
+  ratioId: number | null;
   /** Stable reference for multi-check binding; kept in sync with formats. */
   formatIds: number[];
   formats: OwnershipFormatDraft[];

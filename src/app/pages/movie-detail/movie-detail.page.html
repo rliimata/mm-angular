@@ -1,227 +1,248 @@
 <section class="detail">
-  <p class="nav">
-    @if (details() && auth.profile()) {
-      <button type="button" class="primary" (click)="openRating()">Arvostele</button>
-      <button type="button" class="ghost" (click)="toggleWatchlist()">
-        {{ onWatchlist() ? 'Poista katseltavista' : 'Haluan nähdä' }}
-      </button>
-      @if (auth.isSuperUser()) {
-        <button type="button" class="ghost" (click)="openNewOwnership()">Lisää omistus</button>
-      }
-    }
-    @if (auth.isSuperUser() && details()) {
-      <button type="button" class="ghost" [routerLink]="['edit']">
-        Muokkaa elokuvaa
-      </button>
-      <button type="button" class="danger-btn" (click)="deleteMovie()">Poista</button>
-    }
-  </p>
-
   @if (loading()) {
     <p>Ladataan…</p>
   } @else if (error()) {
     <p class="error">{{ error() }}</p>
   } @else if (details()) {
-    <header class="movie-header">
-      <div class="title-row">
-        <h1>
-          <span class="title-text">{{
-            titleWithYear(details()!.movie.Title, details()!.movie.TitleLanguageId, details()!.movie.Year)
-          }}</span>
-          @if (averageScore() != null) {
-            <span class="avg-score" [attr.title]="'Keskiarvo ' + averageScore()">{{ averageScore() }}</span>
+    <div class="detail-layout">
+      <app-media-image
+        kind="movie"
+        [entityId]="details()!.movie.Id"
+        [alt]="details()!.movie.Title"
+        [editable]="auth.isSuperUser()"
+        [imageSearchQuery]="imageSearchQuery()"
+      />
+      <div class="detail-main">
+        <p class="nav">
+          @if (auth.profile()) {
+            <button type="button" class="primary" (click)="openRating()">Arvostele</button>
+            @if (auth.isSuperUser()) {
+              <button type="button" class="ghost" (click)="openNewOwnership()">Lisää omistus</button>
+            }
           }
-          @if (ageLabel(details()!.movie.Age)) {
-            <span
-              class="age-badge"
-              [attr.data-age]="details()!.movie.Age"
-              >{{ ageLabel(details()!.movie.Age) }}</span
-            >
-          }
-          @if (details()!.version) {
-            <span class="chip chip-version">{{ details()!.version }}</span>
-          }
-        </h1>
-      </div>
-      @if (
-        details()!.countries.length ||
-        details()!.categories.length ||
-        details()!.ratio ||
-        details()!.sounds.length ||
-        hasBudget() ||
-        runtimeLabel()
-      ) {
-        <p class="meta-row">
-          @if (details()!.countries.length) {
-            <span class="chip chip-country">{{ details()!.countries.join(', ') }}</span>
-          }
-          @if (details()!.categories.length) {
-            <span class="chip chip-category">{{ details()!.categories.join(', ') }}</span>
-          }
-          @if (details()!.ratio) {
-            <span class="chip chip-ratio">{{ details()!.ratio }}</span>
-          }
-          @if (details()!.sounds.length) {
-            <span class="chip chip-sound">{{ details()!.sounds.join(', ') }}</span>
-          }
-          @if (hasBudget()) {
-            <span class="chip chip-budget"
-              >{{ formatBudget(details()!.movie.Budget) }} {{ details()!.currency }}</span
-            >
-          }
-          @if (runtimeLabel()) {
-            <span class="chip chip-runtime">{{ runtimeLabel() }}</span>
+          @if (auth.isSuperUser()) {
+            <button type="button" class="ghost" [routerLink]="['/movie', details()!.movie.Id, 'edit']">
+              Muokkaa elokuvaa
+            </button>
+            <button type="button" class="danger-btn" (click)="deleteMovie()">Poista</button>
           }
         </p>
-      }
-    </header>
 
-    @if (auth.profile() && ownerships().length) {
-      <section class="card">
-        <div class="card-head">
-          <h2>Omistukset</h2>
-          @if (auth.isSuperUser() && ownerships().length >= 2) {
-            <button type="button" class="ghost" (click)="openMergeOwnerships()">Yhdistä</button>
-          }
-        </div>
-        <ul class="ownership-list">
-          @for (o of ownerships(); track o.Id) {
-            <li>
-              <div class="ownership-main">
-                <div class="ownership-movies">
-                  @for (m of o.movies; track m.Id; let last = $last) {
-                    <span class="ownership-movie">
-                      <a [routerLink]="['/movie', m.Id]">{{
-                        titleWithYear(m.Title, m.TitleLanguageId, m.Year)
-                      }}</a>
-                      @if (m.formatLabels.length) {
-                        <span class="ownership-format"> {{ m.formatLabels.join('+') }}</span>
-                      }
-                    </span>
-                    @if (!last) {
-                      <span class="soft">, </span>
-                    }
-                  }
-                </div>
-                <div class="ownership-meta soft">
-                  @if (o.typeLabel) {
-                    <span>{{ o.typeLabel }}</span>
-                  }
-                  @if (o.publisherLabel) {
-                    <span>{{ o.publisherLabel }}</span>
-                  }
-                  @if (o.regionLabel) {
-                    <span>{{ o.regionLabel }}</span>
-                  }
-                  @if (o.conditionLabel) {
-                    <span>{{ o.conditionLabel }}</span>
-                  }
-                </div>
-              </div>
-              @if (auth.isSuperUser()) {
-                <div class="row-actions">
-                  <button type="button" class="ghost" (click)="openEditOwnership(o.Id)">Muokkaa</button>
-                  <button type="button" class="danger-btn" (click)="deleteOwnership(o.Id)">Poista</button>
-                </div>
+        <header class="movie-header">
+          <div class="title-row">
+            <h1>
+              <span class="title-text">{{
+                titleWithYear(details()!.movie.Title, details()!.movie.TitleLanguageId, details()!.movie.Year)
+              }}</span>
+              @if (averageScore() != null) {
+                <span class="avg-score" [attr.title]="'Keskiarvo ' + averageScore()">{{ averageScore() }}</span>
               }
-            </li>
-          }
-        </ul>
-      </section>
-    }
-
-    <div class="read-body">
-      @if (details()!.aka.length) {
-        <section class="aka-section">
-          <h2>Elokuva tunnetaan myös nimillä</h2>
-          <ul class="aka-list">
-            @for (a of details()!.aka; track a.Title + a.Language) {
-              <li>{{ a.Title }} <span class="soft">({{ a.Language }})</span></li>
-            }
-          </ul>
-        </section>
-      }
-
-      @if (details()!.text) {
-        <section>
-          <h2>Kuvaus</h2>
-          <div class="prose" [innerHTML]="details()!.text"></div>
-        </section>
-      }
-
-      @for (roleName of roleNames(); track roleName) {
-        <section>
-          <h2>{{ roleName }}</h2>
-          <ul class="people">
-            @for (r of rolesByType(roleName); track r.PersonId + '-' + r.Sequence) {
-              <li>
-                <a [routerLink]="['/person', r.PersonId]">{{ swapNames(r.Name) }}</a>
-              </li>
-            }
-          </ul>
-        </section>
-      }
-
-      @if (details()!.awards.length) {
-        <section>
-          <h2>Palkinnot</h2>
-          <ul>
-            @for (a of details()!.awards; track a.Award + (a.PersonId ?? 0)) {
-              <li>
-                {{ a.Award }}
-                @if (a.PersonId && a.PersonName) {
-                  :
-                  <a [routerLink]="['/person', a.PersonId]">{{ a.PersonName }}</a>
+              @if (details()!.version) {
+                <span class="chip chip-version">{{ details()!.version }}</span>
+              }
+            </h1>
+          </div>
+          @if (
+            ageLabel(details()!.movie.Age) ||
+            details()!.countries.length ||
+            details()!.categories.length ||
+            details()!.ratio ||
+            details()!.sounds.length ||
+            hasBudget() ||
+            runtimeLabel()
+          ) {
+            <p class="meta-row">
+              @if (ageLabel(details()!.movie.Age)) {
+                @if (ageImageSrc(details()!.movie.Age); as ageSrc) {
+                  <img class="age-image" [src]="ageSrc" [alt]="ageLabel(details()!.movie.Age)" />
+                } @else {
+                  <span class="age-badge" [attr.data-age]="details()!.movie.Age">{{
+                    ageLabel(details()!.movie.Age)
+                  }}</span>
                 }
-              </li>
-            }
-          </ul>
-        </section>
-      }
+              }
+              @if (details()!.countries.length) {
+                <span class="chip chip-country">{{ details()!.countries.join(', ') }}</span>
+              }
+              @if (details()!.categories.length) {
+                <span class="chip chip-category">{{ details()!.categories.join(', ') }}</span>
+              }
+              @if (details()!.ratio) {
+                <span class="chip chip-ratio">{{ details()!.ratio }}</span>
+              }
+              @if (details()!.sounds.length) {
+                <span class="chip chip-sound">{{ details()!.sounds.join(', ') }}</span>
+              }
+              @if (hasBudget()) {
+                <span class="chip chip-budget"
+                  >{{ formatBudget(details()!.movie.Budget) }} {{ details()!.currency }}</span
+                >
+              }
+              @if (runtimeLabel()) {
+                <span class="chip chip-runtime">{{ runtimeLabel() }}</span>
+              }
+            </p>
+          }
+        </header>
 
-      @if (details()!.related.length) {
-        <section>
-          <h2>Liittyvät elokuvat</h2>
-          <ul>
+        @if (details()!.related.length) {
+          <section class="related-links">
             @for (r of details()!.related; track r.MovieId + r.Relation) {
-              <li>
+              <p class="related-line">
                 {{ r.Relation }}:
                 <a [routerLink]="['/movie', r.MovieId]">{{ r.Title }}{{ r.Year ? ' (' + r.Year + ')' : '' }}</a>
-              </li>
+              </p>
             }
-          </ul>
-        </section>
-      }
+          </section>
+        }
 
-      @if (details()!.trivia.length) {
-        <section>
-          <h2>Trivia</h2>
-          <ul class="trivia-read">
-            @for (t of details()!.trivia; track $index) {
-              <li class="prose" [innerHTML]="t"></li>
-            }
-          </ul>
-        </section>
-      }
+        @if (auth.profile() && ownerships().length) {
+          <section class="card">
+            <div class="card-head">
+              <h2>Omistukset</h2>
+              @if (auth.isSuperUser() && ownerships().length >= 2) {
+                <button type="button" class="ghost" (click)="openMergeOwnerships()">Yhdistä</button>
+              }
+            </div>
+            <ul class="ownership-list">
+              @for (o of ownerships(); track o.Id) {
+                <li>
+                  <div class="ownership-main">
+                    <div class="ownership-movies">
+                      @for (m of o.movies; track m.Id; let last = $last) {
+                        <div class="ownership-movie">
+                          <a [routerLink]="['/movie', m.Id]">{{
+                            titleWithYear(m.Title, m.TitleLanguageId, m.Year)
+                          }}</a>
+                          @if (
+                            m.formatLabels.length ||
+                            (last && (o.typeLabel || o.publisherLabel || o.regionLabel))
+                          ) {
+                            <div class="ownership-meta">
+                              @if (m.formatLabels.length) {
+                                <span>{{ m.formatLabels.join('+') }}</span>
+                              }
+                              @if (last && o.typeLabel) {
+                                <span>{{ o.typeLabel }}</span>
+                              }
+                              @if (last && o.publisherLabel) {
+                                <span>{{ o.publisherLabel }}</span>
+                              }
+                              @if (last && o.regionLabel) {
+                                <span>{{ o.regionLabel }}</span>
+                              }
+                            </div>
+                          }
+                        </div>
+                      }
+                    </div>
+                  </div>
+                  @if (auth.isSuperUser()) {
+                    <div class="row-actions">
+                      <button type="button" class="ghost" (click)="openEditOwnership(o.Id)">Muokkaa</button>
+                      <button type="button" class="danger-btn" (click)="deleteOwnership(o.Id)">Poista</button>
+                    </div>
+                  }
+                </li>
+              }
+            </ul>
+          </section>
+        }
 
-      @if (reviews().length) {
-        <section>
-          <h2>Käyttäjien arviot</h2>
-          <ul class="reviews">
-            @for (r of reviews(); track r.UserId) {
-              <li>
-                <strong>{{ r.Name }}</strong>
-                @if (scoreLabel(r.ScoreId)) {
-                  <span> {{ scoreLabel(r.ScoreId) }}★</span>
+        <div class="read-body">
+          @if (auth.profile()) {
+            <p class="list-links">
+              <button type="button" class="text-link" (click)="toggleWatchlist()">
+                {{ onWatchlist() ? 'Poista katselulistalta' : 'Lisää katselulistalle' }}
+              </button>
+              <button type="button" class="text-link" (click)="toggleMemolist()">
+                {{ onMemolist() ? 'Poista muistilistalta' : 'Lisää muistilistalle' }}
+              </button>
+            </p>
+          }
+
+          @if (details()!.aka.length) {
+            <section class="aka-section">
+              <h2>Elokuva tunnetaan myös nimillä</h2>
+              <ul class="aka-list">
+                @for (a of details()!.aka; track a.Title + a.Language) {
+                  <li>{{ a.Title }} <span class="soft">({{ a.Language }})</span></li>
                 }
-                @if (r.Text) {
-                  <div class="prose" [innerHTML]="r.Text"></div>
+              </ul>
+            </section>
+          }
+
+          @if (details()!.text) {
+            <section>
+              <h2>Kuvaus</h2>
+              <div class="prose" [innerHTML]="details()!.text"></div>
+            </section>
+          }
+
+          @if (details()!.trivia.length) {
+            <section>
+              <h2>Trivia</h2>
+              <ul class="trivia-read">
+                @for (t of details()!.trivia; track $index) {
+                  <li class="prose" [innerHTML]="t"></li>
                 }
-              </li>
-            }
-          </ul>
-        </section>
-      }
+              </ul>
+            </section>
+          }
+
+          @for (roleName of roleNames(); track roleName) {
+            <section>
+              <h2>{{ roleName }}</h2>
+              <p class="people-inline">
+                @for (r of rolesByType(roleName); track r.PersonId + '-' + r.Sequence; let last = $last) {
+                  <a [routerLink]="['/person', r.PersonId]">{{ swapNames(r.Name) }}</a
+                  >@if (!last) {
+                    <span>, </span>
+                  }
+                }
+              </p>
+            </section>
+          }
+
+          @if (details()!.awards.length) {
+            <section>
+              <h2>Palkinnot</h2>
+              <ul>
+                @for (a of details()!.awards; track a.Award + (a.PersonId ?? 0)) {
+                  <li>
+                    {{ a.Award }}
+                    @if (a.PersonId && a.PersonName) {
+                      :
+                      <a [routerLink]="['/person', a.PersonId]">{{ a.PersonName }}</a>
+                    }
+                  </li>
+                }
+              </ul>
+            </section>
+          }
+
+          @if (reviews().length) {
+            <section>
+              <h2>Arvostelut</h2>
+              <div class="reviews">
+                @for (r of reviews(); track r.UserId) {
+                  <article class="review-item">
+                    <div class="review-head">
+                      <strong>{{ r.Name }}</strong>
+                      @if (reviewScoreDisplay(r.ScoreId); as score) {
+                        <span class="avg-score" [attr.title]="'Arvosana ' + score">{{ score }}</span>
+                      }
+                    </div>
+                    @if (r.Text) {
+                      <div class="prose" [innerHTML]="r.Text"></div>
+                    }
+                  </article>
+                }
+              </div>
+            </section>
+          }
+        </div>
+      </div>
     </div>
   }
 </section>
@@ -231,7 +252,6 @@
     <div class="modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="ratingTitle">
       <header class="modal-head">
         <h2 id="ratingTitle">Arvostele</h2>
-        <button type="button" class="icon-btn icon-close" (click)="closeRating()" aria-label="Sulje" title="Sulje">×</button>
       </header>
       <div class="modal-body">
         <div class="star-rating" aria-label="Arvosana">
@@ -273,6 +293,7 @@
       <footer class="modal-foot">
         <button type="button" class="primary" (click)="saveRating()" [disabled]="saving()">Tallenna</button>
         <button type="button" class="danger-btn" (click)="deleteRating()" [disabled]="saving()">Poista</button>
+        <button type="button" class="ghost" (click)="closeRating()" [disabled]="saving()">Peruuta</button>
       </footer>
       @if (saving()) {
         <div class="saving-overlay" aria-live="polite">
@@ -287,331 +308,12 @@
 }
 
 @if (ownershipOpen()) {
-  <div class="modal-backdrop" (click)="closeOwnership()">
-    <div
-      class="modal modal-wide"
-      (click)="$event.stopPropagation()"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="ownershipTitle"
-    >
-      <header class="modal-head">
-        <h2 id="ownershipTitle">{{ ownershipDraft.id ? 'Muokkaa omistusta' : 'Lisää omistus' }}</h2>
-        <button type="button" class="icon-btn icon-close" (click)="closeOwnership()" aria-label="Sulje" title="Sulje">
-          ×
-        </button>
-      </header>
-
-      <div class="modal-body">
-        <div class="field-stack">
-          <div class="field-with-add">
-            <label>
-              Tyyppi
-              <select [(ngModel)]="ownershipDraft.ownershipTypeId" name="ownershipTypeId">
-                @for (t of sortedLookups(ownershipTypes, ownershipDraft.ownershipTypeId); track t.Id) {
-                  <option [ngValue]="t.Id">{{ t.Value }}</option>
-                }
-              </select>
-            </label>
-            <button
-              type="button"
-              class="icon-btn icon-clear"
-              (click)="ownershipDraft.ownershipTypeId = null"
-              [disabled]="!ownershipDraft.ownershipTypeId"
-              aria-label="Tyhjennä"
-              title="Tyhjennä"
-            >
-              −
-            </button>
-            <button
-              type="button"
-              class="icon-btn icon-add"
-              (click)="openCatalogAdd('OwnershipType')"
-              aria-label="Lisää omistuksen tyyppi"
-              title="Lisää"
-            >
-              +
-            </button>
-          </div>
-          <div class="field-with-add">
-            <label>
-              Julkaisija
-              <select [(ngModel)]="ownershipDraft.releasePublisherId" name="releasePublisherId">
-                @for (p of sortedLookups(releasePublishers, ownershipDraft.releasePublisherId); track p.Id) {
-                  <option [ngValue]="p.Id">{{ p.Value }}</option>
-                }
-              </select>
-            </label>
-            <button
-              type="button"
-              class="icon-btn icon-clear"
-              (click)="ownershipDraft.releasePublisherId = null"
-              [disabled]="!ownershipDraft.releasePublisherId"
-              aria-label="Tyhjennä"
-              title="Tyhjennä"
-            >
-              −
-            </button>
-            <button
-              type="button"
-              class="icon-btn icon-add"
-              (click)="openCatalogAdd('ReleasePublisher')"
-              aria-label="Lisää julkaisija"
-              title="Lisää"
-            >
-              +
-            </button>
-          </div>
-          <div class="field-with-add">
-            <label>
-              Versio
-              <select [(ngModel)]="ownershipDraft.releaseRegionId" name="releaseRegionId">
-                @for (r of sortedLookups(releaseRegions, ownershipDraft.releaseRegionId); track r.Id) {
-                  <option [ngValue]="r.Id">{{ r.Value }}</option>
-                }
-              </select>
-            </label>
-            <button
-              type="button"
-              class="icon-btn icon-clear"
-              (click)="ownershipDraft.releaseRegionId = null"
-              [disabled]="!ownershipDraft.releaseRegionId"
-              aria-label="Tyhjennä"
-              title="Tyhjennä"
-            >
-              −
-            </button>
-            <button
-              type="button"
-              class="icon-btn icon-add"
-              (click)="openCatalogAdd('ReleaseRegion')"
-              aria-label="Lisää versio"
-              title="Lisää"
-            >
-              +
-            </button>
-          </div>
-          <div class="field-with-add">
-            <label>
-              Kunto
-              <select [(ngModel)]="ownershipDraft.releaseConditionId" name="releaseConditionId">
-                @for (c of sortedLookups(releaseConditions, ownershipDraft.releaseConditionId); track c.Id) {
-                  <option [ngValue]="c.Id">{{ c.Value }}</option>
-                }
-              </select>
-            </label>
-            <button
-              type="button"
-              class="icon-btn icon-clear"
-              (click)="ownershipDraft.releaseConditionId = null"
-              [disabled]="!ownershipDraft.releaseConditionId"
-              aria-label="Tyhjennä"
-              title="Tyhjennä"
-            >
-              −
-            </button>
-          </div>
-        </div>
-
-        <label class="block">
-          Tietoja omistuksesta
-          <textarea rows="2" [(ngModel)]="ownershipDraft.notes" name="ownershipNotes"></textarea>
-        </label>
-
-        @for (m of ownershipDraft.movies; track m.movieId; let mi = $index) {
-          <div class="movie-block" [class.bordered]="ownershipDraft.movies.length > 1">
-            @if (ownershipDraft.movies.length > 1) {
-              <div class="movie-block-head">
-                <strong
-                  >{{ titleWithYear(m.title, m.titleLanguageId, m.year) }}</strong
-                >
-                <button type="button" class="danger-btn" (click)="removeMovieFromDraft(mi)">Poista</button>
-              </div>
-            }
-
-            <label>
-              Formaatit
-              <app-multi-check-select
-                [options]="mediaFormats"
-                [labelMap]="mediaFormatLabelMap"
-                [ngModel]="m.formatIds"
-                (ngModelChange)="onFormatsChange(m, $event)"
-                [name]="'formats-' + mi"
-                placeholder="Valitse formaatit…"
-              />
-            </label>
-
-            @for (f of m.formats; track f.mediaFormatId; let fi = $index) {
-              <div class="format-block">
-                <div class="format-block-head">{{ formatLabel(f.mediaFormatId) }}</div>
-
-                <div class="field-with-add">
-                  <label>
-                    Kuva
-                    <select [(ngModel)]="f.releasePictureId" [name]="'picture-' + mi + '-' + fi">
-                      @for (p of sortedLookups(releasePictures, f.releasePictureId); track p.Id) {
-                        <option [ngValue]="p.Id">{{ p.Value }}</option>
-                      }
-                    </select>
-                  </label>
-                  <button
-                    type="button"
-                    class="icon-btn icon-clear"
-                    (click)="f.releasePictureId = null"
-                    [disabled]="!f.releasePictureId"
-                    aria-label="Tyhjennä"
-                    title="Tyhjennä"
-                  >
-                    −
-                  </button>
-                  <button
-                    type="button"
-                    class="icon-btn icon-add"
-                    (click)="openCatalogAdd('ReleasePicture', mi, fi)"
-                    aria-label="Lisää kuva"
-                    title="Lisää"
-                  >
-                    +
-                  </button>
-                </div>
-
-                <div class="field-with-add">
-                  <label>
-                    Ääniraidat
-                    <app-multi-check-select
-                      [options]="releaseAudios"
-                      [(ngModel)]="f.audioIds"
-                      [name]="'audio-' + mi + '-' + fi"
-                      placeholder="Valitse ääniraidat…"
-                      [allowDelete]="true"
-                      (deleteOption)="deleteCatalogOption('ReleaseAudio', $event)"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    class="icon-btn icon-add"
-                    (click)="openCatalogAdd('ReleaseAudio', mi, fi)"
-                    aria-label="Lisää ääniraita"
-                    title="Lisää"
-                  >
-                    +
-                  </button>
-                </div>
-
-                <div class="field-with-add">
-                  <label>
-                    Tekstitykset
-                    <app-multi-check-select
-                      [options]="releaseSubtitles"
-                      [(ngModel)]="f.subtitleIds"
-                      [name]="'subs-' + mi + '-' + fi"
-                      placeholder="Valitse tekstitykset…"
-                      [allowDelete]="true"
-                      (deleteOption)="deleteCatalogOption('ReleaseSubtitle', $event)"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    class="icon-btn icon-add"
-                    (click)="openCatalogAdd('ReleaseSubtitle', mi, fi)"
-                    aria-label="Lisää tekstitys"
-                    title="Lisää"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            }
-          </div>
-        }
-
-        @if (ownershipMessage()) {
-          <p class="error">{{ ownershipMessage() }}</p>
-        }
-      </div>
-
-      <footer class="modal-foot">
-        <button type="button" class="primary" (click)="saveOwnership()" [disabled]="saving()">Tallenna</button>
-        <button type="button" class="ghost" (click)="openMovieSearch()" [disabled]="saving()">Lisää elokuva</button>
-        <button type="button" class="danger-btn" (click)="deleteCurrentOwnership()" [disabled]="saving()">Poista</button>
-      </footer>
-      @if (saving()) {
-        <div class="saving-overlay" aria-live="polite">
-          <div class="saving-box">
-            <div class="spinner" aria-hidden="true"></div>
-            <span>Tallennetaan...</span>
-          </div>
-        </div>
-      }
-    </div>
-  </div>
-}
-
-@if (movieSearchOpen) {
-  <div class="modal-backdrop nested" (click)="closeMovieSearch()">
-    <div class="modal modal-small" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
-      <header class="modal-head">
-        <h2>Lisää elokuva</h2>
-        <button type="button" class="icon-btn icon-close" (click)="closeMovieSearch()" aria-label="Sulje" title="Sulje">×</button>
-      </header>
-      <div class="modal-body">
-        <label class="block">
-          Haku
-          <input
-            type="search"
-            [(ngModel)]="movieSearchQuery"
-            name="movieSearchModal"
-            placeholder="Hae elokuvaa…"
-            (input)="onMovieSearchInput()"
-            (keydown.enter)="$event.preventDefault(); searchMovies()"
-            autocomplete="off"
-            autofocus
-          />
-        </label>
-        @if (movieSearchResults.length) {
-          <ul class="picker">
-            @for (m of movieSearchResults; track m.Id) {
-              <li>
-                <button type="button" class="linkish" (click)="addMovieToDraft(m)">
-                  {{ titleWithYear(m.Title, m.TitleLanguageId, m.Year) }}
-                </button>
-              </li>
-            }
-          </ul>
-        }
-      </div>
-    </div>
-  </div>
-}
-
-@if (catalogAddOpen) {
-  <div class="modal-backdrop nested" (click)="closeCatalogAdd()">
-    <div class="modal modal-small" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
-      <header class="modal-head">
-        <h2>{{ catalogAddTitle() }}</h2>
-        <button type="button" class="icon-btn icon-close" (click)="closeCatalogAdd()" aria-label="Sulje" title="Sulje">×</button>
-      </header>
-      <div class="modal-body">
-        <label class="block">
-          Arvo
-          <input
-            type="text"
-            [(ngModel)]="catalogAddValue"
-            name="catalogAddValue"
-            [placeholder]="catalogAddPlaceholder()"
-            (keydown.enter)="$event.preventDefault(); saveCatalogAdd()"
-            autofocus
-          />
-        </label>
-        @if (catalogAddError) {
-          <p class="error">{{ catalogAddError }}</p>
-        }
-      </div>
-      <footer class="modal-foot">
-        <button type="button" class="primary" (click)="saveCatalogAdd()">Tallenna</button>
-      </footer>
-    </div>
-  </div>
+  <app-ownership-edit
+    [ownershipId]="editingOwnershipId()"
+    [seedMovie]="ownershipSeed"
+    (closed)="closeOwnership()"
+    (changed)="onOwnershipChanged()"
+  />
 }
 
 @if (mergeOpen()) {
@@ -619,15 +321,6 @@
     <div class="modal modal-small" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
       <header class="modal-head">
         <h2>Yhdistä omistukset</h2>
-        <button
-          type="button"
-          class="icon-btn icon-close"
-          (click)="closeMergeOwnerships()"
-          aria-label="Sulje"
-          title="Sulje"
-        >
-          ×
-        </button>
       </header>
       <div class="modal-body">
         <p class="soft">
@@ -635,19 +328,21 @@
         </p>
         <label class="block">
           Säilytettävä omistus
-          <select [(ngModel)]="mergeKeepId" name="mergeKeepId">
-            @for (o of ownerships(); track o.Id) {
-              <option [ngValue]="o.Id">{{ ownershipOptionLabel(o) }}</option>
-            }
-          </select>
+          <app-search-select
+            [options]="ownershipSelectOptions()"
+            [(ngModel)]="mergeKeepId"
+            name="mergeKeepId"
+            placeholder="Valitse…"
+          />
         </label>
         <label class="block">
           Yhdistettävä omistus
-          <select [(ngModel)]="mergeAbsorbId" name="mergeAbsorbId">
-            @for (o of ownerships(); track o.Id) {
-              <option [ngValue]="o.Id">{{ ownershipOptionLabel(o) }}</option>
-            }
-          </select>
+          <app-search-select
+            [options]="ownershipSelectOptions()"
+            [(ngModel)]="mergeAbsorbId"
+            name="mergeAbsorbId"
+            placeholder="Valitse…"
+          />
         </label>
         @if (mergeError) {
           <p class="error">{{ mergeError }}</p>
@@ -657,9 +352,8 @@
         <button type="button" class="primary" (click)="confirmMergeOwnerships()" [disabled]="saving()">
           Yhdistä
         </button>
+        <button type="button" class="ghost" (click)="closeMergeOwnerships()" [disabled]="saving()">Peruuta</button>
       </footer>
     </div>
   </div>
 }
-
-<router-outlet />

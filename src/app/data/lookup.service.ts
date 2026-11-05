@@ -46,7 +46,7 @@ export class LookupService {
         ...r,
         Value: typeof r.Value === 'string' ? decodeEntities(r.Value) : r.Value,
       }))
-      .filter((r) => r.Id !== 0 && !isPlaceholderLookup(r.Value));
+      .filter((r) => (keepsZeroId(table) || r.Id !== 0) && !isPlaceholderLookup(r.Value));
     // Keep natural Id order for lists with an intentional sequence.
     if (!preservesIdOrder(table)) {
       rows = [...rows].sort((a, b) =>
@@ -58,7 +58,7 @@ export class LookupService {
   }
 
   label(rows: LookupRow[], id: number | null | undefined): string {
-    if (id == null || id === 0) {
+    if (id == null) {
       return '';
     }
     const row = rows.find((r) => r.Id === id);
@@ -75,9 +75,15 @@ export class LookupService {
   }
 }
 
+/** Distribution Id 0 = Elokuvateatteri (real value, not a placeholder). */
+function keepsZeroId(table: LookupTable): boolean {
+  return table === 'Distribution';
+}
+
 function preservesIdOrder(table: LookupTable): boolean {
   return (
     table === 'Role' ||
+    table === 'Distribution' ||
     table === 'Score' ||
     table === 'AgeRating' ||
     table === 'MediaFormat' ||

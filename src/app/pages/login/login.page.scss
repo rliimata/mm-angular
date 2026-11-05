@@ -1,21 +1,14 @@
-.login {
+.login-page {
   max-width: 22rem;
   margin: 4rem auto;
+  padding: 0 1rem;
+}
+
+.login {
   padding: 1.5rem;
   border: 1px solid #d8d8d8;
   border-radius: 8px;
   background: #fff;
-}
-
-h1 {
-  margin: 0 0 0.25rem;
-  font-size: 1.5rem;
-}
-
-.lead {
-  margin: 0 0 1.25rem;
-  color: #666;
-  font-size: 0.95rem;
 }
 
 form {

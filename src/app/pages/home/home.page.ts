@@ -3,9 +3,9 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { errorMessage } from '../../core/error.util';
+import { parseAppDateTime } from '../../core/datetime.util';
 import { formatMovieListTitle, swapNames, titleWithYear } from '../../core/format.util';
 import { LookupRow, Person } from '../../core/models';
-import { getSupabase } from '../../core/supabase.client';
 import { LookupService } from '../../data/lookup.service';
 import { MovieListItem, MovieSearchMode, MovieService } from '../../data/movie.service';
 import { OwnershipService, OwnershipSummary } from '../../data/ownership.service';
@@ -23,7 +23,6 @@ export type HomeMode = MovieSearchMode | 'birthdays';
 export class HomePage implements OnInit {
   query = '';
   mode: HomeMode = 'text';
-  filterUserId: number | null = null;
   page = 1;
   readonly pageSize = 50;
 
@@ -35,7 +34,6 @@ export class HomePage implements OnInit {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
 
-  users: { Id: number; Name: string }[] = [];
   scores: LookupRow[] = [];
 
   movieTitle(m: MovieListItem): string {
@@ -51,6 +49,16 @@ export class HomePage implements OnInit {
 
   personName(p: Person): string {
     return swapNames(p.Name);
+  }
+
+  /** Age turning today, e.g. ", 42". */
+  birthdayAgeSuffix(p: Person): string {
+    const birth = parseAppDateTime(p.BirthDate);
+    if (!birth?.year || birth.year <= 0) {
+      return '';
+    }
+    const age = new Date().getFullYear() - birth.year;
+    return age >= 0 ? `, ${age}` : '';
   }
 
   ownershipLabel(o: OwnershipSummary): string {
@@ -72,25 +80,12 @@ export class HomePage implements OnInit {
   ) {}
 
   async ngOnInit(): Promise<void> {
-    this.filterUserId = this.auth.profile()?.Id ?? null;
     this.scores = await this.lookups.get('Score');
-    this.users = await this.loadUsers();
     await this.runSearch();
   }
 
-  private async loadUsers(): Promise<{ Id: number; Name: string }[]> {
-    const { data, error } = await getSupabase()
-      .from('Profile')
-      .select('Id, FirstName, LastName')
-      .order('LastName')
-      .order('FirstName');
-    if (error) {
-      console.error(error);
-    }
-    return ((data as { Id: number; FirstName: string; LastName: string }[]) ?? []).map((u) => ({
-      Id: u.Id,
-      Name: [u.FirstName, u.LastName].filter(Boolean).join(' ') || `User ${u.Id}`,
-    }));
+  private currentUserId(): number | null {
+    return this.auth.profile()?.Id ?? null;
   }
 
   get totalPages(): number {
@@ -116,9 +111,6 @@ export class HomePage implements OnInit {
 
   setMode(mode: HomeMode): void {
     this.mode = mode;
-    if ((mode === 'rated' || mode === 'owned' || mode === 'watchlist') && !this.filterUserId) {
-      this.filterUserId = this.auth.profile()?.Id ?? null;
-    }
     void this.runSearch();
   }
 
@@ -129,6 +121,8 @@ export class HomePage implements OnInit {
     this.loading.set(true);
     this.error.set(null);
     try {
+      const userId = this.currentUserId();
+
       if (this.mode === 'birthdays') {
         this.movies.set([]);
         this.ownerships.set([]);
@@ -142,12 +136,12 @@ export class HomePage implements OnInit {
       if (this.mode === 'owned') {
         this.movies.set([]);
         this.people.set([]);
-        if (!this.filterUserId) {
+        if (!userId) {
           this.ownerships.set([]);
           this.ownershipTotal.set(0);
           return;
         }
-        const res = await this.ownershipApi.listForUser(this.filterUserId, this.page, this.pageSize);
+        const res = await this.ownershipApi.listForUser(userId, this.page, this.pageSize);
         this.ownerships.set(res.rows);
         this.ownershipTotal.set(res.count);
         this.total.set(0);
@@ -160,7 +154,7 @@ export class HomePage implements OnInit {
       const moviePromise = this.moviesApi.search({
         query: this.mode === 'text' ? this.query : '',
         mode: this.mode,
-        userId: this.filterUserId,
+        userId,
         page: this.page,
         pageSize: this.pageSize,
       });

@@ -18,20 +18,23 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/movie-edit/movie-edit.page').then((m) => m.MovieEditPage),
   },
   {
+    path: 'movie/:id/edit',
+    canActivate: [authGuard, superuserGuard],
+    loadComponent: () => import('./pages/movie-edit/movie-edit.page').then((m) => m.MovieEditPage),
+  },
+  {
     path: 'movie/:id',
     canActivate: [authGuard],
     loadComponent: () =>
       import('./pages/movie-detail/movie-detail.page').then((m) => m.MovieDetailPage),
-    children: [
-      {
-        path: 'edit',
-        canActivate: [superuserGuard],
-        loadComponent: () => import('./pages/movie-edit/movie-edit.page').then((m) => m.MovieEditPage),
-      },
-    ],
   },
   {
     path: 'person/new',
+    canActivate: [authGuard, superuserGuard],
+    loadComponent: () => import('./pages/person-edit/person-edit.page').then((m) => m.PersonEditPage),
+  },
+  {
+    path: 'person/:id/edit',
     canActivate: [authGuard, superuserGuard],
     loadComponent: () => import('./pages/person-edit/person-edit.page').then((m) => m.PersonEditPage),
   },
@@ -40,13 +43,6 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () =>
       import('./pages/person-detail/person-detail.page').then((m) => m.PersonDetailPage),
-    children: [
-      {
-        path: 'edit',
-        canActivate: [superuserGuard],
-        loadComponent: () => import('./pages/person-edit/person-edit.page').then((m) => m.PersonEditPage),
-      },
-    ],
   },
   { path: '**', redirectTo: '' },
 ];

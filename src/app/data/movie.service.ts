@@ -4,7 +4,14 @@ import { Movie, LookupRow } from '../core/models';
 import { getSupabase } from '../core/supabase.client';
 import { mediaFormatShort } from './ownership.service';
 
-export type MovieSearchMode = 'text' | 'recent' | 'topRated' | 'rated' | 'owned' | 'watchlist';
+export type MovieSearchMode =
+  | 'text'
+  | 'recent'
+  | 'topRated'
+  | 'rated'
+  | 'owned'
+  | 'watchlist'
+  | 'memolist';
 
 export interface MovieListItem extends Movie {
   FinnishTitle?: string | null;
@@ -53,7 +60,7 @@ export class MovieService {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    if (mode === 'rated' || mode === 'owned' || mode === 'watchlist') {
+    if (mode === 'rated' || mode === 'owned' || mode === 'watchlist' || mode === 'memolist') {
       if (!userId) {
         return { rows: [], count: 0 };
       }
@@ -89,9 +96,10 @@ export class MovieService {
         return { rows: pageRows, count: count ?? rows.length };
       }
 
-      if (mode === 'watchlist') {
+      if (mode === 'watchlist' || mode === 'memolist') {
+        const table = mode === 'watchlist' ? 'Watchlist' : 'Memolist';
         const { data: links, error, count } = await getSupabase()
-          .from('Watchlist')
+          .from(table)
           .select('MovieId', { count: 'exact' })
           .eq('UserId', userId);
         if (error) {

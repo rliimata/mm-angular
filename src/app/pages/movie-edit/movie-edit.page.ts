@@ -12,6 +12,7 @@ import {
   palMinutesFromNtsc,
   resolveNtscMinutes,
   swapNames,
+  swapTitle,
 } from '../../core/format.util';
 import { LookupRow, Movie, Person } from '../../core/models';
 import { CatalogService, CatalogTable } from '../../data/catalog.service';
@@ -20,8 +21,12 @@ import { MovieService } from '../../data/movie.service';
 import { PersonDetails, PersonService } from '../../data/person.service';
 import { getSupabase } from '../../core/supabase.client';
 import { DigitsOnlyDirective } from '../../shared/digits-only.directive';
+import { MediaImageComponent } from '../../shared/media-image.component';
 import { MultiCheckSelectComponent } from '../../shared/multi-check-select.component';
 import { PersonFormComponent } from '../../shared/person-form.component';
+import { SearchSelectComponent } from '../../shared/search-select.component';
+import { CatalogAddModal } from '../modals/catalog-add/catalog-add.modal';
+import { PersonPreviewModal } from '../modals/person-preview/person-preview.modal';
 
 interface RolePick {
   roleId: number;
@@ -32,7 +37,16 @@ interface RolePick {
 @Component({
   selector: 'app-movie-edit',
   standalone: true,
-  imports: [FormsModule, DigitsOnlyDirective, MultiCheckSelectComponent, PersonFormComponent],
+  imports: [
+    FormsModule,
+    DigitsOnlyDirective,
+    MultiCheckSelectComponent,
+    PersonFormComponent,
+    MediaImageComponent,
+    SearchSelectComponent,
+    CatalogAddModal,
+    PersonPreviewModal,
+  ],
   templateUrl: './movie-edit.page.html',
   styleUrl: './movie-edit.page.scss',
 })
@@ -95,9 +109,12 @@ export class MovieEditPage implements OnInit, OnDestroy {
   newPersonInitialName = '';
   newPersonGender = 0;
 
+  editTab: 'basic' | 'extra' | 'people' = 'basic';
+
   readonly error = signal<string | null>(null);
   readonly saving = signal(false);
   readonly swapNames = swapNames;
+  readonly swapTitle = swapTitle;
   readonly decode = decodeEntities;
   readonly formatDate = formatAppDate;
 
@@ -168,7 +185,7 @@ export class MovieEditPage implements OnInit, OnDestroy {
     ]);
     this.versions = this.sortAlpha(versions.filter((r) => r.Id !== 0));
     this.ratios = this.sortAlpha(ratios.filter((r) => r.Id !== 0));
-    this.distributions = this.sortAlpha(distributions.filter((r) => r.Id !== 0));
+    this.distributions = this.sortAlpha(distributions.filter((r) => r.Id !== 65535));
     this.languages = languages;
     this.currencies = currencies;
     this.categories = this.sortAlpha(categories.filter((c) => c.Id !== 0));
@@ -220,6 +237,13 @@ export class MovieEditPage implements OnInit, OnDestroy {
     return Number(row.Value);
   }
 
+  ageSelectOptions(): LookupRow[] {
+    return this.sortedAgeRatings().map((r) => {
+      const value = this.ageValue(r);
+      return { Id: value, Value: this.ageLabel(value) };
+    });
+  }
+
   close(): void {
     // No save → parent detail stays mounted; do not request a reload.
     void this.navigateAfterEdit(this.id || null, false);
@@ -246,7 +270,8 @@ export class MovieEditPage implements OnInit, OnDestroy {
     this.yearText = m.Year != null ? String(m.Year) : '';
     this.versionId = m.VersionId && m.VersionId > 0 ? m.VersionId : null;
     this.ratioId = m.RatioId && m.RatioId > 0 ? m.RatioId : null;
-    this.distributionId = m.DistributionId && m.DistributionId > 0 ? m.DistributionId : null;
+    this.distributionId =
+      m.DistributionId != null && m.DistributionId !== 65535 ? m.DistributionId : null;
     this.titleLanguageId = m.TitleLanguageId && m.TitleLanguageId > 0 ? m.TitleLanguageId : null;
     this.age = m.Age != null && m.Age !== 0 ? m.Age : null;
     const ntsc = resolveNtscMinutes(m.Ntsc, m.Pal);
@@ -256,7 +281,7 @@ export class MovieEditPage implements OnInit, OnDestroy {
     this.currencyId = m.CurrencyId && m.CurrencyId > 0 ? m.CurrencyId : null;
   }
 
-  clearSelect(field: 'age' | 'versionId' | 'ratioId' | 'currencyId'): void {
+  clearSelect(field: 'age' | 'versionId' | 'ratioId' | 'currencyId' | 'distributionId'): void {
     if (field === 'age') {
       this.age = null;
       return;
@@ -282,6 +307,22 @@ export class MovieEditPage implements OnInit, OnDestroy {
 
   labelOf(rows: LookupRow[], id: number): string {
     return this.lookups.label(rows, id);
+  }
+
+  /** PHP movie find_img query: swapped title + year + version + poster */
+  imageSearchQuery(): string {
+    const parts = [
+      swapTitle(this.title, this.titleLanguageId).replace(/\s+/g, ' ').trim(),
+      this.yearText.trim(),
+    ];
+    if (this.versionId) {
+      const v = this.labelOf(this.versions, this.versionId).trim();
+      if (v) {
+        parts.push(v);
+      }
+    }
+    parts.push('poster');
+    return parts.filter(Boolean).join(' ');
   }
 
   get runtimeText(): string {
@@ -349,6 +390,8 @@ export class MovieEditPage implements OnInit, OnDestroy {
         return 'Uusi ääni';
       case 'Distribution':
         return 'Uusi levitys';
+      case 'TitleLanguage':
+        return 'Uusi kieli';
       default:
         return 'Uusi arvo';
     }
@@ -378,6 +421,8 @@ export class MovieEditPage implements OnInit, OnDestroy {
         this.soundIds = [...this.soundIds, id];
       } else if (table === 'Distribution') {
         this.distributionId = id;
+      } else if (table === 'TitleLanguage') {
+        this.titleLanguageId = id;
       }
       this.closeCatalogAdd();
     } catch (e: unknown) {
@@ -667,7 +712,8 @@ export class MovieEditPage implements OnInit, OnDestroy {
         Year: year != null && Number.isFinite(year) ? year : null,
         VersionId: fk(this.versionId),
         RatioId: fk(this.ratioId),
-        DistributionId: fk(this.distributionId),
+        DistributionId:
+          this.distributionId != null && this.distributionId !== 65535 ? this.distributionId : null,
         TitleLanguageId: fk(this.titleLanguageId),
         Age: this.age != null && this.age > 0 ? this.age : null,
         Ntsc: this.runtimeAsNtsc(),

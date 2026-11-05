@@ -1,0 +1,11 @@
+name = "mm-angular"
+compatibility_date = "2025-11-01"
+pages_build_output_dir = "dist/angular/browser"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "mm-images"
+
+[vars]
+SUPABASE_URL = "https://zjocpfyiivoxxzszqqyx.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpqb2NwZnlpaXZveHh6c3pxcXl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM2MzA2ODksImV4cCI6MjEwOTIwNjY4OX0.NxStwcrfv6YtnIhFbbgtxXC1FX-JSjHNycv7Ai9HPq0"

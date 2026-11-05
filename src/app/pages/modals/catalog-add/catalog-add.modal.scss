@@ -1,0 +1,78 @@
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(15, 23, 32, 0.55);
+}
+
+.modal {
+  width: min(24rem, 100%);
+  max-height: calc(100vh - 2rem);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  color: #111;
+}
+
+.modal-head,
+.modal-foot {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e9ef;
+}
+
+.modal-foot {
+  border-bottom: 0;
+  border-top: 1px solid #e5e9ef;
+}
+
+.modal-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.modal-body {
+  padding: 0.85rem 1rem 1rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.block {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.error {
+  margin: 0;
+  color: #a40000;
+}
+
+button.primary,
+button.ghost {
+  padding: 0.55rem 0.85rem;
+  border-radius: 4px;
+  font: inherit;
+  cursor: pointer;
+}
+
+button.primary {
+  border: 0;
+  background: #1f4b7a;
+  color: #fff;
+}
+
+button.ghost {
+  background: #fff;
+  color: #1f4b7a;
+  border: 1px solid #1f4b7a;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

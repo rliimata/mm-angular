@@ -1,0 +1,33 @@
+@if (open) {
+  <div class="modal-backdrop nested" (click)="closed.emit()">
+    <div class="modal modal-wide" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+      <header class="modal-head">
+        <h2>{{ title() }}</h2>
+      </header>
+      <div class="modal-body">
+        @if (loading) {
+          <p>Ladataan…</p>
+        } @else if (preview) {
+          @if (preview.person.RealName) {
+            <p class="soft">oik. {{ swapNames(preview.person.RealName) }}</p>
+          }
+          @if (birthLabel()) {
+            <p>{{ birthLabel() }}</p>
+          }
+          @if (preview.filmography.length) {
+            <p class="section-label">Elokuvatuotanto (ote)</p>
+            <ul class="preview-films">
+              @for (f of preview.filmography.slice(0, 8); track f.MovieId) {
+                <li>{{ f.Title }}{{ f.Year ? ' (' + f.Year + ')' : '' }}, {{ f.Role }}</li>
+              }
+            </ul>
+          }
+        }
+      </div>
+      <footer class="modal-foot">
+        <button type="button" class="primary" (click)="confirm.emit()" [disabled]="!preview">Valitse</button>
+        <button type="button" class="ghost" (click)="closed.emit()">Peruuta</button>
+      </footer>
+    </div>
+  </div>
+}

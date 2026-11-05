@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { AppDateTime, Person } from '../core/models';
 import { parseAppDateTime } from '../core/datetime.util';
 import { decodeEntities, swapTitle } from '../core/format.util';
+import { reverseRelationLabel, reverseRelationSortId } from '../core/person-relation.util';
 import { getSupabase } from '../core/supabase.client';
 
 export interface PersonSearchResult {
@@ -16,10 +17,10 @@ export interface PersonDetails {
   birthCountry: string;
   deathCountry: string;
   deathReason: string;
-  relations: { PersonId: number; Name: string; Relation: string; RelationId: number; Incoming: boolean }[];
+  relations: { PersonId: number; Name: string; Relation: string; RelationId: number; SortId: number; Incoming: boolean }[];
   awards: { MovieId: number; MovieTitle: string; Year: number | null; Award: string }[];
   salaries: { MovieId: number; MovieTitle: string; Year: number | null; Salary: number; Currency: string }[];
-  filmography: { MovieId: number; RoleId: number; Title: string; Year: number | null; Role: string }[];
+  filmography: { MovieId: number; Title: string; Year: number | null; Role: string }[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -27,40 +28,68 @@ export class PersonService {
   async search(query: string, page: number, pageSize: number): Promise<PersonSearchResult> {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
-    let q = getSupabase()
-      .from('Person')
-      .select('Id, Name, RealName, BirthDate, DeathDate, Gender', { count: 'exact' })
-      .order('Name', { ascending: true })
-      .range(from, to);
-
     const term = query.trim();
-    if (term) {
-      const [{ data: nameHits }, { data: textHits }, { data: triviaHits }] = await Promise.all([
-        getSupabase()
-          .from('Person')
-          .select('Id')
-          .or(`Name.ilike.%${term}%,RealName.ilike.%${term}%`),
-        getSupabase().from('PersonText').select('PersonId').ilike('Text', `%${term}%`),
-        getSupabase().from('PersonTrivia').select('PersonId').ilike('Text', `%${term}%`),
-      ]);
-      const ids = [
-        ...new Set([
-          ...(((nameHits as { Id: number }[]) ?? []).map((r) => r.Id)),
-          ...(((textHits as { PersonId: number }[]) ?? []).map((r) => r.PersonId)),
-          ...(((triviaHits as { PersonId: number }[]) ?? []).map((r) => r.PersonId)),
-        ]),
-      ];
-      if (!ids.length) {
-        return { rows: [], count: 0 };
+    if (!term) {
+      const { data, error, count } = await getSupabase()
+        .from('Person')
+        .select('Id, Name, RealName, BirthDate, DeathDate, Gender', { count: 'exact' })
+        .order('Name', { ascending: true })
+        .range(from, to);
+      if (error) {
+        throw error;
       }
-      q = q.in('Id', ids);
+      return { rows: (data as Person[]) ?? [], count: count ?? 0 };
     }
 
-    const { data, error, count } = await q;
-    if (error) {
-      throw error;
+    const tokens = term
+      .toLowerCase()
+      .split(/\s+/)
+      .map((t) => t.replace(/^[,.]+|[,.]+$/g, ''))
+      .filter((t) => t.length > 0);
+    const primary = (tokens[0] ?? '').replace(/[%_,]/g, '');
+    if (!primary) {
+      return { rows: [], count: 0 };
     }
-    return { rows: (data as Person[]) ?? [], count: count ?? 0 };
+
+    const [{ data: nameHits }, { data: textHits }, { data: triviaHits }] = await Promise.all([
+      getSupabase()
+        .from('Person')
+        .select('Id, Name, RealName, BirthDate, DeathDate, Gender')
+        .or(`Name.ilike.%${primary}%,RealName.ilike.%${primary}%`)
+        .order('Name')
+        .limit(500),
+      getSupabase().from('PersonText').select('PersonId').ilike('Text', `%${term}%`).limit(200),
+      getSupabase().from('PersonTrivia').select('PersonId').ilike('Text', `%${term}%`).limit(200),
+    ]);
+
+    const nameMatched = ((nameHits as Person[]) ?? []).filter((p) =>
+      tokens.every(
+        (t) => nameHasTokenPrefix(p.Name, t) || nameHasTokenPrefix(p.RealName, t)
+      )
+    );
+    const extraIds = [
+      ...new Set([
+        ...(((textHits as { PersonId: number }[]) ?? []).map((r) => r.PersonId)),
+        ...(((triviaHits as { PersonId: number }[]) ?? []).map((r) => r.PersonId)),
+      ]),
+    ].filter((id) => !nameMatched.some((p) => p.Id === id));
+
+    let extraPeople: Person[] = [];
+    if (extraIds.length) {
+      const { data, error } = await getSupabase()
+        .from('Person')
+        .select('Id, Name, RealName, BirthDate, DeathDate, Gender')
+        .in('Id', extraIds);
+      if (error) {
+        throw error;
+      }
+      extraPeople = (data as Person[]) ?? [];
+    }
+
+    const rows = [...nameMatched, ...extraPeople].sort((a, b) =>
+      a.Name.localeCompare(b.Name, 'fi', { sensitivity: 'base' })
+    );
+    return { rows: rows.slice(from, to + 1), count: rows.length };
   }
 
   /**
@@ -170,28 +199,45 @@ export class PersonService {
     const relatedIds = [
       ...new Set([...out.map((r) => r.DestinationId), ...inn.map((r) => r.SourceId)]),
     ];
-    let nameMap = new Map<number, string>();
+    let personMap = new Map<number, { Name: string; Gender: number }>();
     if (relatedIds.length) {
-      const { data: people } = await getSupabase().from('Person').select('Id, Name').in('Id', relatedIds);
-      nameMap = new Map(((people as { Id: number; Name: string }[]) ?? []).map((p) => [p.Id, p.Name]));
+      const { data: people } = await getSupabase()
+        .from('Person')
+        .select('Id, Name, Gender')
+        .in('Id', relatedIds);
+      personMap = new Map(
+        ((people as { Id: number; Name: string; Gender: number }[]) ?? []).map((p) => [
+          p.Id,
+          { Name: p.Name, Gender: p.Gender ?? 0 },
+        ])
+      );
     }
 
     const relationList = [
       ...out.map((r) => ({
         PersonId: r.DestinationId,
-        Name: nameMap.get(r.DestinationId) ?? `#${r.DestinationId}`,
+        Name: personMap.get(r.DestinationId)?.Name ?? `#${r.DestinationId}`,
         Relation: relMap.get(r.RelationId) ?? String(r.RelationId),
         RelationId: r.RelationId,
+        SortId: r.RelationId,
         Incoming: false,
       })),
-      ...inn.map((r) => ({
-        PersonId: r.SourceId,
-        Name: nameMap.get(r.SourceId) ?? `#${r.SourceId}`,
-        Relation: `${relMap.get(r.RelationId) ?? r.RelationId} (käänteinen)`,
-        RelationId: r.RelationId,
-        Incoming: true,
-      })),
-    ];
+      ...inn.map((r) => {
+        const src = personMap.get(r.SourceId);
+        const gender = src?.Gender ?? 0;
+        const reverse = reverseRelationLabel(r.RelationId, gender);
+        return {
+          PersonId: r.SourceId,
+          Name: src?.Name ?? `#${r.SourceId}`,
+          Relation: reverse || relMap.get(r.RelationId) || String(r.RelationId),
+          RelationId: r.RelationId,
+          SortId: reverseRelationSortId(r.RelationId, gender),
+          Incoming: true,
+        };
+      }),
+    ].sort(
+      (a, b) => a.SortId - b.SortId || a.Name.localeCompare(b.Name, 'fi', { sensitivity: 'base' })
+    );
 
     const aRows = (awardLinks.data as { MovieId: number; AwardId: number }[]) ?? [];
     let awardList: PersonDetails['awards'] = [];
@@ -271,7 +317,7 @@ export class PersonService {
   }
 
   async getFilmography(personId: number): Promise<
-    { MovieId: number; RoleId: number; Title: string; Year: number | null; Role: string }[]
+    { MovieId: number; Title: string; Year: number | null; Role: string }[]
   > {
     const { data: links, error } = await getSupabase()
       .from('RoleLink')
@@ -290,30 +336,63 @@ export class PersonService {
     const roleIds = [...new Set(rows.map((r) => r.RoleId))];
 
     const [{ data: movies }, { data: roles }] = await Promise.all([
-      getSupabase().from('Movie').select('Id, Title, Year, TitleLanguageId').in('Id', movieIds),
+      getSupabase().from('Movie').select('Id, Title, Year, TitleLanguageId, VersionId').in('Id', movieIds),
       getSupabase().from('Role').select('Id, Value').in('Id', roleIds),
     ]);
 
     const movieMap = new Map(
       (
-        (movies as { Id: number; Title: string; Year: number | null; TitleLanguageId: number | null }[]) ??
-        []
-      ).map((m) => [m.Id, m])
+        (movies as {
+          Id: number;
+          Title: string;
+          Year: number | null;
+          TitleLanguageId: number | null;
+          VersionId: number | null;
+        }[]) ?? []
+      )
+        .filter((m) => m.VersionId == null || m.VersionId === 0)
+        .map((m) => [m.Id, m])
     );
     const roleMap = new Map(((roles as { Id: number; Value: string }[]) ?? []).map((r) => [r.Id, r.Value]));
 
-    return rows
-      .map((r) => {
-        const m = movieMap.get(r.MovieId);
-        return {
+    type Agg = {
+      MovieId: number;
+      Title: string;
+      Year: number | null;
+      roles: { id: number; name: string }[];
+    };
+    const byMovie = new Map<number, Agg>();
+    for (const r of rows) {
+      const m = movieMap.get(r.MovieId);
+      if (!m) {
+        continue;
+      }
+      let entry = byMovie.get(r.MovieId);
+      if (!entry) {
+        entry = {
           MovieId: r.MovieId,
-          RoleId: r.RoleId,
-          Title: m ? swapTitle(m.Title, m.TitleLanguageId) : `#${r.MovieId}`,
-          Year: m?.Year ?? null,
-          Role: roleMap.get(r.RoleId) ?? String(r.RoleId),
+          Title: swapTitle(m.Title, m.TitleLanguageId),
+          Year: m.Year ?? null,
+          roles: [],
         };
-      })
-      .sort((a, b) => (b.Year ?? 0) - (a.Year ?? 0) || a.Title.localeCompare(b.Title));
+        byMovie.set(r.MovieId, entry);
+      }
+      if (!entry.roles.some((x) => x.id === r.RoleId)) {
+        entry.roles.push({ id: r.RoleId, name: roleMap.get(r.RoleId) ?? String(r.RoleId) });
+      }
+    }
+
+    return [...byMovie.values()]
+      .map((e) => ({
+        MovieId: e.MovieId,
+        Title: e.Title,
+        Year: e.Year,
+        Role: e.roles
+          .sort((a, b) => a.id - b.id)
+          .map((x) => x.name)
+          .join(', '),
+      }))
+      .sort((a, b) => (b.Year ?? 0) - (a.Year ?? 0) || a.Title.localeCompare(b.Title, 'fi'));
   }
 
   toComposite(parts: { year: number; month: number; day: number } | null): string | null {

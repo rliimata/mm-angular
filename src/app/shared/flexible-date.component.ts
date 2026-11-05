@@ -66,9 +66,7 @@ export interface FlexibleDateValue {
           [disabled]="disabled"
           aria-label="Tyhjennä"
           title="Tyhjennä"
-        >
-          −
-        </button>
+        ></button>
       }
     </div>
   `,
@@ -122,8 +120,8 @@ export interface FlexibleDateValue {
         user-select: none;
       }
       .fd-clear {
-        width: 1.4rem;
-        height: 1.4rem;
+        width: 1.5rem;
+        height: 1.5rem;
         margin-left: 0.15rem;
         padding: 0;
         border: 0;
@@ -131,14 +129,13 @@ export interface FlexibleDateValue {
         background: transparent;
         color: #8a5a2b;
         font: inherit;
-        font-size: 1.05rem;
         line-height: 1;
         cursor: pointer;
         display: grid;
         place-items: center;
       }
       .fd-clear:hover:not(:disabled) {
-        background: rgba(0, 0, 0, 0.05);
+        background: rgba(0, 0, 0, 0.06);
       }
       .fd-clear:disabled {
         opacity: 0.4;

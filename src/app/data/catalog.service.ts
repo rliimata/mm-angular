@@ -9,7 +9,8 @@ export type CatalogTable =
   | 'Ratio'
   | 'Distribution'
   | 'AgeRating'
-  | 'DeathReason';
+  | 'DeathReason'
+  | 'TitleLanguage';
 
 @Injectable({ providedIn: 'root' })
 export class CatalogService {
@@ -105,8 +106,27 @@ export class CatalogService {
       return (count ?? 0) > 0;
     }
 
+    if (table === 'TitleLanguage') {
+      for (const cfg of [
+        { table: 'Movie', column: 'TitleLanguageId' },
+        { table: 'Aka', column: 'TitleLanguageId' },
+      ] as const) {
+        const { count, error } = await getSupabase()
+          .from(cfg.table)
+          .select(cfg.column, { count: 'exact', head: true })
+          .eq(cfg.column, id);
+        if (error) {
+          throw error;
+        }
+        if ((count ?? 0) > 0) {
+          return true;
+        }
+      }
+      return false;
+    }
+
     const checks: Record<
-      Exclude<CatalogTable, 'AgeRating' | 'Country' | 'DeathReason'>,
+      Exclude<CatalogTable, 'AgeRating' | 'Country' | 'DeathReason' | 'TitleLanguage'>,
       { table: string; column: string }
     > = {
       Category: { table: 'CategoryLink', column: 'CategoryId' },

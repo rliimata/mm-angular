@@ -5,21 +5,9 @@
     <button type="button" [class.active]="mode === 'topRated'" (click)="setMode('topRated')">Parhaat</button>
     <button type="button" [class.active]="mode === 'rated'" (click)="setMode('rated')">Arvostellut</button>
     <button type="button" [class.active]="mode === 'owned'" (click)="setMode('owned')">Omistetut</button>
-    <button type="button" [class.active]="mode === 'watchlist'" (click)="setMode('watchlist')">Katsottavat</button>
+    <button type="button" [class.active]="mode === 'watchlist'" (click)="setMode('watchlist')">Katselulista</button>
+    <button type="button" [class.active]="mode === 'memolist'" (click)="setMode('memolist')">Muistilista</button>
     <button type="button" [class.active]="mode === 'birthdays'" (click)="setMode('birthdays')">Syntymäpäivät</button>
-  </div>
-
-  <div class="filters">
-    @if (mode === 'rated' || mode === 'owned' || mode === 'watchlist') {
-      <label>
-        Käyttäjä
-        <select [(ngModel)]="filterUserId" name="filterUserId" (ngModelChange)="runSearch()">
-          @for (u of users; track u.Id) {
-            <option [ngValue]="u.Id">{{ u.Name }}</option>
-          }
-        </select>
-      </label>
-    }
   </div>
 
   @if (mode === 'text') {
@@ -53,7 +41,7 @@
         @for (p of people(); track p.Id) {
           <tr>
             <td>
-              <a [routerLink]="['/person', p.Id]">{{ personName(p) }}</a>
+              <a [routerLink]="['/person', p.Id]">{{ personName(p) }}{{ birthdayAgeSuffix(p) }}</a>
             </td>
             <td class="row-actions">
               @if (auth.isSuperUser()) {

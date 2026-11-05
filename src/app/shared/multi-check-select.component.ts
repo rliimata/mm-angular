@@ -10,13 +10,13 @@ import {
   Output,
   forwardRef,
 } from '@angular/core';
-import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { LookupRow } from '../core/models';
 
 @Component({
   selector: 'app-multi-check-select',
   standalone: true,
-  imports: [NgStyle],
+  imports: [NgStyle, FormsModule],
   template: `
     <div class="mcs" [class.open]="open" [class.disabled]="disabled">
       <button type="button" class="mcs-trigger" (click)="toggleOpen($event)" [disabled]="disabled">
@@ -39,7 +39,15 @@ import { LookupRow } from '../core/models';
           (mousedown)="$event.stopPropagation()"
           (click)="$event.stopPropagation()"
         >
-          @for (opt of sortedOptions; track opt.Id) {
+          <input
+            class="mcs-search"
+            type="search"
+            [(ngModel)]="query"
+            placeholder="Hae…"
+            autocomplete="off"
+            (keydown.escape)="closePanel()"
+          />
+          @for (opt of filteredOptions; track opt.Id) {
             <div class="mcs-option-row">
               <label class="mcs-option">
                 <input
@@ -64,8 +72,8 @@ import { LookupRow } from '../core/models';
               }
             </div>
           }
-          @if (!options.length) {
-            <div class="mcs-empty">Ei vaihtoehtoja</div>
+          @if (!filteredOptions.length) {
+            <div class="mcs-empty">{{ options.length ? 'Ei osumia' : 'Ei vaihtoehtoja' }}</div>
           }
         </div>
       }
@@ -91,7 +99,7 @@ import { LookupRow } from '../core/models';
         border: 1px solid var(--mm-field-border, #d0d8e0);
         border-radius: var(--mm-field-radius, 8px);
         background: var(--mm-field-bg, #fbfcfd);
-        color: var(--mm-ink, #1a2330);
+        color: #111;
         font: inherit;
         text-align: left;
         cursor: pointer;
@@ -123,7 +131,7 @@ import { LookupRow } from '../core/models';
         flex-wrap: wrap;
         flex-direction: row;
         gap: 0.15rem 0.35rem;
-        color: #222;
+        color: #111;
         line-height: 1.35;
       }
       .mcs-line {
@@ -134,18 +142,19 @@ import { LookupRow } from '../core/models';
         content: ',';
       }
       .mcs-values.placeholder {
-        color: #888;
+        color: #111;
+        opacity: 0.55;
       }
       .mcs-caret {
         flex: 0 0 auto;
-        color: #666;
+        color: #111;
         font-size: 0.75rem;
         margin-top: 0.2rem;
       }
       .mcs-panel {
         position: fixed;
-        z-index: 80;
-        max-height: min(14rem, 40vh);
+        z-index: 300;
+        max-height: min(18rem, 50vh);
         overflow: auto;
         border: 1px solid #c5ced8;
         border-radius: 6px;
@@ -153,6 +162,16 @@ import { LookupRow } from '../core/models';
         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
         padding: 0.35rem;
         box-sizing: border-box;
+        display: grid;
+        gap: 0.25rem;
+      }
+      .mcs-search {
+        width: 100%;
+        box-sizing: border-box;
+        margin: 0;
+        position: sticky;
+        top: 0;
+        z-index: 1;
       }
       .mcs-option-row {
         display: flex;
@@ -218,6 +237,7 @@ export class MultiCheckSelectComponent implements ControlValueAccessor, OnInit, 
 
   open = false;
   disabled = false;
+  query = '';
   panelStyle: Record<string, string> = {};
   private value: number[] = [];
   private onChange: (v: number[]) => void = () => undefined;
@@ -271,6 +291,12 @@ export class MultiCheckSelectComponent implements ControlValueAccessor, OnInit, 
     return [...sel, ...rest];
   }
 
+  get filteredOptions(): LookupRow[] {
+    const q = this.query.trim().toLowerCase();
+    const rows = this.sortedOptions;
+    return q ? rows.filter((o) => this.labelFor(o).toLowerCase().includes(q)) : rows;
+  }
+
   labelFor(opt: LookupRow): string {
     return this.labelMap?.[opt.Id] ?? String(opt.Value);
   }
@@ -288,13 +314,18 @@ export class MultiCheckSelectComponent implements ControlValueAccessor, OnInit, 
     if (this.open) {
       this.closePanel();
     } else {
+      this.query = '';
       this.open = true;
       // Position after open so panel exists in layout measurements.
-      queueMicrotask(() => this.positionPanel());
+      queueMicrotask(() => {
+        this.positionPanel();
+        const input = this.host.nativeElement.querySelector('.mcs-search') as HTMLInputElement | null;
+        input?.focus();
+      });
     }
   }
 
-  private closePanel(): void {
+  closePanel(): void {
     if (!this.open) {
       return;
     }

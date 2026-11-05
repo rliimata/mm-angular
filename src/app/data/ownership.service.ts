@@ -116,16 +116,21 @@ export class OwnershipService {
     const movieIds = omRows.map((m) => m.MovieId);
     const titleMap = new Map<
       number,
-      { Title: string; TitleLanguageId: number | null; Year: number | null }
+      { Title: string; TitleLanguageId: number | null; Year: number | null; RatioId: number | null }
     >();
     if (movieIds.length) {
       const { data: titles } = await getSupabase()
         .from('Movie')
-        .select('Id, Title, TitleLanguageId, Year')
+        .select('Id, Title, TitleLanguageId, Year, RatioId')
         .in('Id', movieIds);
       for (const t of
-        (titles as { Id: number; Title: string; TitleLanguageId: number | null; Year: number | null }[]) ??
-          []) {
+        (titles as {
+          Id: number;
+          Title: string;
+          TitleLanguageId: number | null;
+          Year: number | null;
+          RatioId: number | null;
+        }[]) ?? []) {
         titleMap.set(t.Id, t);
       }
     }
@@ -134,7 +139,7 @@ export class OwnershipService {
     for (const om of omRows) {
       const { data: formats, error: fErr } = await getSupabase()
         .from('OwnershipFormat')
-        .select('Id, MediaFormatId, Sequence, ReleasePictureId')
+        .select('Id, MediaFormatId, Sequence, RatioId, Anamorphic')
         .eq('OwnershipMovieId', om.Id)
         .order('Sequence');
       if (fErr) {
@@ -147,19 +152,17 @@ export class OwnershipService {
           Id: number;
           MediaFormatId: number;
           Sequence: number;
-          ReleasePictureId: number | null;
+          RatioId: number | null;
+          Anamorphic: boolean | null;
         }[]) ?? []) {
-        const [{ data: audios }, { data: subs }] = await Promise.all([
-          getSupabase().from('OwnershipFormatAudio').select('ReleaseAudioId').eq('OwnershipFormatId', f.Id),
-          getSupabase()
-            .from('OwnershipFormatSubtitle')
-            .select('ReleaseSubtitleId')
-            .eq('OwnershipFormatId', f.Id),
-        ]);
+        const { data: subs } = await getSupabase()
+          .from('OwnershipFormatSubtitle')
+          .select('ReleaseSubtitleId')
+          .eq('OwnershipFormatId', f.Id);
         formatDrafts.push({
           mediaFormatId: f.MediaFormatId,
-          releasePictureId: f.ReleasePictureId,
-          audioIds: ((audios as { ReleaseAudioId: number }[]) ?? []).map((a) => a.ReleaseAudioId),
+          ratioId: f.RatioId != null && f.RatioId > 0 ? f.RatioId : null,
+          anamorphic: !!f.Anamorphic,
           subtitleIds: ((subs as { ReleaseSubtitleId: number }[]) ?? []).map((s) => s.ReleaseSubtitleId),
         });
       }
@@ -170,6 +173,7 @@ export class OwnershipService {
         title: meta?.Title ?? `#${om.MovieId}`,
         titleLanguageId: meta?.TitleLanguageId ?? null,
         year: meta?.Year ?? null,
+        ratioId: meta?.RatioId != null && meta.RatioId > 0 ? meta.RatioId : null,
         formatIds: formatDrafts.map((f) => f.mediaFormatId),
         formats: formatDrafts,
       });
@@ -185,13 +189,7 @@ export class OwnershipService {
       releaseConditionId: fk(o.ReleaseConditionId),
       releasePublisherId: fk(o.ReleasePublisherId),
       ownershipTypeId: fk(o.OwnershipTypeId),
-      movies: draftMovies.map((m) => ({
-        ...m,
-        formats: m.formats.map((f) => ({
-          ...f,
-          releasePictureId: fk(f.releasePictureId),
-        })),
-      })),
+      movies: draftMovies,
     };
   }
 
@@ -262,7 +260,8 @@ export class OwnershipService {
             OwnershipMovieId: omId,
             MediaFormatId: f.mediaFormatId,
             Sequence: fi + 1,
-            ReleasePictureId: fk(f.releasePictureId),
+            RatioId: fk(f.ratioId),
+            Anamorphic: !!f.anamorphic,
           })
           .select('Id')
           .single();
@@ -270,14 +269,6 @@ export class OwnershipService {
           throw fErr;
         }
         const formatId = (fData as { Id: number }).Id;
-        if (f.audioIds.length) {
-          const { error } = await getSupabase()
-            .from('OwnershipFormatAudio')
-            .insert(f.audioIds.map((ReleaseAudioId) => ({ OwnershipFormatId: formatId, ReleaseAudioId })));
-          if (error) {
-            throw error;
-          }
-        }
         if (f.subtitleIds.length) {
           const { error } = await getSupabase()
             .from('OwnershipFormatSubtitle')
@@ -314,7 +305,10 @@ export class OwnershipService {
       if (!existing) {
         keep.movies.push({
           ...movie,
-          formats: movie.formats.map((f) => ({ ...f, audioIds: [...f.audioIds], subtitleIds: [...f.subtitleIds] })),
+          formats: movie.formats.map((f) => ({
+            ...f,
+            subtitleIds: [...f.subtitleIds],
+          })),
           formatIds: [...movie.formatIds],
         });
         continue;
@@ -324,15 +318,14 @@ export class OwnershipService {
         if (!same) {
           existing.formats.push({
             ...format,
-            audioIds: [...format.audioIds],
             subtitleIds: [...format.subtitleIds],
           });
         } else {
-          same.audioIds = [...new Set([...same.audioIds, ...format.audioIds])];
           same.subtitleIds = [...new Set([...same.subtitleIds, ...format.subtitleIds])];
-          if (!same.releasePictureId && format.releasePictureId) {
-            same.releasePictureId = format.releasePictureId;
+          if (!same.ratioId && format.ratioId) {
+            same.ratioId = format.ratioId;
           }
+          same.anamorphic = same.anamorphic || format.anamorphic;
         }
       }
       existing.formatIds = existing.formats.map((f) => f.mediaFormatId);
@@ -405,7 +398,8 @@ export class OwnershipService {
       | 'ReleasePicture'
       | 'ReleaseRegion'
       | 'ReleasePublisher'
-      | 'OwnershipType',
+      | 'OwnershipType'
+      | 'Ratio',
     value: string
   ): Promise<number> {
     const trimmed = value.trim();
@@ -433,7 +427,8 @@ export class OwnershipService {
       | 'ReleasePicture'
       | 'ReleaseRegion'
       | 'ReleasePublisher'
-      | 'OwnershipType',
+      | 'OwnershipType'
+      | 'Ratio',
     id: number
   ): Promise<boolean> {
     if (table === 'ReleaseAudio') {
@@ -466,6 +461,23 @@ export class OwnershipService {
       }
       return (count ?? 0) > 0;
     }
+    if (table === 'Ratio') {
+      const [{ count: fmtCount, error: fmtErr }, { count: movieCount, error: movieErr }] =
+        await Promise.all([
+          getSupabase()
+            .from('OwnershipFormat')
+            .select('Id', { count: 'exact', head: true })
+            .eq('RatioId', id),
+          getSupabase().from('Movie').select('Id', { count: 'exact', head: true }).eq('RatioId', id),
+        ]);
+      if (fmtErr) {
+        throw fmtErr;
+      }
+      if (movieErr) {
+        throw movieErr;
+      }
+      return (fmtCount ?? 0) > 0 || (movieCount ?? 0) > 0;
+    }
     const column =
       table === 'ReleasePublisher'
         ? 'ReleasePublisherId'
@@ -489,7 +501,8 @@ export class OwnershipService {
       | 'ReleasePicture'
       | 'ReleaseRegion'
       | 'ReleasePublisher'
-      | 'OwnershipType',
+      | 'OwnershipType'
+      | 'Ratio',
     id: number
   ): Promise<void> {
     if (await this.isCatalogValueInUse(table, id)) {

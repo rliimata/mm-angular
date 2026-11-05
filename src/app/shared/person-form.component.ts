@@ -8,6 +8,8 @@ import { CatalogService, CatalogTable } from '../data/catalog.service';
 import { LookupService } from '../data/lookup.service';
 import { PersonService } from '../data/person.service';
 import { FlexibleDateComponent, FlexibleDateValue } from './flexible-date.component';
+import { SearchSelectComponent } from './search-select.component';
+import { CatalogAddModal } from '../pages/modals/catalog-add/catalog-add.modal';
 
 interface PersonLinkDraft {
   personId: number;
@@ -18,7 +20,7 @@ interface PersonLinkDraft {
 @Component({
   selector: 'app-person-form',
   standalone: true,
-  imports: [FormsModule, FlexibleDateComponent],
+  imports: [FormsModule, FlexibleDateComponent, SearchSelectComponent, CatalogAddModal],
   template: `
     <form id="personEditForm" class="person-form" (ngSubmit)="save()">
       @if (error()) {
@@ -30,52 +32,54 @@ interface PersonLinkDraft {
         <input [(ngModel)]="name" name="pfName" required (blur)="name = initCap(name)" />
       </label>
       <label>
-        Oikea nimi
+        Syntymänimi
         <input [(ngModel)]="realName" name="pfRealName" (blur)="realName = initCap(realName)" />
       </label>
+
+      <div class="gender-block">
+        <span class="field-caption">Sukupuoli</span>
+        <div class="gender-toggle" role="radiogroup" aria-label="Sukupuoli">
+          <label class="radio">
+            <input type="radio" name="pfGender" [checked]="gender === 0" (change)="setGender(0)" />
+            Mies
+          </label>
+          <label class="radio">
+            <input type="radio" name="pfGender" [checked]="gender === 1" (change)="setGender(1)" />
+            Nainen
+          </label>
+        </div>
+      </div>
 
       <section class="life-block">
         <h3>Syntynyt</h3>
         <div class="life-row">
           <app-flexible-date [(ngModel)]="birthDate" name="pfBirthDate" />
-          <div class="field-with-add country-field">
-            <label>
-              Maa
-              <select [(ngModel)]="birthCountryId" name="pfBirthCountryId">
-                @for (c of sortedLookups(countries, birthCountryId); track c.Id) {
-                  <option [ngValue]="c.Id">{{ c.Value }}</option>
-                }
-              </select>
-            </label>
-            <button
-              type="button"
-              class="icon-btn icon-clear"
-              (click)="birthCountryId = null"
-              [disabled]="!birthCountryId"
-              aria-label="Tyhjennä"
-              title="Tyhjennä"
-            >
-              −
-            </button>
-            <button
-              type="button"
-              class="icon-btn icon-add"
-              (click)="openCatalogAdd('Country', 'birth')"
-              aria-label="Lisää maa"
-              title="Lisää"
-            >
-              +
-            </button>
-            <button
-              type="button"
-              class="icon-btn icon-del"
-              (click)="deleteSelectedCatalog('Country', 'birth')"
-              [disabled]="!birthCountryId"
-              aria-label="Poista"
-              title="Poista"
-            >
-              ×
-            </button>
+          <div class="country-inline">
+            <div class="field-icons">
+              <button
+                type="button"
+                class="icon-btn icon-clear"
+                (click)="birthCountryId = null"
+                [disabled]="!birthCountryId"
+                aria-label="Tyhjennä"
+                title="Tyhjennä"
+              ></button>
+              <button
+                type="button"
+                class="icon-btn icon-add"
+                (click)="openCatalogAdd('Country', 'birth')"
+                aria-label="Lisää maa"
+                title="Lisää"
+              >
+                +
+              </button>
+            </div>
+            <app-search-select
+              [options]="countries"
+              [(ngModel)]="birthCountryId"
+              name="pfBirthCountryId"
+              placeholder="Maa…"
+            />
           </div>
         </div>
       </section>
@@ -84,30 +88,50 @@ interface PersonLinkDraft {
         <h3>Kuollut</h3>
         <div class="life-row">
           <app-flexible-date [(ngModel)]="deathDate" name="pfDeathDate" />
-          <div class="field-with-add country-field">
-            <label>
-              Maa
-              <select [(ngModel)]="deathCountryId" name="pfDeathCountryId">
-                @for (c of sortedLookups(countries, deathCountryId); track c.Id) {
-                  <option [ngValue]="c.Id">{{ c.Value }}</option>
-                }
-              </select>
-            </label>
+          <div class="country-inline">
+            <div class="field-icons">
+              <button
+                type="button"
+                class="icon-btn icon-clear"
+                (click)="deathCountryId = null"
+                [disabled]="!deathCountryId"
+                aria-label="Tyhjennä"
+                title="Tyhjennä"
+              ></button>
+              <button
+                type="button"
+                class="icon-btn icon-add"
+                (click)="openCatalogAdd('Country', 'death')"
+                aria-label="Lisää maa"
+                title="Lisää"
+              >
+                +
+              </button>
+            </div>
+            <app-search-select
+              [options]="countries"
+              [(ngModel)]="deathCountryId"
+              name="pfDeathCountryId"
+              placeholder="Maa…"
+            />
+          </div>
+        </div>
+        <div class="labeled-field reason-field">
+          <div class="field-head">
+            <span class="field-caption">Kuolinsyy</span>
             <button
               type="button"
               class="icon-btn icon-clear"
-              (click)="deathCountryId = null"
-              [disabled]="!deathCountryId"
+              (click)="deathReasonId = null"
+              [disabled]="!deathReasonId"
               aria-label="Tyhjennä"
               title="Tyhjennä"
-            >
-              −
-            </button>
+            ></button>
             <button
               type="button"
               class="icon-btn icon-add"
-              (click)="openCatalogAdd('Country', 'death')"
-              aria-label="Lisää maa"
+              (click)="openCatalogAdd('DeathReason')"
+              aria-label="Lisää kuolinsyy"
               title="Lisää"
             >
               +
@@ -115,53 +139,20 @@ interface PersonLinkDraft {
             <button
               type="button"
               class="icon-btn icon-del"
-              (click)="deleteSelectedCatalog('Country', 'death')"
-              [disabled]="!deathCountryId"
+              (click)="deleteSelectedCatalog('DeathReason')"
+              [disabled]="!deathReasonId"
               aria-label="Poista"
               title="Poista"
             >
               ×
             </button>
           </div>
-        </div>
-        <div class="field-with-add reason-field">
-          <label>
-            Kuolinsyy
-            <select [(ngModel)]="deathReasonId" name="pfDeathReasonId">
-              @for (c of sortedLookups(deathReasons, deathReasonId); track c.Id) {
-                <option [ngValue]="c.Id">{{ c.Value }}</option>
-              }
-            </select>
-          </label>
-          <button
-            type="button"
-            class="icon-btn icon-clear"
-            (click)="deathReasonId = null"
-            [disabled]="!deathReasonId"
-            aria-label="Tyhjennä"
-            title="Tyhjennä"
-          >
-            −
-          </button>
-          <button
-            type="button"
-            class="icon-btn icon-add"
-            (click)="openCatalogAdd('DeathReason')"
-            aria-label="Lisää kuolinsyy"
-            title="Lisää"
-          >
-            +
-          </button>
-          <button
-            type="button"
-            class="icon-btn icon-del"
-            (click)="deleteSelectedCatalog('DeathReason')"
-            [disabled]="!deathReasonId"
-            aria-label="Poista"
-            title="Poista"
-          >
-            ×
-          </button>
+          <app-search-select
+            [options]="deathReasons"
+            [(ngModel)]="deathReasonId"
+            name="pfDeathReasonId"
+            placeholder="Valitse syy…"
+          />
         </div>
       </section>
 
@@ -222,11 +213,12 @@ interface PersonLinkDraft {
           }
         </ul>
         <div class="link-add">
-          <select [(ngModel)]="linkRelationId" name="pfLinkRelationId">
-            @for (r of personRelations; track r.Id) {
-              <option [ngValue]="r.Id">{{ r.Value }}</option>
-            }
-          </select>
+          <app-search-select
+            [options]="personRelations"
+            [(ngModel)]="linkRelationId"
+            name="pfLinkRelationId"
+            placeholder="Suhde…"
+          />
           <input
             [(ngModel)]="linkQuery"
             name="pfLinkQuery"
@@ -262,30 +254,15 @@ interface PersonLinkDraft {
       }
     </form>
 
-    @if (catalogAddOpen) {
-      <div class="modal-backdrop nested" (click)="closeCatalogAdd()">
-        <div class="modal modal-small" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
-          <header class="modal-head">
-            <h2>{{ catalogAddTitle() }}</h2>
-            <button type="button" class="icon-btn icon-del" (click)="closeCatalogAdd()" aria-label="Sulje" title="Sulje">
-              ×
-            </button>
-          </header>
-          <div class="modal-body">
-            <label>
-              Arvo
-              <input [(ngModel)]="catalogAddValue" name="pfCatalogAddValue" (keydown.enter)="$event.preventDefault(); saveCatalogAdd()" />
-            </label>
-            @if (catalogAddError) {
-              <p class="error">{{ catalogAddError }}</p>
-            }
-          </div>
-          <footer class="modal-foot">
-            <button type="button" class="primary" (click)="saveCatalogAdd()">Tallenna</button>
-          </footer>
-        </div>
-      </div>
-    }
+    <app-catalog-add-modal
+      [open]="catalogAddOpen"
+      [title]="catalogAddTitle()"
+      [value]="catalogAddValue"
+      [error]="catalogAddError"
+      (valueChange)="catalogAddValue = $event"
+      (save)="saveCatalogAdd()"
+      (closed)="closeCatalogAdd()"
+    />
   `,
   styles: [
     `
@@ -300,42 +277,76 @@ interface PersonLinkDraft {
       .life-block > h3,
       .plain-block > h3 {
         margin: 0;
-        font-size: var(--mm-label-size, 0.72rem);
-        font-weight: 650;
-        letter-spacing: 0.04em;
-        color: var(--mm-muted, #5c6773);
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: normal;
+        color: #111;
+      }
+      .gender-block {
+        display: grid;
+        gap: 0.35rem;
+      }
+      .gender-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.85rem;
+      }
+      .radio {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 1rem;
+        color: #111;
+        cursor: pointer;
+      }
+      .radio input {
+        width: auto;
+        margin: 0;
+        accent-color: #1f4b7a;
       }
       .life-row {
-        display: grid;
-        grid-template-columns: auto minmax(10rem, 14rem);
-        gap: 0.55rem;
-        align-items: end;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.45rem 0.65rem;
       }
-      .country-field {
+      .country-inline {
+        display: grid;
+        gap: 0.2rem;
+        justify-items: start;
         min-width: 0;
       }
       .reason-field {
         max-width: 28rem;
       }
-      .field-with-add {
+      .labeled-field {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 1.7rem 1.7rem 1.7rem;
-        gap: 0.15rem;
-        align-items: start;
-      }
-      .field-with-add > label {
+        gap: 0.35rem;
         min-width: 0;
+        justify-items: start;
       }
-      .field-with-add > .icon-btn {
-        margin-top: calc(
-          var(--mm-label-size, 0.72rem) * 1.35 + 0.35rem +
-            (var(--mm-field-pad-y, 0.55rem) * 2 + 1.2em - 1.7rem) / 2
-        );
+      .field-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.15rem 0.25rem;
+        width: 100%;
+      }
+      .field-head .field-caption {
+        margin-right: 0.15rem;
+      }
+      .field-icons {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.15rem 0.25rem;
+        min-height: 1.7rem;
       }
       .plain-block {
         display: grid;
         gap: 0.4rem;
-        font-size: 0.85rem;
+        font-size: 1rem;
+        color: #111;
       }
       .plain-block input,
       .plain-block select,
@@ -375,7 +386,6 @@ interface PersonLinkDraft {
         grid-template-columns: 8.5rem minmax(0, 1fr);
       }
       @media (max-width: 560px) {
-        .life-row,
         .link-add {
           grid-template-columns: 1fr;
         }
@@ -400,7 +410,6 @@ interface PersonLinkDraft {
         color: #9aa3ad !important;
         filter: grayscale(1);
         cursor: not-allowed;
-        background: transparent !important;
       }
       .icon-btn.icon-clear {
         color: #8a5a2b;
@@ -412,7 +421,7 @@ interface PersonLinkDraft {
         color: #1f4b7a;
       }
       .icon-btn:hover:not(:disabled) {
-        background: rgba(0, 0, 0, 0.05);
+        background: rgba(0, 0, 0, 0.06);
       }
       .actions {
         display: flex;
@@ -461,7 +470,7 @@ interface PersonLinkDraft {
         background: #fff;
         border-radius: 10px;
         box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
-        overflow: hidden;
+        overflow: visible;
       }
       .modal-head,
       .modal-foot {

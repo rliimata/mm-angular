@@ -32,8 +32,9 @@
 }
 
 .presets button {
-  background: #fff;
+  background: #e8eef4;
   color: #1f4b7a;
+  border: 1px solid #c5d0dc;
 }
 
 .presets button.active {
@@ -61,14 +62,14 @@ td {
 }
 
 th {
-  font-size: 0.8rem;
-  color: #666;
+  font-size: 1rem;
+  color: #111;
 }
 
 .extra,
 .row-actions {
-  color: #555;
-  font-size: 0.85rem;
+  color: #111;
+  font-size: 1rem;
   white-space: nowrap;
   text-align: right;
 }
@@ -111,8 +112,8 @@ a:hover {
 .meta,
 .muted {
   margin: 0;
-  color: #666;
-  font-size: 0.9rem;
+  color: #111;
+  font-size: 1rem;
 }
 
 .error {

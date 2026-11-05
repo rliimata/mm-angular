@@ -1,63 +1,206 @@
-.page-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  background: rgba(20, 30, 40, 0.45);
-  display: grid;
-  place-items: center;
-  padding: 0.75rem;
-  overflow: hidden;
-}
-
-.modal {
+.edit-page {
   position: relative;
-  width: min(42rem, 100%);
-  max-height: calc(100vh - 1.5rem);
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  overflow: hidden;
+  gap: 0.85rem;
+  padding-bottom: 1rem;
+  font-size: 1rem;
+  color: #111;
 }
 
-.modal-xl {
-  width: min(52rem, 100%);
+.edit-layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 1.25rem 1.5rem;
+  align-items: start;
 }
 
-.modal-wide {
-  width: min(36rem, 100%);
+.edit-layout:has(> app-media-image.is-hidden) {
+  grid-template-columns: minmax(0, 1fr);
 }
 
-.modal-head,
-.modal-foot {
+.edit-main {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+  align-content: start;
+}
+
+@media (max-width: 720px) {
+  .edit-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.edit-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
+  gap: 0.75rem;
+  padding-bottom: 0.65rem;
   border-bottom: 1px solid #e5e9ef;
+}
+
+.edit-head h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 650;
+  color: #111;
+}
+
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.cancel-btn,
+.head-actions .primary {
+  flex: 0 0 auto;
+}
+
+.year-field {
+  width: 5rem;
+  justify-self: end;
+}
+
+.year-field input {
+  width: 5rem;
+  max-width: 5rem;
+  text-align: center;
+}
+
+.lang-field {
+  min-width: 11rem;
+  width: max-content;
+  max-width: 16rem;
+}
+
+.labeled-field {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.field-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.35rem;
+}
+
+.field-head .field-caption {
+  margin-right: 0.15rem;
+}
+
+.field-head .icon-btn {
+  margin-top: 0;
+}
+
+.extra-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: start;
+}
+
+@media (max-width: 1200px) {
+  .extra-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .extra-metrics {
+    grid-template-columns: 1fr;
+  }
+}
+
+.budget-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.35rem;
+  align-items: start;
+}
+
+.runtime-row {
+  display: grid;
+  grid-template-columns: 4rem 4.5rem;
+  gap: 0.35rem;
+  align-items: start;
+}
+
+.runtime-field-wrap {
+  max-width: 10rem;
+}
+
+.compact-runtime input {
+  width: 4rem;
+  max-width: 4rem;
+  text-align: center;
+}
+
+.edit-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 0.35rem;
+  padding: 0;
+  border-bottom: 1px solid #d0d8e0;
+}
+
+.tab-btn {
+  margin: 0 0 -1px;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: #111;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tab-btn:hover {
+  background: rgba(31, 75, 122, 0.06);
+}
+
+.tab-btn.active {
+  border-color: #d0d8e0;
   background: #fff;
+  font-weight: 650;
 }
 
-.modal-foot {
-  border-bottom: 0;
+.tab-panel {
+  display: grid;
+  gap: 0.7rem;
+  align-content: start;
+  padding-top: 0.35rem;
+}
+
+.edit-body {
+  display: grid;
+  gap: 0.7rem;
+  align-content: start;
+}
+
+.edit-body form {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.edit-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+  margin-top: 0.35rem;
   border-top: 1px solid #e5e9ef;
-  justify-content: flex-start;
-}
-
-.modal.gender-male,
-.modal.gender-male .modal-head,
-.modal.gender-male .modal-foot,
-.modal.gender-male .modal-body {
-  background: #e7f1fa;
-}
-
-.modal.gender-female,
-.modal.gender-female .modal-head,
-.modal.gender-female .modal-foot,
-.modal.gender-female .modal-body {
-  background: #fce8ef;
+  background: linear-gradient(180deg, rgba(243, 246, 249, 0.92), #f3f6f9 40%);
 }
 
 .head-main {
@@ -78,7 +221,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  font-size: 0.85rem;
+  font-size: 1rem;
   color: #333;
   cursor: pointer;
 }
@@ -87,6 +230,23 @@
   width: auto;
   margin: 0;
   accent-color: #1f4b7a;
+}
+
+.modal-head,
+.modal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e9ef;
+  background: #fff;
+}
+
+.modal-foot {
+  border-bottom: 0;
+  border-top: 1px solid #e5e9ef;
+  justify-content: flex-start;
 }
 
 .modal-head h1,
@@ -104,15 +264,40 @@
   align-content: start;
 }
 
-.modal-body form {
+.modal {
+  position: relative;
+  width: min(42rem, 100%);
+  max-height: calc(100vh - 1.5rem);
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
   display: grid;
-  gap: 0.7rem;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: visible;
+}
+
+.modal-wide {
+  width: min(36rem, 100%);
+}
+
+.modal.gender-male,
+.modal.gender-male .modal-head,
+.modal.gender-male .modal-foot,
+.modal.gender-male .modal-body {
+  background: #e7f1fa;
+}
+
+.modal.gender-female,
+.modal.gender-female .modal-head,
+.modal.gender-female .modal-foot,
+.modal.gender-female .modal-body {
+  background: #fce8ef;
 }
 
 .saving-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 5;
+  z-index: 40;
   display: grid;
   place-content: center;
   background: rgba(255, 255, 255, 0.55);
@@ -149,7 +334,7 @@
 
 .title-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 4.5rem minmax(8rem, 11rem);
+  grid-template-columns: minmax(0, 1fr) minmax(11rem, 14rem) 5rem;
   gap: 0.5rem;
   align-items: end;
 }
@@ -246,8 +431,8 @@
 
 .field-with-add {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 1.7rem 1.7rem 1.7rem;
-  gap: 0.15rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.35rem;
   align-items: start;
 }
 
@@ -259,12 +444,8 @@
   min-width: 0;
 }
 
-/* Center icon buttons on the control (below the label text). */
 .field-with-add > .icon-btn {
-  margin-top: calc(
-    var(--mm-label-size, 0.72rem) * 1.35 + 0.35rem +
-      (var(--mm-field-pad-y, 0.55rem) * 2 + 1.2em - 1.7rem) / 2
-  );
+  margin-top: 0;
 }
 
 .icon-btn {
@@ -287,7 +468,6 @@
   color: #9aa3ad !important;
   filter: grayscale(1);
   cursor: not-allowed;
-  background: transparent !important;
 }
 
 .icon-btn.icon-add {
@@ -309,7 +489,7 @@
 }
 
 .icon-btn:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .runtime-row {
@@ -319,7 +499,7 @@
 }
 
 .soft {
-  color: #666;
+  color: #111;
 }
 
 .panel {
@@ -343,38 +523,25 @@
 .panel-head h2,
 .roles-block > h2 {
   margin: 0;
-  font-size: var(--mm-label-size, 0.72rem);
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  color: var(--mm-muted, #5c6773);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: normal;
+  color: #111;
 }
 
 .role-block h3 {
   margin: 0;
-  font-size: var(--mm-label-size, 0.72rem);
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  color: var(--mm-muted, #5c6773);
-}
-
-.panel.aka-panel,
-.plain-block {
-  font-size: 0.85rem;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: normal;
+  color: #111;
 }
 
 .panel.aka-panel .aka-edit {
   font: inherit;
-  font-size: inherit;
   font-weight: 400;
   letter-spacing: normal;
   color: var(--mm-ink, #1a2330);
-}
-
-.plain-block textarea,
-.plain-block input,
-.plain-block select,
-.roles-block .role-search input {
-  font-size: 0.85rem;
 }
 
 input[type='number'] {
@@ -446,7 +613,7 @@ input[type='number']::-webkit-inner-spin-button {
 
 .role-search {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.35rem;
   align-items: center;
 }
@@ -455,14 +622,20 @@ input[type='number']::-webkit-inner-spin-button {
   .inline-add {
     grid-template-columns: 1fr;
   }
-
-  .role-search {
-    grid-template-columns: 1fr;
-  }
 }
 
 .roles-block {
-  gap: 0.35rem;
+  gap: 1.15rem;
+}
+
+.role-head {
+  width: 100%;
+}
+
+.role-head h3 {
+  margin: 0;
+  margin-right: 0.15rem;
+  font-weight: 700;
 }
 
 .role-chips {
@@ -537,7 +710,8 @@ input[type='number']::-webkit-inner-spin-button {
 
 .role-block {
   display: grid;
-  gap: 0.3rem;
+  gap: 0.4rem;
+  padding-bottom: 0.35rem;
 }
 
 .section-label {
@@ -563,9 +737,9 @@ button.primary:disabled {
 
 button.ghost {
   padding: 0.4rem 0.65rem;
-  border: 1px solid #1f4b7a;
+  border: 1px solid #c5d0dc;
   border-radius: 4px;
-  background: #fff;
+  background: #e8eef4;
   color: #1f4b7a;
   font: inherit;
   cursor: pointer;

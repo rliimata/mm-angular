@@ -1,21 +1,20 @@
-<section class="login">
-  <h1>Movie Manager</h1>
-  <p class="lead">Kirjaudu Supabase Auth -tunnuksella</p>
+<section class="login-page">
+  <div class="login">
+    <form (ngSubmit)="submit()">
+      <label>
+        <span class="field-caption">Sähköposti <span class="req">*</span></span>
+        <input type="email" name="email" [(ngModel)]="email" autocomplete="username" required />
+      </label>
+      <label>
+        <span class="field-caption">Salasana <span class="req">*</span></span>
+        <input type="password" name="password" [(ngModel)]="password" autocomplete="current-password" required />
+      </label>
 
-  <form (ngSubmit)="submit()">
-    <label>
-      <span class="field-caption">Sähköposti <span class="req">*</span></span>
-      <input type="email" name="email" [(ngModel)]="email" autocomplete="username" required />
-    </label>
-    <label>
-      <span class="field-caption">Salasana <span class="req">*</span></span>
-      <input type="password" name="password" [(ngModel)]="password" autocomplete="current-password" required />
-    </label>
+      @if (error()) {
+        <p class="error">{{ error() }}</p>
+      }
 
-    @if (error()) {
-      <p class="error">{{ error() }}</p>
-    }
-
-    <button type="submit" [disabled]="busy()">{{ busy() ? 'Kirjaudutaan…' : 'Kirjaudu' }}</button>
-  </form>
+      <button type="submit" [disabled]="busy()">{{ busy() ? 'Kirjaudutaan…' : 'Kirjaudu' }}</button>
+    </form>
+  </div>
 </section>

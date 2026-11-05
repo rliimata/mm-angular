@@ -1,43 +1,37 @@
-<div class="modal-backdrop page-modal" (click)="close()">
-  <div
-    class="modal modal-wide"
-    [class.gender-male]="gender === 0"
-    [class.gender-female]="gender === 1"
-    (click)="$event.stopPropagation()"
-    role="dialog"
-    aria-modal="true"
-  >
-    <header class="modal-head">
-      <div class="head-main">
+<section
+  class="edit-page"
+  [class.gender-male]="gender === 0"
+  [class.gender-female]="gender === 1"
+>
+  <div class="edit-layout">
+    <app-media-image
+      kind="person"
+      [entityId]="id"
+      [alt]="pf?.name || initialName"
+      [editable]="true"
+      [imageSearchQuery]="personImageSearchQuery(pf?.name || initialName)"
+    />
+    <div class="edit-main">
+      <header class="edit-head">
         <h1>{{ id ? 'Muokkaa henkilöä' : 'Uusi henkilö' }}</h1>
-        <div class="gender-toggle" role="radiogroup" aria-label="Sukupuoli">
-          <label class="radio">
-            <input type="radio" name="editGender" [checked]="gender === 0" (change)="pf.setGender(0)" />
-            Mies
-          </label>
-          <label class="radio">
-            <input type="radio" name="editGender" [checked]="gender === 1" (change)="pf.setGender(1)" />
-            Nainen
-          </label>
+        <div class="head-actions">
+          <button type="submit" form="personEditForm" class="primary" [disabled]="pf.saving() || !pf.canSave()">
+            Tallenna
+          </button>
+          <button type="button" class="ghost cancel-btn" (click)="close()">Peruuta</button>
         </div>
+      </header>
+      <div class="edit-body">
+        <app-person-form
+          #pf
+          [personId]="id"
+          [initialName]="initialName"
+          [showCancel]="false"
+          [showFooter]="false"
+          (saved)="onSaved($event)"
+          (genderChange)="gender = $event"
+        />
       </div>
-      <button type="button" class="icon-btn icon-close" (click)="close()" aria-label="Sulje" title="Sulje">×</button>
-    </header>
-    <div class="modal-body">
-      <app-person-form
-        #pf
-        [personId]="id"
-        [initialName]="initialName"
-        [showCancel]="false"
-        [showFooter]="false"
-        (saved)="onSaved($event)"
-        (genderChange)="gender = $event"
-      />
     </div>
-    <footer class="modal-foot">
-      <button type="submit" form="personEditForm" class="primary" [disabled]="pf.saving() || !pf.canSave()">
-        Tallenna
-      </button>
-    </footer>
   </div>
-</div>
+</section>

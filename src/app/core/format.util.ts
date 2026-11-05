@@ -196,6 +196,26 @@ export function ageRatingLabel(value: number | null | undefined): string {
   return `K${value}`;
 }
 
+/** Official age-rating badge image under /system, or null when none matches. */
+export function ageRatingImageSrc(value: number | string | null | undefined): string | null {
+  if (value == null || value === '') {
+    return null;
+  }
+  const age = Number(value);
+  if (!Number.isFinite(age) || age === 0) {
+    return null;
+  }
+  const fileByAge: Record<number, string> = {
+    7: '7.png',
+    12: '12.png',
+    16: '16.png',
+    18: '18.png',
+    254: 'S.png',
+  };
+  const file = fileByAge[age];
+  return file ? `/system/${file}` : null;
+}
+
 /** PHP init_cap: language-aware small-word casing (English uses ucwords). */
 function initCapTitle(str: string, titleLanguageId: number | null | undefined): string {
   let ret = str;
