@@ -1,13 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <rect width="32" height="32" rx="6" fill="#3d7ab5"/>
-  <text
-    x="16"
-    y="21"
-    text-anchor="middle"
-    font-family="Figtree, Segoe UI, Helvetica Neue, sans-serif"
-    font-size="14"
-    font-weight="700"
-    fill="#ffffff"
-    letter-spacing="-0.5"
-  >mm</text>
+  <!-- Vector "mm" so browsers that ignore SVG fonts still show the mark -->
+  <g fill="#ffffff" transform="translate(4.2 9.2)">
+    <path d="M1.2 13.2V2.1h2.05l2.55 7.35L8.35 2.1h2.05v11.1H8.55V6.05L6.45 12.2H5.15L3.05 6.05v7.15H1.2z"/>
+    <path d="M13.2 13.2V2.1h2.05l2.55 7.35L20.35 2.1H22.4v11.1h-1.85V6.05L18.45 12.2h-1.3L15.05 6.05v7.15H13.2z"/>
+  </g>
 </svg>
