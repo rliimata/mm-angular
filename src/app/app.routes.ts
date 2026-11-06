@@ -23,6 +23,18 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/movie-edit/movie-edit.page').then((m) => m.MovieEditPage),
   },
   {
+    path: 'movie/:movieId/ownership/new',
+    canActivate: [authGuard, superuserGuard],
+    loadComponent: () =>
+      import('./pages/ownership-edit/ownership-edit.page').then((m) => m.OwnershipEditPage),
+  },
+  {
+    path: 'movie/:movieId/ownership/:ownershipId/edit',
+    canActivate: [authGuard, superuserGuard],
+    loadComponent: () =>
+      import('./pages/ownership-edit/ownership-edit.page').then((m) => m.OwnershipEditPage),
+  },
+  {
     path: 'movie/:id',
     canActivate: [authGuard],
     loadComponent: () =>

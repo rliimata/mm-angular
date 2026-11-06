@@ -15,33 +15,38 @@ import {
   swapNames,
   swapTitle,
   titleWithYear,
+  versionDisplayLabel,
 } from '../../core/format.util';
+import { PageTitleService } from '../../core/page-title.service';
 import { LookupRow } from '../../core/models';
 import { LookupService } from '../../data/lookup.service';
 import { MovieDetails, MovieService } from '../../data/movie.service';
-import { OwnershipService, OwnershipSummary } from '../../data/ownership.service';
+import {
+  isCassette,
+  isDisc,
+  mediaFormatDiscColor,
+  mediaFormatShort,
+  OwnershipService,
+  OwnershipSummary,
+} from '../../data/ownership.service';
 import { UserLinkService } from '../../data/user-link.service';
 import { MemolistService } from '../../data/memolist.service';
 import { WatchlistService } from '../../data/watchlist.service';
 import { MediaImageComponent } from '../../shared/media-image.component';
-import {
-  OwnershipEditModal,
-  OwnershipSeedMovie,
-} from '../modals/ownership-edit/ownership-edit.modal';
 import { SearchSelectComponent } from '../../shared/search-select.component';
 
 @Component({
   selector: 'app-movie-detail',
   standalone: true,
-  imports: [RouterLink, FormsModule, MediaImageComponent, OwnershipEditModal, SearchSelectComponent],
+  imports: [RouterLink, FormsModule, MediaImageComponent, SearchSelectComponent],
   templateUrl: './movie-detail.page.html',
   styleUrl: './movie-detail.page.scss',
 })
 export class MovieDetailPage implements OnInit, OnDestroy {
   readonly details = signal<MovieDetails | null>(null);
-  readonly reviews = signal<{ UserId: number; ScoreId: number | null; Text: string | null; Name: string }[]>(
-    []
-  );
+  readonly reviews = signal<
+    { UserId: number; ScoreId: number | null; Text: string | null; Name: string; Formats: string }[]
+  >([]);
   readonly ownerships = signal<OwnershipSummary[]>([]);
   readonly onWatchlist = signal(false);
   readonly onMemolist = signal(false);
@@ -50,10 +55,6 @@ export class MovieDetailPage implements OnInit, OnDestroy {
   readonly saving = signal(false);
   readonly message = signal<string | null>(null);
   readonly ratingOpen = signal(false);
-  readonly ownershipOpen = signal(false);
-  readonly editingOwnershipId = signal<number | null>(null);
-  /** Snapshot taken when opening the modal — must stay referentially stable. */
-  ownershipSeed: OwnershipSeedMovie | null = null;
   readonly mergeOpen = signal(false);
   mergeKeepId: number | null = null;
   mergeAbsorbId: number | null = null;
@@ -67,6 +68,11 @@ export class MovieDetailPage implements OnInit, OnDestroy {
   readonly swapNames = swapNames;
   readonly swapTitle = swapTitle;
   readonly titleWithYear = titleWithYear;
+  readonly versionDisplayLabel = versionDisplayLabel;
+  readonly isCassette = isCassette;
+  readonly isDisc = isDisc;
+  readonly mediaFormatDiscColor = mediaFormatDiscColor;
+  readonly mediaFormatShort = mediaFormatShort;
   readonly ageLabel = ageRatingLabel;
   readonly ageImageSrc = ageRatingImageSrc;
 
@@ -85,7 +91,8 @@ export class MovieDetailPage implements OnInit, OnDestroy {
     private readonly memolist: MemolistService,
     private readonly ownershipApi: OwnershipService,
     private readonly lookups: LookupService,
-    private readonly detailRefresh: DetailRefreshService
+    private readonly detailRefresh: DetailRefreshService,
+    private readonly pageTitle: PageTitleService
   ) {}
 
   ngOnInit(): void {
@@ -138,20 +145,6 @@ export class MovieDetailPage implements OnInit, OnDestroy {
       return null;
     }
     return (Math.round(n * 10) / 10).toFixed(1);
-  }
-
-  private snapshotSeedMovie(): OwnershipSeedMovie | null {
-    const d = this.details();
-    if (!d) {
-      return null;
-    }
-    return {
-      Id: d.movie.Id,
-      Title: d.movie.Title,
-      TitleLanguageId: d.movie.TitleLanguageId,
-      Year: d.movie.Year,
-      RatioId: d.movie.RatioId,
-    };
   }
 
   scoreOptions(): LookupRow[] {
@@ -233,16 +226,17 @@ export class MovieDetailPage implements OnInit, OnDestroy {
     this.loading.set(true);
     this.error.set(null);
     try {
-      const [details, reviews] = await Promise.all([
-        this.movies.getDetails(this.movieId),
-        this.userLinks.listForMovie(this.movieId),
-      ]);
+      const details = await this.movies.getDetails(this.movieId);
       this.details.set(details);
-      this.reviews.set(reviews);
+      this.reviews.set(await this.loadReviews());
       if (!details) {
         this.error.set('Elokuvaa ei löytynyt.');
+        this.pageTitle.set('Haku');
         return;
       }
+      this.pageTitle.set(
+        titleWithYear(details.movie.Title, details.movie.TitleLanguageId, details.movie.Year)
+      );
       const me = this.auth.profile()?.Id;
       if (me) {
         const [mine, watch, memo, owns] = await Promise.all([
@@ -293,7 +287,7 @@ export class MovieDetailPage implements OnInit, OnDestroy {
         ScoreId: this.scoreId ?? 0,
         Text: text,
       });
-      this.reviews.set(await this.userLinks.listForMovie(this.movieId));
+      this.reviews.set(await this.loadReviews());
       this.ratingOpen.set(false);
     } catch (e: unknown) {
       this.message.set(errorMessage(e));
@@ -312,13 +306,27 @@ export class MovieDetailPage implements OnInit, OnDestroy {
       await this.userLinks.remove(this.movieId, userId);
       this.scoreId = null;
       this.reviewText = '';
-      this.reviews.set(await this.userLinks.listForMovie(this.movieId));
+      this.reviews.set(await this.loadReviews());
       this.ratingOpen.set(false);
     } catch (e: unknown) {
       this.message.set(errorMessage(e));
     } finally {
       this.saving.set(false);
     }
+  }
+
+  private async loadReviews(): Promise<
+    { UserId: number; ScoreId: number | null; Text: string | null; Name: string; Formats: string }[]
+  > {
+    const raw = await this.userLinks.listForMovie(this.movieId);
+    const formatMap = await this.ownershipApi.formatLabelsByUserForMovie(
+      this.movieId,
+      raw.map((r) => r.UserId)
+    );
+    return raw.map((r) => ({
+      ...r,
+      Formats: formatMap.get(r.UserId) ?? r.Formats ?? '',
+    }));
   }
 
   averageScore(): string | null {
@@ -419,32 +427,14 @@ export class MovieDetailPage implements OnInit, OnDestroy {
     if (!this.auth.isSuperUser()) {
       return;
     }
-    this.ownershipSeed = this.snapshotSeedMovie();
-    this.editingOwnershipId.set(null);
-    this.ownershipOpen.set(true);
+    void this.router.navigate(['/movie', this.movieId, 'ownership', 'new']);
   }
 
   openEditOwnership(id: number): void {
     if (!this.auth.isSuperUser()) {
       return;
     }
-    this.ownershipSeed = this.snapshotSeedMovie();
-    this.editingOwnershipId.set(id);
-    this.ownershipOpen.set(true);
-  }
-
-  closeOwnership(): void {
-    this.ownershipOpen.set(false);
-    this.editingOwnershipId.set(null);
-    this.ownershipSeed = null;
-  }
-
-  async onOwnershipChanged(): Promise<void> {
-    const userId = this.auth.profile()?.Id;
-    if (!userId) {
-      return;
-    }
-    this.ownerships.set(await this.ownershipApi.listForMovie(this.movieId, userId));
+    void this.router.navigate(['/movie', this.movieId, 'ownership', id, 'edit']);
   }
 
   async deleteOwnership(id: number): Promise<boolean> {

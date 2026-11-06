@@ -1,4 +1,12 @@
-import { Component, OnDestroy, OnInit, signal } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { confirmAction, showError } from '../../core/confirm.util';
@@ -14,6 +22,7 @@ import {
   swapNames,
   swapTitle,
 } from '../../core/format.util';
+import { PageTitleService } from '../../core/page-title.service';
 import { LookupRow, Movie, Person } from '../../core/models';
 import { CatalogService, CatalogTable } from '../../data/catalog.service';
 import { LookupService } from '../../data/lookup.service';
@@ -27,6 +36,8 @@ import { PersonFormComponent } from '../../shared/person-form.component';
 import { SearchSelectComponent } from '../../shared/search-select.component';
 import { CatalogAddModal } from '../modals/catalog-add/catalog-add.modal';
 import { PersonPreviewModal } from '../modals/person-preview/person-preview.modal';
+
+type TitleMatch = { Id: number; Title: string; Year: number | null; Directors: string[] };
 
 interface RolePick {
   roleId: number;
@@ -50,7 +61,9 @@ interface RolePick {
   templateUrl: './movie-edit.page.html',
   styleUrl: './movie-edit.page.scss',
 })
-export class MovieEditPage implements OnInit, OnDestroy {
+export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
+  @ViewChild('titleInput') private titleInput?: ElementRef<HTMLInputElement>;
+
   id = 0;
   title = '';
   yearText = '';
@@ -100,6 +113,8 @@ export class MovieEditPage implements OnInit, OnDestroy {
   catalogAddTable: CatalogTable | null = null;
   catalogAddValue = '';
   catalogAddError: string | null = null;
+  /** When set, catalog modal renames this id instead of inserting. */
+  catalogEditId: number | null = null;
 
   personPreviewOpen = false;
   personPreview: PersonDetails | null = null;
@@ -110,6 +125,10 @@ export class MovieEditPage implements OnInit, OnDestroy {
   newPersonGender = 0;
 
   editTab: 'basic' | 'extra' | 'people' = 'basic';
+
+  titleMatchOpen = false;
+  titleMatches: TitleMatch[] = [];
+  private titleCheckedFor = '';
 
   readonly error = signal<string | null>(null);
   readonly saving = signal(false);
@@ -125,7 +144,8 @@ export class MovieEditPage implements OnInit, OnDestroy {
     private readonly people: PersonService,
     private readonly lookups: LookupService,
     private readonly catalog: CatalogService,
-    private readonly detailRefresh: DetailRefreshService
+    private readonly detailRefresh: DetailRefreshService,
+    private readonly pageTitle: PageTitleService
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -137,6 +157,7 @@ export class MovieEditPage implements OnInit, OnDestroy {
       const details = await this.movies.getDetails(this.id);
       if (!details) {
         this.error.set('Elokuvaa ei löytynyt.');
+        this.pageTitle.set('Muokkaa elokuvaa');
         return;
       }
       this.apply(details.movie);
@@ -148,6 +169,15 @@ export class MovieEditPage implements OnInit, OnDestroy {
         personId: r.PersonId,
         name: r.Name,
       }));
+      this.pageTitle.set(swapTitle(this.title, this.titleLanguageId) || 'Muokkaa elokuvaa');
+    } else {
+      this.pageTitle.set('Uusi elokuva');
+    }
+  }
+
+  ngAfterViewInit(): void {
+    if (!this.id) {
+      setTimeout(() => this.titleInput?.nativeElement.focus(), 0);
     }
   }
 
@@ -247,6 +277,41 @@ export class MovieEditPage implements OnInit, OnDestroy {
   close(): void {
     // No save → parent detail stays mounted; do not request a reload.
     void this.navigateAfterEdit(this.id || null, false);
+  }
+
+  async onTitleBlur(): Promise<void> {
+    if (this.id) {
+      return;
+    }
+    const trimmed = this.title.trim();
+    if (!trimmed || trimmed.toLowerCase() === this.titleCheckedFor) {
+      return;
+    }
+    this.titleCheckedFor = trimmed.toLowerCase();
+    try {
+      const hits = await this.movies.findExactTitleMatches(trimmed);
+      if (!hits.length) {
+        return;
+      }
+      this.titleMatches = hits;
+      this.titleMatchOpen = true;
+    } catch (e: unknown) {
+      this.error.set(errorMessage(e));
+    }
+  }
+
+  closeTitleMatches(): void {
+    this.titleMatchOpen = false;
+    this.titleMatches = [];
+  }
+
+  selectExistingTitleMatch(movieId: number): void {
+    this.closeTitleMatches();
+    void this.router.navigate(['/movie', movieId, 'edit']);
+  }
+
+  titleMatchDirectors(m: TitleMatch): string {
+    return m.Directors.length ? m.Directors.join(', ') : '—';
   }
 
   private navigateAfterEdit(movieId: number | null, saved: boolean): void {
@@ -362,38 +427,86 @@ export class MovieEditPage implements OnInit, OnDestroy {
 
   openCatalogAdd(table: CatalogTable): void {
     this.catalogAddTable = table;
+    this.catalogEditId = null;
     this.catalogAddValue = '';
     this.catalogAddError = null;
     this.catalogAddOpen = true;
   }
 
+  selectedAgeRatingId(): number | null {
+    const row = this.ageRatings.find((r) => Number(r.Value) === this.age);
+    return row?.Id ?? null;
+  }
+
+  openCatalogEdit(table: CatalogTable, id: number | null): void {
+    if (id == null) {
+      return;
+    }
+    const label = this.currentCatalogLabel(table, id);
+    if (!label) {
+      return;
+    }
+    this.catalogAddTable = table;
+    this.catalogEditId = id;
+    this.catalogAddValue = label;
+    this.catalogAddError = null;
+    this.catalogAddOpen = true;
+  }
+
+  private currentCatalogLabel(table: CatalogTable, id: number): string {
+    if (table === 'AgeRating') {
+      const row = this.ageRatings.find((r) => r.Id === id || Number(r.Value) === this.age);
+      return row != null ? String(row.Value) : String(this.age ?? '');
+    }
+    const rows =
+      table === 'Version'
+        ? this.versions
+        : table === 'Ratio'
+          ? this.ratios
+          : table === 'Distribution'
+            ? this.distributions
+            : table === 'TitleLanguage'
+              ? this.languages
+              : table === 'Category'
+                ? this.categories
+                : table === 'Country'
+                  ? this.countries
+                  : table === 'Sound'
+                    ? this.sounds
+                    : [];
+    const hit = rows.find((r) => r.Id === id);
+    return hit != null ? String(hit.Value) : '';
+  }
+
   closeCatalogAdd(): void {
     this.catalogAddOpen = false;
     this.catalogAddTable = null;
+    this.catalogEditId = null;
     this.catalogAddValue = '';
     this.catalogAddError = null;
   }
 
   catalogAddTitle(): string {
+    const edit = this.catalogEditId != null;
     switch (this.catalogAddTable) {
       case 'AgeRating':
-        return 'Uusi ikäraja';
+        return edit ? 'Muokkaa ikärajaa' : 'Uusi ikäraja';
       case 'Version':
-        return 'Uusi versio';
+        return edit ? 'Muokkaa versiota' : 'Uusi versio';
       case 'Ratio':
-        return 'Uusi kuvasuhde';
+        return edit ? 'Muokkaa kuvasuhdetta' : 'Uusi kuvasuhde';
       case 'Category':
-        return 'Uusi genre';
+        return edit ? 'Muokkaa genreä' : 'Uusi genre';
       case 'Country':
-        return 'Uusi maa';
+        return edit ? 'Muokkaa maata' : 'Uusi maa';
       case 'Sound':
-        return 'Uusi ääni';
+        return edit ? 'Muokkaa ääntä' : 'Uusi ääni';
       case 'Distribution':
-        return 'Uusi levitys';
+        return edit ? 'Muokkaa levitystä' : 'Uusi levitys';
       case 'TitleLanguage':
-        return 'Uusi kieli';
+        return edit ? 'Muokkaa kieltä' : 'Uusi kieli';
       default:
-        return 'Uusi arvo';
+        return edit ? 'Muokkaa arvoa' : 'Uusi arvo';
     }
   }
 
@@ -403,6 +516,17 @@ export class MovieEditPage implements OnInit, OnDestroy {
       return;
     }
     try {
+      if (this.catalogEditId != null) {
+        await this.catalog.updateValue(table, this.catalogEditId, this.catalogAddValue);
+        this.lookups.invalidate(table);
+        await this.reloadLookups();
+        if (table === 'AgeRating') {
+          const row = this.ageRatings.find((r) => r.Id === this.catalogEditId);
+          this.age = row ? Number(row.Value) : Number(this.catalogAddValue.replace(/\D+/g, '')) || null;
+        }
+        this.closeCatalogAdd();
+        return;
+      }
       const id = await this.catalog.addValue(table, this.catalogAddValue);
       this.lookups.invalidate(table);
       await this.reloadLookups();

@@ -63,7 +63,13 @@
               <div class="title-row">
                 <label class="title-field">
                   <span class="field-caption">Alkuperäiskielinen nimi <span class="req">*</span></span>
-                  <input [(ngModel)]="title" name="title" required />
+                  <input
+                    #titleInput
+                    [(ngModel)]="title"
+                    name="title"
+                    required
+                    (blur)="onTitleBlur()"
+                  />
                 </label>
                 <div class="lang-field labeled-field">
                   <div class="field-head">
@@ -76,6 +82,16 @@
                       title="Lisää"
                     >
                       +
+                    </button>
+                    <button
+                      type="button"
+                      class="icon-btn icon-edit"
+                      (click)="openCatalogEdit('TitleLanguage', titleLanguageId)"
+                      [disabled]="!titleLanguageId"
+                      aria-label="Muokkaa kieltä"
+                      title="Muokkaa"
+                    >
+                      ✎
                     </button>
                   </div>
                   <app-search-select
@@ -170,6 +186,16 @@
                     title="Lisää"
                   >
                     +
+                  </button>
+                  <button
+                    type="button"
+                    class="icon-btn icon-edit"
+                    (click)="openCatalogEdit('Version', versionId)"
+                    [disabled]="!versionId"
+                    aria-label="Muokkaa versiota"
+                    title="Muokkaa"
+                  >
+                    ✎
                   </button>
                   <button
                     type="button"
@@ -304,6 +330,7 @@
                     <span class="field-caption">Kuvasuhde</span>
                     <button type="button" class="icon-btn icon-clear" (click)="clearSelect('ratioId')" [disabled]="!ratioId" aria-label="Tyhjennä" title="Tyhjennä"></button>
                     <button type="button" class="icon-btn icon-add" (click)="openCatalogAdd('Ratio')" aria-label="Lisää kuvasuhde" title="Lisää">+</button>
+                    <button type="button" class="icon-btn icon-edit" (click)="openCatalogEdit('Ratio', ratioId)" [disabled]="!ratioId" aria-label="Muokkaa kuvasuhdetta" title="Muokkaa">✎</button>
                     <button type="button" class="icon-btn icon-del" (click)="deleteSelectedCatalog('Ratio')" [disabled]="!ratioId" aria-label="Poista" title="Poista">×</button>
                   </div>
                   <app-search-select [options]="ratios" [(ngModel)]="ratioId" name="ratioId" placeholder="Valitse…" />
@@ -312,6 +339,25 @@
                 <div class="labeled-field">
                   <div class="field-head">
                     <span class="field-caption">Levitys</span>
+                    <button
+                      type="button"
+                      class="icon-btn icon-add"
+                      (click)="openCatalogAdd('Distribution')"
+                      aria-label="Lisää levitys"
+                      title="Lisää"
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      class="icon-btn icon-edit"
+                      (click)="openCatalogEdit('Distribution', distributionId)"
+                      [disabled]="distributionId == null"
+                      aria-label="Muokkaa levitystä"
+                      title="Muokkaa"
+                    >
+                      ✎
+                    </button>
                   </div>
                   <app-search-select
                     [options]="distributions"
@@ -327,6 +373,16 @@
                     <span class="field-caption">Ikäraja</span>
                     <button type="button" class="icon-btn icon-clear" (click)="clearSelect('age')" [disabled]="age == null" aria-label="Tyhjennä" title="Tyhjennä"></button>
                     <button type="button" class="icon-btn icon-add" (click)="openCatalogAdd('AgeRating')" aria-label="Lisää ikäraja" title="Lisää">+</button>
+                    <button
+                      type="button"
+                      class="icon-btn icon-edit"
+                      (click)="openCatalogEdit('AgeRating', selectedAgeRatingId())"
+                      [disabled]="age == null"
+                      aria-label="Muokkaa ikärajaa"
+                      title="Muokkaa"
+                    >
+                      ✎
+                    </button>
                     <button type="button" class="icon-btn icon-del" (click)="deleteSelectedCatalog('AgeRating')" [disabled]="age == null" aria-label="Poista" title="Poista">×</button>
                   </div>
                   <app-search-select [options]="ageSelectOptions()" [(ngModel)]="age" name="age" placeholder="Valitse…" />
@@ -474,6 +530,34 @@
     </div>
   }
 </section>
+
+@if (titleMatchOpen) {
+  <div class="modal-backdrop nested" (click)="closeTitleMatches()">
+    <div class="modal modal-small" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+      <header class="modal-head">
+        <h2>Samannimisiä elokuvia löytyi</h2>
+      </header>
+      <div class="modal-body">
+        <p class="soft">Valitse olemassa oleva elokuva tai jatka uuden syöttämistä.</p>
+        <ul class="title-match-list">
+          @for (m of titleMatches; track m.Id) {
+            <li>
+              <button type="button" class="title-match-btn" (click)="selectExistingTitleMatch(m.Id)">
+                <span class="title-match-main"
+                  >{{ m.Title }}{{ m.Year ? ' (' + m.Year + ')' : '' }}</span
+                >
+                <span class="title-match-dirs">{{ titleMatchDirectors(m) }}</span>
+              </button>
+            </li>
+          }
+        </ul>
+      </div>
+      <footer class="modal-foot">
+        <button type="button" class="ghost" (click)="closeTitleMatches()">Jatka uutena</button>
+      </footer>
+    </div>
+  </div>
+}
 
 <app-catalog-add-modal
   [open]="catalogAddOpen"

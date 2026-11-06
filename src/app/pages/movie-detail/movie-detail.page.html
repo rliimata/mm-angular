@@ -31,19 +31,35 @@
         <header class="movie-header">
           <div class="title-row">
             <h1>
-              <span class="title-text">{{
-                titleWithYear(details()!.movie.Title, details()!.movie.TitleLanguageId, details()!.movie.Year)
-              }}</span>
-              @if (averageScore() != null) {
-                <span class="avg-score" [attr.title]="'Keskiarvo ' + averageScore()">{{ averageScore() }}</span>
-              }
-              @if (details()!.version) {
-                <span class="chip chip-version">{{ details()!.version }}</span>
-              }
+              <span class="title-text">
+                {{ swapTitle(details()!.movie.Title, details()!.movie.TitleLanguageId) }}
+                @if (details()!.version) {
+                  - <span class="version-name">{{ details()!.version }}</span>
+                }
+                @if (details()!.movie.Year) {
+                  ({{ details()!.movie.Year }})
+                }
+              </span>
+              <span class="title-badges">
+                @if (ageLabel(details()!.movie.Age)) {
+                  @if (ageImageSrc(details()!.movie.Age); as ageSrc) {
+                    <img class="age-image" [src]="ageSrc" [alt]="ageLabel(details()!.movie.Age)" />
+                  } @else {
+                    <span class="age-badge" [attr.data-age]="details()!.movie.Age">{{
+                      ageLabel(details()!.movie.Age)
+                    }}</span>
+                  }
+                }
+                @if (averageScore(); as avg) {
+                  <span class="score-star" [attr.title]="'Keskiarvo ' + avg">
+                    <span class="score-star-glyph" aria-hidden="true">★</span>
+                    <span class="score-star-value">{{ avg }}</span>
+                  </span>
+                }
+              </span>
             </h1>
           </div>
           @if (
-            ageLabel(details()!.movie.Age) ||
             details()!.countries.length ||
             details()!.categories.length ||
             details()!.ratio ||
@@ -52,15 +68,6 @@
             runtimeLabel()
           ) {
             <p class="meta-row">
-              @if (ageLabel(details()!.movie.Age)) {
-                @if (ageImageSrc(details()!.movie.Age); as ageSrc) {
-                  <img class="age-image" [src]="ageSrc" [alt]="ageLabel(details()!.movie.Age)" />
-                } @else {
-                  <span class="age-badge" [attr.data-age]="details()!.movie.Age">{{
-                    ageLabel(details()!.movie.Age)
-                  }}</span>
-                }
-              }
               @if (details()!.countries.length) {
                 <span class="chip chip-country">{{ details()!.countries.join(', ') }}</span>
               }
@@ -87,65 +94,114 @@
 
         @if (details()!.related.length) {
           <section class="related-links">
-            @for (r of details()!.related; track r.MovieId + r.Relation) {
+            @for (
+              r of details()!.related;
+              track (r.Incoming ? 'in' : 'out') + '-' + r.MovieId + '-' + r.RelationId
+            ) {
               <p class="related-line">
                 {{ r.Relation }}:
-                <a [routerLink]="['/movie', r.MovieId]">{{ r.Title }}{{ r.Year ? ' (' + r.Year + ')' : '' }}</a>
+                <a [routerLink]="['/movie', r.MovieId]">
+                  {{ r.Title }}
+                  @if (r.Version) {
+                    - <span class="version-name">{{ r.Version }}</span>
+                  }
+                  @if (r.Year) {
+                    ({{ r.Year }})
+                  }
+                </a>
               </p>
             }
           </section>
         }
 
+        <div class="detail-narrow">
         @if (auth.profile() && ownerships().length) {
-          <section class="card">
-            <div class="card-head">
+          <section class="ownership-section">
+            <div class="section-head">
               <h2>Omistukset</h2>
               @if (auth.isSuperUser() && ownerships().length >= 2) {
                 <button type="button" class="ghost" (click)="openMergeOwnerships()">Yhdistä</button>
               }
             </div>
-            <ul class="ownership-list">
-              @for (o of ownerships(); track o.Id) {
-                <li>
-                  <div class="ownership-main">
-                    <div class="ownership-movies">
-                      @for (m of o.movies; track m.Id; let last = $last) {
-                        <div class="ownership-movie">
-                          <a [routerLink]="['/movie', m.Id]">{{
-                            titleWithYear(m.Title, m.TitleLanguageId, m.Year)
-                          }}</a>
-                          @if (
-                            m.formatLabels.length ||
-                            (last && (o.typeLabel || o.publisherLabel || o.regionLabel))
-                          ) {
-                            <div class="ownership-meta">
-                              @if (m.formatLabels.length) {
-                                <span>{{ m.formatLabels.join('+') }}</span>
+            <div class="card">
+              <ul class="ownership-list">
+                @for (o of ownerships(); track o.Id) {
+                  <li>
+                    <div class="ownership-main">
+                      @for (m of o.movies; track m.Id) {
+                        @for (fmt of m.formats; track fmt.mediaFormatId) {
+                          <div class="ownership-format" [title]="fmt.label">
+                            @if (isDisc(fmt.mediaFormatId)) {
+                              <div
+                                class="media-art disc"
+                                [style.--disc-color]="mediaFormatDiscColor(fmt.mediaFormatId)"
+                                aria-hidden="true"
+                              >
+                                <span class="disc-hole"></span>
+                              </div>
+                            } @else if (isCassette(fmt.mediaFormatId)) {
+                              <div class="media-art cassette" aria-hidden="true">
+                                <span class="tape-window"></span>
+                              </div>
+                            } @else {
+                              <div class="media-art digital" aria-hidden="true">DC</div>
+                            }
+                            <span class="ownership-format-label">
+                              {{ fmt.label }}
+                              @if (fmt.ratioLabel) {
+                                <span
+                                  class="ownership-ratio"
+                                  [class.ratio-original]="fmt.ratioMatchesOriginal"
+                                  [class.ratio-custom]="!fmt.ratioMatchesOriginal"
+                                >
+                                  {{ fmt.ratioLabel }}
+                                  @if (fmt.ratioMatchesOriginal) {
+                                    <span class="ratio-ok" aria-label="OK">✓</span>
+                                  }
+                                </span>
                               }
-                              @if (last && o.typeLabel) {
-                                <span>{{ o.typeLabel }}</span>
-                              }
-                              @if (last && o.publisherLabel) {
-                                <span>{{ o.publisherLabel }}</span>
-                              }
-                              @if (last && o.regionLabel) {
-                                <span>{{ o.regionLabel }}</span>
-                              }
-                            </div>
+                            </span>
+                          </div>
+                        }
+                      }
+                      @if (
+                        o.typeLabel ||
+                        o.publisherLabel ||
+                        o.regionLabel ||
+                        o.subtitleLabels.length ||
+                        o.audioLabels.length
+                      ) {
+                        <div class="ownership-meta">
+                          @if (o.typeLabel) {
+                            <span class="ownership-meta-item">{{ o.typeLabel }}</span>
+                          }
+                          @if (o.publisherLabel) {
+                            <span class="ownership-meta-item">{{ o.publisherLabel }}</span>
+                          }
+                          @if (o.regionLabel) {
+                            <span class="ownership-meta-item">{{ versionDisplayLabel(o.regionLabel) }}</span>
+                          }
+                          @if (o.audioLabels.length) {
+                            <span class="ownership-meta-item ownership-audio" title="Puhumme suomea">{{
+                              o.audioLabels[0]
+                            }}</span>
+                          }
+                          @if (o.subtitleLabels.length) {
+                            <span class="ownership-meta-item ownership-subs">{{ o.subtitleLabels[0] }}</span>
                           }
                         </div>
                       }
                     </div>
-                  </div>
-                  @if (auth.isSuperUser()) {
-                    <div class="row-actions">
-                      <button type="button" class="ghost" (click)="openEditOwnership(o.Id)">Muokkaa</button>
-                      <button type="button" class="danger-btn" (click)="deleteOwnership(o.Id)">Poista</button>
-                    </div>
-                  }
-                </li>
-              }
-            </ul>
+                    @if (auth.isSuperUser()) {
+                      <div class="row-actions">
+                        <button type="button" class="ghost" (click)="openEditOwnership(o.Id)">Muokkaa</button>
+                        <button type="button" class="danger-btn" (click)="deleteOwnership(o.Id)">Poista</button>
+                      </div>
+                    }
+                  </li>
+                }
+              </ul>
+            </div>
           </section>
         }
 
@@ -222,25 +278,42 @@
           }
 
           @if (reviews().length) {
-            <section>
+            <section class="reviews-section">
               <h2>Arvostelut</h2>
-              <div class="reviews">
+              <ul class="reviews-list">
                 @for (r of reviews(); track r.UserId) {
-                  <article class="review-item">
+                  <li class="review-item">
                     <div class="review-head">
-                      <strong>{{ r.Name }}</strong>
-                      @if (reviewScoreDisplay(r.ScoreId); as score) {
-                        <span class="avg-score" [attr.title]="'Arvosana ' + score">{{ score }}</span>
+                      <span class="review-name">{{ r.Name }}</span>
+                      @if (r.Formats) {
+                        <span class="review-formats">{{ r.Formats }}</span>
+                      }
+                      @if (!r.Text) {
+                        @if (reviewScoreDisplay(r.ScoreId); as score) {
+                          <span class="score-star" [attr.title]="'Arvosana ' + score">
+                            <span class="score-star-glyph" aria-hidden="true">★</span>
+                            <span class="score-star-value">{{ score }}</span>
+                          </span>
+                        }
                       }
                     </div>
                     @if (r.Text) {
-                      <div class="prose" [innerHTML]="r.Text"></div>
+                      <div class="review-bubble">
+                        @if (reviewScoreDisplay(r.ScoreId); as score) {
+                          <span class="score-star" [attr.title]="'Arvosana ' + score">
+                            <span class="score-star-glyph" aria-hidden="true">★</span>
+                            <span class="score-star-value">{{ score }}</span>
+                          </span>
+                        }
+                        <div class="prose review-text" [innerHTML]="r.Text"></div>
+                      </div>
                     }
-                  </article>
+                  </li>
                 }
-              </div>
+              </ul>
             </section>
           }
+        </div>
         </div>
       </div>
     </div>
@@ -305,15 +378,6 @@
       }
     </div>
   </div>
-}
-
-@if (ownershipOpen()) {
-  <app-ownership-edit
-    [ownershipId]="editingOwnershipId()"
-    [seedMovie]="ownershipSeed"
-    (closed)="closeOwnership()"
-    (changed)="onOwnershipChanged()"
-  />
 }
 
 @if (mergeOpen()) {

@@ -1,17 +1,26 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnInit, ViewChild, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { errorMessage } from '../../core/error.util';
 import { parseAppDateTime } from '../../core/datetime.util';
-import { formatMovieListTitle, swapNames, titleWithYear } from '../../core/format.util';
+import {
+  formatMovieListTitleParts,
+  MovieListTitleParts,
+  swapNames,
+} from '../../core/format.util';
+import { PageTitleService } from '../../core/page-title.service';
 import { LookupRow, Person } from '../../core/models';
 import { LookupService } from '../../data/lookup.service';
 import { MovieListItem, MovieSearchMode, MovieService } from '../../data/movie.service';
-import { OwnershipService, OwnershipSummary } from '../../data/ownership.service';
+import {
+  ownershipListLabel,
+  OwnershipService,
+  OwnershipSummary,
+} from '../../data/ownership.service';
 import { PersonService } from '../../data/person.service';
 
-export type HomeMode = MovieSearchMode | 'birthdays';
+export type HomeMode = MovieSearchMode | 'birthdays' | 'shelf';
 
 @Component({
   selector: 'app-home',
@@ -20,7 +29,9 @@ export type HomeMode = MovieSearchMode | 'birthdays';
   templateUrl: './home.page.html',
   styleUrl: './home.page.scss',
 })
-export class HomePage implements OnInit {
+export class HomePage implements OnInit, AfterViewInit {
+  @ViewChild('searchInput') private searchInput?: ElementRef<HTMLInputElement>;
+
   query = '';
   mode: HomeMode = 'text';
   page = 1;
@@ -36,8 +47,8 @@ export class HomePage implements OnInit {
 
   scores: LookupRow[] = [];
 
-  movieTitle(m: MovieListItem): string {
-    return formatMovieListTitle({
+  movieTitleParts(m: MovieListItem): MovieListTitleParts {
+    return formatMovieListTitleParts({
       title: m.Title,
       titleLanguageId: m.TitleLanguageId,
       year: m.Year,
@@ -62,26 +73,35 @@ export class HomePage implements OnInit {
   }
 
   ownershipLabel(o: OwnershipSummary): string {
-    if (o.Name?.trim()) {
-      return o.Name;
-    }
-    const movies = o.movies
-      .map((m) => titleWithYear(m.Title, m.TitleLanguageId, m.Year))
-      .filter(Boolean);
-    return movies.join(', ') || `Omistus #${o.Id}`;
+    return ownershipListLabel(o);
   }
 
   constructor(
     readonly auth: AuthService,
+    private readonly router: Router,
     private readonly moviesApi: MovieService,
     private readonly peopleApi: PersonService,
     private readonly ownershipApi: OwnershipService,
-    private readonly lookups: LookupService
+    private readonly lookups: LookupService,
+    private readonly pageTitle: PageTitleService
   ) {}
 
   async ngOnInit(): Promise<void> {
+    this.pageTitle.set('Haku');
     this.scores = await this.lookups.get('Score');
     await this.runSearch();
+    this.focusSearchInput();
+  }
+
+  ngAfterViewInit(): void {
+    this.focusSearchInput();
+  }
+
+  private focusSearchInput(): void {
+    if (this.mode !== 'text') {
+      return;
+    }
+    queueMicrotask(() => this.searchInput?.nativeElement.focus());
   }
 
   private currentUserId(): number | null {
@@ -92,7 +112,7 @@ export class HomePage implements OnInit {
     if (this.mode === 'owned') {
       return Math.max(1, Math.ceil(this.ownershipTotal() / this.pageSize));
     }
-    if (this.mode === 'birthdays') {
+    if (this.mode === 'birthdays' || this.mode === 'shelf') {
       return 1;
     }
     return Math.max(1, Math.ceil(this.total() / this.pageSize));
@@ -111,7 +131,7 @@ export class HomePage implements OnInit {
 
   setMode(mode: HomeMode): void {
     this.mode = mode;
-    void this.runSearch();
+    void this.runSearch().then(() => this.focusSearchInput());
   }
 
   async runSearch(resetPage = true): Promise<void> {
@@ -130,6 +150,15 @@ export class HomePage implements OnInit {
         this.total.set(0);
         const rows = await this.peopleApi.listBirthdaysToday();
         this.people.set(rows);
+        return;
+      }
+
+      if (this.mode === 'shelf') {
+        this.movies.set([]);
+        this.people.set([]);
+        this.ownerships.set([]);
+        this.ownershipTotal.set(0);
+        this.total.set(0);
         return;
       }
 
@@ -178,5 +207,30 @@ export class HomePage implements OnInit {
   async go(page: number): Promise<void> {
     this.page = Math.min(Math.max(1, page), this.totalPages);
     await this.runSearch(false);
+  }
+
+  async rollShelfMovie(): Promise<void> {
+    if (this.mode !== 'shelf') {
+      return;
+    }
+    const userId = this.currentUserId();
+    if (!userId) {
+      this.error.set('Kirjaudu sisään arvotaksesi.');
+      return;
+    }
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      const movieId = await this.ownershipApi.pickRandomShelfMovieId(userId);
+      if (movieId == null) {
+        this.error.set('Ei arvottavaa elokuvaa.');
+        return;
+      }
+      await this.router.navigate(['/movie', movieId]);
+    } catch (e: unknown) {
+      this.error.set(errorMessage(e));
+    } finally {
+      this.loading.set(false);
+    }
   }
 }

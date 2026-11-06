@@ -96,6 +96,15 @@ td {
   font-size: 1rem;
 }
 
+.roles-col {
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.roles-col div + div {
+  margin-top: 0.15rem;
+}
+
 a {
   color: #1f4b7a;
   text-decoration: none;

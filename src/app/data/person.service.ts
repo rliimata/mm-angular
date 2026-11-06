@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { AppDateTime, Person } from '../core/models';
 import { parseAppDateTime } from '../core/datetime.util';
-import { decodeEntities, swapTitle } from '../core/format.util';
+import { decodeEntities, roleSingularLabel, swapTitle } from '../core/format.util';
 import { reverseRelationLabel, reverseRelationSortId } from '../core/person-relation.util';
 import { getSupabase } from '../core/supabase.client';
 
@@ -20,7 +20,7 @@ export interface PersonDetails {
   relations: { PersonId: number; Name: string; Relation: string; RelationId: number; SortId: number; Incoming: boolean }[];
   awards: { MovieId: number; MovieTitle: string; Year: number | null; Award: string }[];
   salaries: { MovieId: number; MovieTitle: string; Year: number | null; Salary: number; Currency: string }[];
-  filmography: { MovieId: number; Title: string; Year: number | null; Role: string }[];
+  filmography: { MovieId: number; Title: string; Year: number | null; Roles: string[] }[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -51,44 +51,20 @@ export class PersonService {
       return { rows: [], count: 0 };
     }
 
-    const [{ data: nameHits }, { data: textHits }, { data: triviaHits }] = await Promise.all([
-      getSupabase()
-        .from('Person')
-        .select('Id, Name, RealName, BirthDate, DeathDate, Gender')
-        .or(`Name.ilike.%${primary}%,RealName.ilike.%${primary}%`)
-        .order('Name')
-        .limit(500),
-      getSupabase().from('PersonText').select('PersonId').ilike('Text', `%${term}%`).limit(200),
-      getSupabase().from('PersonTrivia').select('PersonId').ilike('Text', `%${term}%`).limit(200),
-    ]);
-
-    const nameMatched = ((nameHits as Person[]) ?? []).filter((p) =>
-      tokens.every(
-        (t) => nameHasTokenPrefix(p.Name, t) || nameHasTokenPrefix(p.RealName, t)
-      )
-    );
-    const extraIds = [
-      ...new Set([
-        ...(((textHits as { PersonId: number }[]) ?? []).map((r) => r.PersonId)),
-        ...(((triviaHits as { PersonId: number }[]) ?? []).map((r) => r.PersonId)),
-      ]),
-    ].filter((id) => !nameMatched.some((p) => p.Id === id));
-
-    let extraPeople: Person[] = [];
-    if (extraIds.length) {
-      const { data, error } = await getSupabase()
-        .from('Person')
-        .select('Id, Name, RealName, BirthDate, DeathDate, Gender')
-        .in('Id', extraIds);
-      if (error) {
-        throw error;
-      }
-      extraPeople = (data as Person[]) ?? [];
+    // Home search: Name field only (not RealName, text, or trivia).
+    const { data: nameHits, error } = await getSupabase()
+      .from('Person')
+      .select('Id, Name, RealName, BirthDate, DeathDate, Gender')
+      .ilike('Name', `%${primary}%`)
+      .order('Name')
+      .limit(500);
+    if (error) {
+      throw error;
     }
 
-    const rows = [...nameMatched, ...extraPeople].sort((a, b) =>
-      a.Name.localeCompare(b.Name, 'fi', { sensitivity: 'base' })
-    );
+    const rows = ((nameHits as Person[]) ?? [])
+      .filter((p) => tokens.every((t) => nameHasTokenPrefix(p.Name, t)))
+      .sort((a, b) => a.Name.localeCompare(b.Name, 'fi', { sensitivity: 'base' }));
     return { rows: rows.slice(from, to + 1), count: rows.length };
   }
 
@@ -317,7 +293,7 @@ export class PersonService {
   }
 
   async getFilmography(personId: number): Promise<
-    { MovieId: number; Title: string; Year: number | null; Role: string }[]
+    { MovieId: number; Title: string; Year: number | null; Roles: string[] }[]
   > {
     const { data: links, error } = await getSupabase()
       .from('RoleLink')
@@ -387,10 +363,9 @@ export class PersonService {
         MovieId: e.MovieId,
         Title: e.Title,
         Year: e.Year,
-        Role: e.roles
+        Roles: e.roles
           .sort((a, b) => a.id - b.id)
-          .map((x) => x.name)
-          .join(', '),
+          .map((x) => roleSingularLabel(x.name)),
       }))
       .sort((a, b) => (b.Year ?? 0) - (a.Year ?? 0) || a.Title.localeCompare(b.Title, 'fi'));
   }

@@ -73,6 +73,16 @@ interface PersonLinkDraft {
               >
                 +
               </button>
+              <button
+                type="button"
+                class="icon-btn icon-edit"
+                (click)="openCatalogEdit('Country', birthCountryId, 'birth')"
+                [disabled]="!birthCountryId"
+                aria-label="Muokkaa maata"
+                title="Muokkaa"
+              >
+                ✎
+              </button>
             </div>
             <app-search-select
               [options]="countries"
@@ -107,6 +117,16 @@ interface PersonLinkDraft {
               >
                 +
               </button>
+              <button
+                type="button"
+                class="icon-btn icon-edit"
+                (click)="openCatalogEdit('Country', deathCountryId, 'death')"
+                [disabled]="!deathCountryId"
+                aria-label="Muokkaa maata"
+                title="Muokkaa"
+              >
+                ✎
+              </button>
             </div>
             <app-search-select
               [options]="countries"
@@ -135,6 +155,16 @@ interface PersonLinkDraft {
               title="Lisää"
             >
               +
+            </button>
+            <button
+              type="button"
+              class="icon-btn icon-edit"
+              (click)="openCatalogEdit('DeathReason', deathReasonId)"
+              [disabled]="!deathReasonId"
+              aria-label="Muokkaa kuolinsyytä"
+              title="Muokkaa"
+            >
+              ✎
             </button>
             <button
               type="button"
@@ -351,7 +381,7 @@ interface PersonLinkDraft {
       .plain-block input,
       .plain-block select,
       .plain-block textarea {
-        font-size: 0.85rem;
+        font-size: 1rem;
       }
       .item-list,
       .hits {
@@ -398,7 +428,7 @@ interface PersonLinkDraft {
         border-radius: 4px;
         background: transparent;
         font: inherit;
-        font-size: 1.15rem;
+        font-size: 1rem;
         line-height: 1;
         cursor: pointer;
         display: grid;
@@ -419,6 +449,10 @@ interface PersonLinkDraft {
       }
       .icon-btn.icon-add {
         color: #1f4b7a;
+      }
+      .icon-btn.icon-edit {
+        color: #1f4b7a;
+        font-size: 1rem;
       }
       .icon-btn:hover:not(:disabled) {
         background: rgba(0, 0, 0, 0.06);
@@ -534,6 +568,7 @@ export class PersonFormComponent implements OnInit, OnChanges {
   catalogAddTarget: 'birth' | 'death' | null = null;
   catalogAddValue = '';
   catalogAddError: string | null = null;
+  catalogEditId: number | null = null;
 
   readonly error = signal<string | null>(null);
   readonly saving = signal(false);
@@ -575,7 +610,29 @@ export class PersonFormComponent implements OnInit, OnChanges {
   openCatalogAdd(table: 'Country' | 'DeathReason', target: 'birth' | 'death' | null = null): void {
     this.catalogAddTable = table;
     this.catalogAddTarget = target;
+    this.catalogEditId = null;
     this.catalogAddValue = '';
+    this.catalogAddError = null;
+    this.catalogAddOpen = true;
+  }
+
+  openCatalogEdit(
+    table: 'Country' | 'DeathReason',
+    id: number | null,
+    target: 'birth' | 'death' | null = null
+  ): void {
+    if (id == null) {
+      return;
+    }
+    const rows = table === 'DeathReason' ? this.deathReasons : this.countries;
+    const opt = rows.find((r) => r.Id === id);
+    if (!opt) {
+      return;
+    }
+    this.catalogAddTable = table;
+    this.catalogAddTarget = target;
+    this.catalogEditId = id;
+    this.catalogAddValue = String(opt.Value);
     this.catalogAddError = null;
     this.catalogAddOpen = true;
   }
@@ -584,12 +641,17 @@ export class PersonFormComponent implements OnInit, OnChanges {
     this.catalogAddOpen = false;
     this.catalogAddTable = null;
     this.catalogAddTarget = null;
+    this.catalogEditId = null;
     this.catalogAddValue = '';
     this.catalogAddError = null;
   }
 
   catalogAddTitle(): string {
-    return this.catalogAddTable === 'DeathReason' ? 'Uusi kuolinsyy' : 'Uusi maa';
+    const edit = this.catalogEditId != null;
+    if (this.catalogAddTable === 'DeathReason') {
+      return edit ? 'Muokkaa kuolinsyytä' : 'Uusi kuolinsyy';
+    }
+    return edit ? 'Muokkaa maata' : 'Uusi maa';
   }
 
   async saveCatalogAdd(): Promise<void> {
@@ -598,6 +660,13 @@ export class PersonFormComponent implements OnInit, OnChanges {
       return;
     }
     try {
+      if (this.catalogEditId != null) {
+        await this.catalog.updateValue(table as CatalogTable, this.catalogEditId, this.catalogAddValue);
+        this.lookups.invalidate(table);
+        await this.reloadLookups();
+        this.closeCatalogAdd();
+        return;
+      }
       const id = await this.catalog.addValue(table as CatalogTable, this.catalogAddValue);
       this.lookups.invalidate(table);
       await this.reloadLookups();

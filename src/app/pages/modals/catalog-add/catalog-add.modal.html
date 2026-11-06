@@ -8,11 +8,11 @@
         <label class="block">
           Arvo
           <input
+            #valueInput
             [ngModel]="value"
             (ngModelChange)="onValue($event)"
             name="catalogAddValue"
             (keydown.enter)="$event.preventDefault(); save.emit()"
-            autofocus
           />
         </label>
         @if (error) {

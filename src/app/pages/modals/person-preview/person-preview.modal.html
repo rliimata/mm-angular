@@ -18,7 +18,7 @@
             <p class="section-label">Elokuvatuotanto (ote)</p>
             <ul class="preview-films">
               @for (f of preview.filmography.slice(0, 8); track f.MovieId) {
-                <li>{{ f.Title }}{{ f.Year ? ' (' + f.Year + ')' : '' }}, {{ f.Role }}</li>
+                <li>{{ f.Title }}{{ f.Year ? ' (' + f.Year + ')' : '' }}{{ f.Roles.length ? ', ' + f.Roles.join(', ') : '' }}</li>
               }
             </ul>
           }

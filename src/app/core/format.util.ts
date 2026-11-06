@@ -71,8 +71,28 @@ export function decodeEntities(value: string | null | undefined): string {
   s = s.replace(/\\"/g, '"');
   s = s.replace(/([A-Za-zÄÖÅäöå])\\'([A-Za-zÄÖÅäöå])/g, "$1'$2");
   s = s.replace(/\\([A-Za-zÄÖÅäöå])/g, '$1');
-  s = s.replace(/\\(?![\\nrt])/g, '');
+  // Drop remaining stray backslashes (incl. trailing \ after <br />\n in reviews).
+  // Keep real escape sequences only when followed by another backslash.
+  s = s.replace(/\\(?!\\)/g, '');
   return s;
+}
+
+/** Person filmography: Role catalog plurals/collectives → singular job title. */
+export function roleSingularLabel(value: string | number | null | undefined): string {
+  const raw = decodeEntities(String(value ?? '')).trim();
+  if (!raw) {
+    return '';
+  }
+  const key = raw.toLowerCase();
+  const map: Record<string, string> = {
+    ohjaus: 'Ohjaaja',
+    näyttelijät: 'Näyttelijä',
+    'n&auml;yttelij&auml;t': 'Näyttelijä',
+    käsikirjoitus: 'Käsikirjoittaja',
+    'k&auml;sikirjoitus': 'Käsikirjoittaja',
+    musiikki: 'Säveltäjä',
+  };
+  return map[key] ?? raw;
 }
 
 /** True for placeholder catalog rows ("-", "(uusi)", empty). */
@@ -81,7 +101,8 @@ export function isPlaceholderLookup(value: string | number | null | undefined): 
     return true;
   }
   const s = String(value).trim().toLowerCase();
-  return !s || s === '-' || s === '(uusi)' || s === 'uusi';
+  // Do not treat plain "Uusi" as placeholder — ReleaseCondition/MediaCondition use it.
+  return !s || s === '-' || s === '(uusi)';
 }
 
 /** PHP swap_names: "Last, First" → "First Last" */
@@ -94,44 +115,72 @@ export function swapNames(name: string | null | undefined): string {
   return `${s.slice(i + 1).trim()} ${s.slice(0, i).trim()}`.trim();
 }
 
+/** Leading/trailing articles by TitleLanguageId (same sets as PHP swap_title). */
+export function titleArticles(titleLanguageId: number | null | undefined): string[] {
+  switch (titleLanguageId) {
+    case 1:
+      return ['The', 'A', 'An'];
+    case 3:
+      return ['Det', 'Den', 'Ett', 'En', 'De', 'Dom'];
+    case 4:
+      return ['Il', 'O', 'I', 'La', "L'", 'Le'];
+    case 5:
+      return ['Las', 'Los', 'El', 'La'];
+    case 6:
+      return ['Les', 'Un', 'Une', 'La', 'Le', "L'"];
+    case 8:
+      return ['Das', 'Die', 'Der', 'Ein'];
+    case 13:
+      return ['Den'];
+    case 15:
+      return ['De'];
+    case 17:
+      return ['De', 'En', 'Den'];
+    default:
+      return [];
+  }
+}
+
+/**
+ * Alphabetical sort key: "The Matrix" / "Matrix, The" → "matrix, the"
+ * so leading articles do not dominate A–Z order.
+ */
+export function titleSortKey(
+  title: string | null | undefined,
+  titleLanguageId?: number | null
+): string {
+  let s = decodeEntities(title).trim();
+  if (!s) {
+    return '';
+  }
+  const lang = titleLanguageId != null && titleLanguageId > 0 ? titleLanguageId : 1;
+  const articles = titleArticles(lang);
+  // Prefer display form first, then move leading article to the end for sorting.
+  s = swapTitle(s, lang);
+  for (const value of articles) {
+    if (value.endsWith("'")) {
+      if (s.toLocaleLowerCase('fi').startsWith(value.toLocaleLowerCase('fi'))) {
+        s = `${s.slice(value.length)}, ${value}`;
+        break;
+      }
+    } else {
+      const prefix = `${value} `;
+      if (s.toLocaleLowerCase('fi').startsWith(prefix.toLocaleLowerCase('fi'))) {
+        s = `${s.slice(prefix.length)}, ${value}`;
+        break;
+      }
+    }
+  }
+  return s.toLocaleLowerCase('fi');
+}
+
 /** PHP swap_title: move leading article from trailing ", The" form. */
 export function swapTitle(title: string | null | undefined, titleLanguageId: number | null | undefined): string {
   let str = decodeEntities(title);
   if (!str) {
     return '';
   }
-  let articles: string[] = [];
-  switch (titleLanguageId) {
-    case 1:
-      articles = ['The', 'A', 'An'];
-      break;
-    case 3:
-      articles = ['Det', 'Den', 'Ett', 'En', 'De', 'Dom'];
-      break;
-    case 4:
-      articles = ['Il', 'O', 'I', 'La', "L'", 'Le'];
-      break;
-    case 5:
-      articles = ['Las', 'Los', 'El', 'La'];
-      break;
-    case 6:
-      articles = ['Les', 'Un', 'Une', 'La', 'Le', "L'"];
-      break;
-    case 8:
-      articles = ['Das', 'Die', 'Der', 'Ein'];
-      break;
-    case 13:
-      articles = ['Den'];
-      break;
-    case 15:
-      articles = ['De'];
-      break;
-    case 17:
-      articles = ['De', 'En', 'Den'];
-      break;
-    default:
-      articles = [];
-  }
+  const articles = titleArticles(titleLanguageId);
   for (const value of articles) {
     const suffix = `, ${value}`;
     if (str.endsWith(suffix)) {
@@ -321,6 +370,47 @@ export function titleWithYear(
   return year ? `${main} (${year})` : main;
 }
 
+/** Display label for a movie version, e.g. "Director's Cut-versio". */
+export function versionDisplayLabel(version: string | null | undefined): string {
+  const v = version?.trim() ?? '';
+  if (!v || v === '-') {
+    return '';
+  }
+  if (/versio$/i.test(v)) {
+    return v;
+  }
+  return `${v}-versio`;
+}
+
+export type MovieListTitleParts = {
+  main: string;
+  version: string;
+  paren: string;
+};
+
+/** Split list title so the version can be styled brown (PHP `.version`). */
+export function formatMovieListTitleParts(opts: {
+  title: string;
+  titleLanguageId: number | null;
+  year: number | null;
+  distributionId: number | null;
+  version?: string | null;
+  finnishTitle?: string | null;
+}): MovieListTitleParts {
+  const main = swapTitle(opts.title, opts.titleLanguageId);
+  const dist = distributionPrefix(opts.distributionId);
+  const year = opts.year ? String(opts.year) : '';
+  const version = opts.version?.trim() && opts.version !== '-' ? opts.version.trim() : '';
+  const finnish = opts.finnishTitle?.trim();
+  let paren = '';
+  if (finnish && finnish.toLowerCase() !== main.toLowerCase()) {
+    paren = [finnish, `${dist}${year}`.trim()].filter(Boolean).join(', ');
+  } else {
+    paren = `${dist}${year}`.trim();
+  }
+  return { main, version, paren };
+}
+
 export function formatMovieListTitle(opts: {
   title: string;
   titleLanguageId: number | null;
@@ -329,15 +419,7 @@ export function formatMovieListTitle(opts: {
   version?: string | null;
   finnishTitle?: string | null;
 }): string {
-  const main = swapTitle(opts.title, opts.titleLanguageId);
-  const dist = distributionPrefix(opts.distributionId);
-  const year = opts.year ? String(opts.year) : '';
-  const version = opts.version ? ` - ${opts.version}` : '';
-  const finnish = opts.finnishTitle?.trim();
-  if (finnish && finnish.toLowerCase() !== main.toLowerCase()) {
-    const inside = [finnish, `${dist}${year}`.trim()].filter(Boolean).join(', ');
-    return `${main}${version}${inside ? ` (${inside})` : ''}`;
-  }
-  const inside = `${dist}${year}`.trim();
-  return `${main}${version}${inside ? ` (${inside})` : ''}`;
+  const { main, version, paren } = formatMovieListTitleParts(opts);
+  const ver = version ? ` - ${version}` : '';
+  return `${main}${ver}${paren ? ` (${paren})` : ''}`;
 }

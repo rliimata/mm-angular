@@ -130,7 +130,7 @@
             <thead>
               <tr>
                 <th>Elokuva</th>
-                <th>Roolit</th>
+                <th>Rooli</th>
               </tr>
             </thead>
             <tbody>
@@ -141,7 +141,11 @@
                       >{{ f.Title }}{{ f.Year ? ' (' + f.Year + ')' : '' }}</a
                     >
                   </td>
-                  <td>{{ f.Role }}</td>
+                  <td class="roles-col">
+                    @for (role of f.Roles; track role) {
+                      <div>{{ role }}</div>
+                    }
+                  </td>
                 </tr>
               }
             </tbody>

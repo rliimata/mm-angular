@@ -151,13 +151,13 @@ import { MediaService } from '../data/media.service';
     }
 
     .ph-title {
-      font-size: 0.95rem;
+      font-size: 1rem;
       font-weight: 650;
       color: #1f4b7a;
     }
 
     .ph-hint {
-      font-size: 0.8rem;
+      font-size: 1rem;
       line-height: 1.35;
       max-width: 12rem;
     }
@@ -168,7 +168,7 @@ import { MediaService } from '../data/media.service';
       padding: 0.55rem;
       background: linear-gradient(180deg, transparent, rgba(15, 23, 32, 0.72));
       color: #fff;
-      font-size: 0.85rem;
+      font-size: 1rem;
       font-weight: 650;
       opacity: 0;
       transition: opacity 0.15s ease;
@@ -184,7 +184,7 @@ import { MediaService } from '../data/media.service';
       display: grid;
       place-items: center;
       background: rgba(255, 255, 255, 0.72);
-      font-size: 0.9rem;
+      font-size: 1rem;
       font-weight: 650;
     }
 
@@ -203,7 +203,7 @@ import { MediaService } from '../data/media.service';
       background: #e8eef4;
       color: #1f4b7a;
       font: inherit;
-      font-size: 0.85rem;
+      font-size: 1rem;
       font-weight: 600;
       cursor: pointer;
     }
@@ -219,7 +219,7 @@ import { MediaService } from '../data/media.service';
 
     .find-link {
       color: #1f4b7a;
-      font-size: 0.9rem;
+      font-size: 1rem;
       font-weight: 400;
       text-decoration: none;
     }
@@ -232,14 +232,14 @@ import { MediaService } from '../data/media.service';
     .entity-id {
       margin-left: auto;
       color: #6a7582;
-      font-size: 0.8rem;
+      font-size: 1rem;
       font-variant-numeric: tabular-nums;
     }
 
     .media-error {
       margin: 0;
       color: #a40000;
-      font-size: 0.8rem;
+      font-size: 1rem;
     }
 
     :host.person-kind .media-card {

@@ -19,6 +19,9 @@ type LookupTable =
   | 'ReleaseRegion'
   | 'ReleasePicture'
   | 'ReleaseCondition'
+  | 'MediaCondition'
+  | 'MediaRatio'
+  | 'MediaContent'
   | 'ReleasePublisher'
   | 'OwnershipType'
   | 'AgeRating'
@@ -87,6 +90,8 @@ function preservesIdOrder(table: LookupTable): boolean {
     table === 'Score' ||
     table === 'AgeRating' ||
     table === 'MediaFormat' ||
-    table === 'ReleaseCondition'
+    table === 'ReleaseCondition' ||
+    table === 'MediaCondition' ||
+    table === 'MediaContent'
   );
 }

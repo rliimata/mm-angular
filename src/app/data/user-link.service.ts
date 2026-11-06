@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { decodeEntities } from '../core/format.util';
 import { UserLink } from '../core/models';
 import { getSupabase } from '../core/supabase.client';
 
@@ -49,9 +50,18 @@ export class UserLinkService {
     }
   }
 
-  /** Other users' reviews for a movie (score > 0 or text). */
-  async listForMovie(movieId: number): Promise<
-    { UserId: number; ScoreId: number | null; Text: string | null; Name: string }[]
+  /** Reviews for a movie (score and/or text), with optional ownership format tags. */
+  async listForMovie(
+    movieId: number,
+    formatLabelsByUser?: Map<number, string>
+  ): Promise<
+    {
+      UserId: number;
+      ScoreId: number | null;
+      Text: string | null;
+      Name: string;
+      Formats: string;
+    }[]
   > {
     const { data, error } = await getSupabase()
       .from('UserLink')
@@ -77,7 +87,10 @@ export class UserLinkService {
     );
     return rows.map((r) => ({
       ...r,
+      // Legacy dump left \"\quoted\"\ and trailing \ after <br /> — strip for display.
+      Text: r.Text ? decodeEntities(r.Text) : r.Text,
       Name: map.get(r.UserId) ?? `User ${r.UserId}`,
+      Formats: formatLabelsByUser?.get(r.UserId) ?? '',
     }));
   }
 }

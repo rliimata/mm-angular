@@ -5,6 +5,7 @@
     <button type="button" [class.active]="mode === 'topRated'" (click)="setMode('topRated')">Parhaat</button>
     <button type="button" [class.active]="mode === 'rated'" (click)="setMode('rated')">Arvostellut</button>
     <button type="button" [class.active]="mode === 'owned'" (click)="setMode('owned')">Omistetut</button>
+    <button type="button" [class.active]="mode === 'shelf'" (click)="setMode('shelf')">Arvonta</button>
     <button type="button" [class.active]="mode === 'watchlist'" (click)="setMode('watchlist')">Katselulista</button>
     <button type="button" [class.active]="mode === 'memolist'" (click)="setMode('memolist')">Muistilista</button>
     <button type="button" [class.active]="mode === 'birthdays'" (click)="setMode('birthdays')">Syntymäpäivät</button>
@@ -13,11 +14,11 @@
   @if (mode === 'text') {
     <form class="search" (ngSubmit)="runSearch()">
       <input
+        #searchInput
         type="search"
         name="query"
         [(ngModel)]="query"
         placeholder="Hae elokuvia ja henkilöitä…"
-        autofocus
       />
     </form>
   }
@@ -29,81 +30,85 @@
   @if (loading()) {
     <p class="muted">Ladataan…</p>
   } @else if (mode === 'birthdays') {
-    <p class="meta">{{ people().length }} syntymäpäivää tänään</p>
-    <table>
-      <thead>
-        <tr>
-          <th>Henkilö</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (p of people(); track p.Id) {
-          <tr>
-            <td>
-              <a [routerLink]="['/person', p.Id]">{{ personName(p) }}{{ birthdayAgeSuffix(p) }}</a>
-            </td>
-            <td class="row-actions">
-              @if (auth.isSuperUser()) {
-                <a
-                  class="icon-edit"
-                  [routerLink]="['/person', p.Id, 'edit']"
-                  [queryParams]="{ return: '/' }"
-                  title="Muokkaa"
-                  aria-label="Muokkaa"
-                  >✎</a
-                >
-              }
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
+    @if (people().length) {
+      <p class="meta">
+        {{ people().length === 1 ? '1 syntymäpäivä tänään' : people().length + ' syntymäpäivää tänään' }}
+      </p>
+      <table>
+        <tbody>
+          @for (p of people(); track p.Id) {
+            <tr>
+              <td>
+                <a [routerLink]="['/person', p.Id]">{{ personName(p) }}{{ birthdayAgeSuffix(p) }}</a>
+              </td>
+              <td class="row-actions">
+                @if (auth.isSuperUser()) {
+                  <a
+                    class="icon-edit"
+                    [routerLink]="['/person', p.Id, 'edit']"
+                    [queryParams]="{ return: '/' }"
+                    title="Muokkaa"
+                    aria-label="Muokkaa"
+                    >✎</a
+                  >
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  } @else if (mode === 'shelf') {
+    <p class="info-text">
+      Paina Arvo-nappia ja ohjelma hakee elokuvat, jotka olet ilmoittanut löytyvän hyllystäsi mutta
+      joita et ole katsonut — ja arpoo niistä yhden.
+    </p>
+    <div class="list-head">
+      <button type="button" class="roll-btn" (click)="rollShelfMovie()" [disabled]="loading()">
+        Arvo
+      </button>
+    </div>
   } @else if (mode === 'owned') {
-    <p class="meta">{{ ownershipTotal() }} omistusta</p>
-    <table>
-      <thead>
-        <tr>
-          <th>Omistus</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (o of ownerships(); track o.Id) {
-          <tr>
-            <td>
-              @if (o.movies.length) {
-                <a [routerLink]="['/movie', o.movies[0].Id]">{{ ownershipLabel(o) }}</a>
-              } @else {
-                {{ ownershipLabel(o) }}
-              }
-            </td>
-            <td class="row-actions">
-              @if (auth.isSuperUser() && o.movies.length) {
-                <a
-                  class="icon-edit"
-                  [routerLink]="['/movie', o.movies[0].Id]"
-                  title="Avaa"
-                  aria-label="Avaa"
-                  >✎</a
-                >
-              }
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
+    @if (ownershipTotal() > 0) {
+      <div class="list-head">
+        <p class="meta">
+          {{ ownershipTotal() === 1 ? '1 omistus' : ownershipTotal() + ' omistusta' }}
+        </p>
+      </div>
+      <table>
+        <tbody>
+          @for (o of ownerships(); track o.Id) {
+            <tr>
+              <td>
+                @if (o.movies.length) {
+                  <a [routerLink]="['/movie', o.movies[0].Id]">{{ ownershipLabel(o) }}</a>
+                } @else {
+                  {{ ownershipLabel(o) }}
+                }
+              </td>
+              <td class="row-actions">
+                @if (auth.isSuperUser() && o.movies.length) {
+                  <a
+                    class="icon-edit"
+                    [routerLink]="['/movie', o.movies[0].Id]"
+                    title="Avaa"
+                    aria-label="Avaa"
+                    >✎</a
+                  >
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    } @else {
+      <p class="meta">Ei tuloksia</p>
+    }
   } @else {
     @if (mode === 'text' && people().length) {
       <section class="result-block">
-        <p class="meta">{{ people().length }} henkilöä</p>
+        <p class="meta">{{ people().length === 1 ? '1 henkilö' : people().length + ' henkilöä' }}</p>
         <table>
-          <thead>
-            <tr>
-              <th>Henkilö</th>
-              <th></th>
-            </tr>
-          </thead>
           <tbody>
             @for (p of people(); track p.Id) {
               <tr>
@@ -129,48 +134,60 @@
       </section>
     }
 
-    <section class="result-block">
-      <p class="meta">{{ total() }} elokuvaa</p>
-      <table>
-        <thead>
-          <tr>
-            <th>Otsikko</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (m of movies(); track m.Id) {
-            <tr>
-              <td><a [routerLink]="['/movie', m.Id]">{{ movieTitle(m) }}</a></td>
-              <td class="extra">
-                @if (m.AvgScore != null) {
-                  <span>{{ formatAvgScore(m.AvgScore) }}</span>
-                }
-                @if (scoreLabel(m.MyScoreId)) {
-                  <span>{{ scoreLabel(m.MyScoreId) }}★</span>
-                }
-                @if (m.FormatLabels && m.FormatLabels.length) {
-                  <span class="tag">{{ m.FormatLabels.join(', ') }}</span>
-                }
-                @if (auth.isSuperUser()) {
-                  <a
-                    class="icon-edit"
-                    [routerLink]="['/movie', m.Id, 'edit']"
-                    [queryParams]="{ return: '/' }"
-                    title="Muokkaa"
-                    aria-label="Muokkaa"
-                    >✎</a
-                  >
-                }
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </section>
+    @if (total() > 0) {
+      <section class="result-block">
+        <p class="meta">{{ total() === 1 ? '1 elokuva' : total() + ' elokuvaa' }}</p>
+        <table>
+          <tbody>
+            @for (m of movies(); track m.Id) {
+              <tr>
+                <td>
+                  <a [routerLink]="['/movie', m.Id]">
+                    @if (movieTitleParts(m); as t) {
+                      {{ t.main }}
+                      @if (t.version) {
+                        - <span class="version-name">{{ t.version }}</span>
+                      }
+                      @if (t.paren) {
+                        ({{ t.paren }})
+                      }
+                    }
+                  </a>
+                </td>
+                <td class="extra">
+                  @if (m.AvgScore != null) {
+                    <span>{{ formatAvgScore(m.AvgScore) }}</span>
+                  }
+                  @if (scoreLabel(m.MyScoreId)) {
+                    <span>{{ scoreLabel(m.MyScoreId) }}★</span>
+                  }
+                  @if (m.FormatLabels && m.FormatLabels.length) {
+                    <span class="tag">{{ m.FormatLabels.join(', ') }}</span>
+                  }
+                  @if (auth.isSuperUser()) {
+                    <a
+                      class="icon-edit"
+                      [routerLink]="['/movie', m.Id, 'edit']"
+                      [queryParams]="{ return: '/' }"
+                      title="Muokkaa"
+                      aria-label="Muokkaa"
+                      >✎</a
+                    >
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    }
+
+    @if (mode === 'text' && query.trim() && !people().length && total() === 0) {
+      <p class="meta">Ei tuloksia</p>
+    }
   }
 
-  @if (mode !== 'birthdays' && (mode !== 'text' || !people().length || total() > 0)) {
+  @if (mode !== 'birthdays' && mode !== 'shelf' && totalPages > 1) {
     <div class="pager">
       <button type="button" (click)="go(page - 1)" [disabled]="page <= 1">Edellinen</button>
       <span>{{ page }} / {{ totalPages }}</span>

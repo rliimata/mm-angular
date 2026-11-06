@@ -7,6 +7,7 @@ import { formatAppDate } from '../../core/datetime.util';
 import { DetailRefreshService } from '../../core/detail-refresh.service';
 import { errorMessage } from '../../core/error.util';
 import { swapNames } from '../../core/format.util';
+import { PageTitleService } from '../../core/page-title.service';
 import { PersonDetails, PersonService } from '../../data/person.service';
 import { MediaImageComponent } from '../../shared/media-image.component';
 
@@ -33,7 +34,8 @@ export class PersonDetailPage implements OnInit, OnDestroy {
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly people: PersonService,
-    private readonly detailRefresh: DetailRefreshService
+    private readonly detailRefresh: DetailRefreshService,
+    private readonly pageTitle: PageTitleService
   ) {}
 
   ngOnInit(): void {
@@ -64,6 +66,9 @@ export class PersonDetailPage implements OnInit, OnDestroy {
       this.details.set(details);
       if (!details) {
         this.error.set('Henkilöä ei löytynyt.');
+        this.pageTitle.set('Haku');
+      } else {
+        this.pageTitle.set(swapNames(details.person.Name));
       }
     } catch (e: unknown) {
       this.error.set(errorMessage(e));

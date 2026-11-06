@@ -186,7 +186,7 @@ import { LookupRow } from '../core/models';
         gap: 0.45rem;
         padding: 0.35rem 0.4rem;
         border-radius: 4px;
-        font-size: 0.9rem;
+        font-size: 1rem;
         cursor: pointer;
       }
       .mcs-option:hover {
@@ -206,7 +206,7 @@ import { LookupRow } from '../core/models';
         border-radius: 4px;
         background: transparent;
         color: #8b1e1e;
-        font-size: 1.15rem;
+        font-size: 1rem;
         line-height: 1;
         cursor: pointer;
       }
@@ -216,7 +216,7 @@ import { LookupRow } from '../core/models';
       .mcs-empty {
         padding: 0.5rem;
         color: #777;
-        font-size: 0.85rem;
+        font-size: 1rem;
       }
     `,
   ],

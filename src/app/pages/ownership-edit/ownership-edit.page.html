@@ -1,0 +1,533 @@
+<section class="edit-page ownership-edit-page">
+  <div class="edit-main">
+    <header class="edit-head">
+      <h1>{{ pageTitle() }}</h1>
+      <div class="head-actions">
+        <button type="button" class="primary" (click)="save()" [disabled]="!canSave()">
+          Tallenna
+        </button>
+        <button type="button" class="ghost" (click)="openMovieSearch()" [disabled]="saving() || booting()">
+          Lisää elokuva
+        </button>
+        <button type="button" class="ghost cancel-btn" (click)="cancel()" [disabled]="saving()">Peruuta</button>
+      </div>
+    </header>
+
+    <div class="edit-body">
+      @if (booting()) {
+        <p class="soft">Ladataan…</p>
+      } @else {
+        <div class="field-stack">
+          <div class="top-selects">
+            <div class="labeled-field">
+              <div class="field-head">
+                <span class="field-caption">Julkaisija</span>
+                <button
+                  type="button"
+                  class="icon-btn icon-clear"
+                  (click)="draft.releasePublisherId = null"
+                  [disabled]="!draft.releasePublisherId"
+                  aria-label="Tyhjennä"
+                  title="Tyhjennä"
+                ></button>
+                <button
+                  type="button"
+                  class="icon-btn icon-add"
+                  (click)="openCatalogAdd('ReleasePublisher')"
+                  aria-label="Lisää julkaisija"
+                  title="Lisää"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn icon-edit"
+                  (click)="openCatalogEdit('ReleasePublisher', draft.releasePublisherId)"
+                  [disabled]="!draft.releasePublisherId"
+                  aria-label="Muokkaa julkaisijaa"
+                  title="Muokkaa"
+                >
+                  ✎
+                </button>
+              </div>
+              <app-search-select
+                [options]="releasePublishers"
+                [(ngModel)]="draft.releasePublisherId"
+                name="releasePublisherId"
+                placeholder="Valitse julkaisija…"
+              />
+            </div>
+
+            <div class="labeled-field">
+              <div class="field-head">
+                <span class="field-caption">Versio</span>
+                <button
+                  type="button"
+                  class="icon-btn icon-clear"
+                  (click)="draft.releaseRegionId = null"
+                  [disabled]="!draft.releaseRegionId"
+                  aria-label="Tyhjennä"
+                  title="Tyhjennä"
+                ></button>
+                <button
+                  type="button"
+                  class="icon-btn icon-add"
+                  (click)="openCatalogAdd('ReleaseRegion')"
+                  aria-label="Lisää versio"
+                  title="Lisää"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn icon-edit"
+                  (click)="openCatalogEdit('ReleaseRegion', draft.releaseRegionId)"
+                  [disabled]="!draft.releaseRegionId"
+                  aria-label="Muokkaa versiota"
+                  title="Muokkaa"
+                >
+                  ✎
+                </button>
+              </div>
+              <app-search-select
+                [options]="releaseRegions"
+                [(ngModel)]="draft.releaseRegionId"
+                (ngModelChange)="onReleaseRegionChange()"
+                name="releaseRegionId"
+                placeholder="Valitse versio…"
+              />
+            </div>
+
+            <div class="labeled-field">
+              <div class="field-head">
+                <span class="field-caption">Kotelon kunto</span>
+                <button
+                  type="button"
+                  class="icon-btn icon-clear"
+                  (click)="draft.releaseConditionId = null"
+                  [disabled]="!draft.releaseConditionId"
+                  aria-label="Tyhjennä"
+                  title="Tyhjennä"
+                ></button>
+                <button
+                  type="button"
+                  class="icon-btn icon-add"
+                  (click)="openCatalogAdd('ReleaseCondition')"
+                  aria-label="Lisää kotelon kunto"
+                  title="Lisää"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn icon-edit"
+                  (click)="openCatalogEdit('ReleaseCondition', draft.releaseConditionId)"
+                  [disabled]="!draft.releaseConditionId"
+                  aria-label="Muokkaa kotelon kuntoa"
+                  title="Muokkaa"
+                >
+                  ✎
+                </button>
+              </div>
+              <app-search-select
+                [options]="releaseConditions"
+                [(ngModel)]="draft.releaseConditionId"
+                (ngModelChange)="onReleaseConditionChange()"
+                name="releaseConditionId"
+                placeholder="Valitse kotelon kunto…"
+              />
+            </div>
+
+            <div class="labeled-field">
+              <div class="field-head">
+                <span class="field-caption">Tyyppi</span>
+                <button
+                  type="button"
+                  class="icon-btn icon-clear"
+                  (click)="draft.ownershipTypeId = null"
+                  [disabled]="!draft.ownershipTypeId"
+                  aria-label="Tyhjennä"
+                  title="Tyhjennä"
+                ></button>
+                <button
+                  type="button"
+                  class="icon-btn icon-add"
+                  (click)="openCatalogAdd('OwnershipType')"
+                  aria-label="Lisää omistuksen tyyppi"
+                  title="Lisää"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn icon-edit"
+                  (click)="openCatalogEdit('OwnershipType', draft.ownershipTypeId)"
+                  [disabled]="!draft.ownershipTypeId"
+                  aria-label="Muokkaa tyyppiä"
+                  title="Muokkaa"
+                >
+                  ✎
+                </button>
+              </div>
+              <app-search-select
+                [options]="ownershipTypes"
+                [(ngModel)]="draft.ownershipTypeId"
+                name="ownershipTypeId"
+                placeholder="Valitse tyyppi…"
+              />
+            </div>
+          </div>
+
+          <label class="block">
+            Tietoja
+            <textarea rows="2" [(ngModel)]="draft.notes" name="ownershipNotes"></textarea>
+          </label>
+
+          <div class="movies-grid">
+          @for (m of draft.movies; track m.movieId; let mi = $index) {
+            <div
+              class="movie-block"
+              [class.media-target]="draft.movies.length > 1 && selectedMovieIndex === mi"
+              (click)="selectMovieForMedia(mi)"
+            >
+              <div class="movie-block-head">
+                <strong class="movie-block-title">
+                  {{ movieTitleBase(m) }}
+                  @if (movieVersionLabel(m); as ver) {
+                    - <span class="version-name">{{ ver }}</span>
+                  }
+                </strong>
+                <div class="movie-block-actions">
+                  <div class="media-add-wrap" (click)="$event.stopPropagation()">
+                    <button
+                      type="button"
+                      class="ghost media-add-btn"
+                      (click)="toggleMediaMenu($event, mi)"
+                      [disabled]="saving() || booting()"
+                    >
+                      Lisää media ▾
+                    </button>
+                    @if (mediaMenuForMovieIndex === mi) {
+                      <ul class="media-menu" role="menu">
+                        @for (fmt of mediaFormats; track fmt.Id) {
+                          <li role="none">
+                            <button
+                              type="button"
+                              role="menuitem"
+                              (click)="addMediaFormat(m, fmt.Id, $event)"
+                            >
+                              {{ mediaFormatLabelMap[fmt.Id] || fmt.Value }}
+                            </button>
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </div>
+                  @if (draft.movies.length > 1) {
+                    <button type="button" class="danger-btn" (click)="removeMovieFromDraft(mi)">Poista</button>
+                  }
+                </div>
+              </div>
+
+              <div class="media-grid">
+              @for (f of m.formats; track f.key; let fi = $index) {
+                <div class="media-section">
+                  <button
+                    type="button"
+                    class="icon-btn icon-close media-remove"
+                    (click)="removeMediaBlock(m, fi); $event.stopPropagation()"
+                    aria-label="Poista media"
+                    title="Poista"
+                  >
+                    ×
+                  </button>
+
+                  <div class="media-type-row">
+                    @if (isDigitalCopy(f.mediaFormatId) && f.digitalHasDisc === false) {
+                      <div class="media-art digital" aria-hidden="true" title="Digital Copy">DC</div>
+                    } @else if (isDisc(f.mediaFormatId)) {
+                      <div
+                        class="media-art disc"
+                        [style.--disc-color]="discColor(f.mediaFormatId)"
+                        aria-hidden="true"
+                      >
+                        <span class="disc-hole"></span>
+                      </div>
+                    } @else if (isCassette(f.mediaFormatId)) {
+                      <div class="media-art cassette" aria-hidden="true">
+                        <span class="tape-window"></span>
+                      </div>
+                    } @else {
+                      <div class="media-art digital" aria-hidden="true" title="Digital Copy">DC</div>
+                    }
+                    <div class="media-section-title">{{ formatLabel(f.mediaFormatId) }}</div>
+                  </div>
+
+                  <div class="media-fields-stack">
+                    <div class="labeled-field">
+                      <div class="field-head">
+                        <span class="field-caption">Sisältö <span class="req">*</span></span>
+                        <button
+                          type="button"
+                          class="icon-btn icon-add"
+                          (click)="duplicateMediaBlock(m, f); $event.stopPropagation()"
+                          aria-label="Lisää uusi media"
+                          title="Lisää media"
+                        >
+                          +
+                        </button>
+                        <button
+                          type="button"
+                          class="icon-btn icon-edit"
+                          (click)="openCatalogEdit('MediaContent', f.contentType, mi, fi)"
+                          [disabled]="!f.contentType"
+                          aria-label="Muokkaa sisältöä"
+                          title="Muokkaa"
+                        >
+                          ✎
+                        </button>
+                      </div>
+                      <app-search-select
+                        class="stretch"
+                        [options]="contentOptions"
+                        [(ngModel)]="f.contentType"
+                        (ngModelChange)="onContentTypeChange(m)"
+                        [name]="'content-' + mi + '-' + fi"
+                        placeholder="Valitse sisältö…"
+                      />
+                    </div>
+
+                    @if (isDigitalCopy(f.mediaFormatId)) {
+                      <div class="labeled-field">
+                        <span class="field-caption">Levy</span>
+                        <div class="digital-disc-options">
+                          <label class="check">
+                            <input
+                              type="radio"
+                              [name]="'dcDisc-' + mi + '-' + fi"
+                              [checked]="f.digitalHasDisc !== false"
+                              (change)="onDigitalHasDiscChange(f, true)"
+                            />
+                            Fyysinen levy
+                          </label>
+                          <label class="check">
+                            <input
+                              type="radio"
+                              [name]="'dcDisc-' + mi + '-' + fi"
+                              [checked]="f.digitalHasDisc === false"
+                              (change)="onDigitalHasDiscChange(f, false)"
+                            />
+                            Ei fyysistä levyä
+                          </label>
+                        </div>
+                      </div>
+                    }
+
+                    @if (needsMediaCondition(f)) {
+                      <div class="labeled-field">
+                        <div class="field-head">
+                          <span class="field-caption">{{
+                            isCassette(f.mediaFormatId) ? 'Kasetin kunto' : 'Levyn kunto'
+                          }}</span>
+                          <button
+                            type="button"
+                            class="icon-btn icon-clear"
+                            (click)="f.mediaConditionId = null"
+                            [disabled]="isCaseConditionNew() || !f.mediaConditionId"
+                            aria-label="Tyhjennä"
+                            title="Tyhjennä"
+                          ></button>
+                          <button
+                            type="button"
+                            class="icon-btn icon-add"
+                            (click)="openCatalogAdd('MediaCondition', mi, fi)"
+                            [disabled]="isCaseConditionNew()"
+                            aria-label="Lisää kunto"
+                            title="Lisää"
+                          >
+                            +
+                          </button>
+                          <button
+                            type="button"
+                            class="icon-btn icon-edit"
+                            (click)="openCatalogEdit('MediaCondition', f.mediaConditionId, mi, fi)"
+                            [disabled]="isCaseConditionNew() || !f.mediaConditionId"
+                            aria-label="Muokkaa kuntoa"
+                            title="Muokkaa"
+                          >
+                            ✎
+                          </button>
+                        </div>
+                        <app-search-select
+                          class="stretch"
+                          [options]="mediaConditions"
+                          [(ngModel)]="f.mediaConditionId"
+                          [name]="'mediaCond-' + mi + '-' + fi"
+                          [disabled]="isCaseConditionNew()"
+                          placeholder="Valitse kunto…"
+                        />
+                      </div>
+                    }
+
+                    <div class="labeled-field">
+                      <div class="field-head">
+                        <span class="field-caption">Kuvasuhde</span>
+                        <button
+                          type="button"
+                          class="icon-btn icon-clear"
+                          (click)="f.ratioId = null"
+                          [disabled]="isFixedOriginalRatioFormat(f.mediaFormatId) || !f.ratioId"
+                          aria-label="Tyhjennä"
+                          title="Tyhjennä"
+                        ></button>
+                        <button
+                          type="button"
+                          class="icon-btn icon-add"
+                          (click)="openCatalogAdd('MediaRatio', mi, fi)"
+                          [disabled]="isFixedOriginalRatioFormat(f.mediaFormatId)"
+                          aria-label="Lisää kuvasuhde"
+                          title="Lisää"
+                        >
+                          +
+                        </button>
+                        <button
+                          type="button"
+                          class="icon-btn icon-edit"
+                          (click)="openCatalogEdit('MediaRatio', f.ratioId, mi, fi)"
+                          [disabled]="isFixedOriginalRatioFormat(f.mediaFormatId) || !f.ratioId"
+                          aria-label="Muokkaa kuvasuhdetta"
+                          title="Muokkaa"
+                        >
+                          ✎
+                        </button>
+                      </div>
+                      <app-search-select
+                        class="stretch"
+                        [options]="mediaRatios"
+                        [(ngModel)]="f.ratioId"
+                        [name]="'ratio-' + mi + '-' + fi"
+                        [disabled]="isFixedOriginalRatioFormat(f.mediaFormatId)"
+                        placeholder="Valitse kuvasuhde…"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="subtitle-stack">
+                    <label class="check block-check">
+                      <input
+                        type="checkbox"
+                        [name]="'audio-fi-' + mi + '-' + fi"
+                        [checked]="hasAudio(f, finnishAudioId)"
+                        (change)="onFinnishAudioChange(f, $any($event.target).checked)"
+                      />
+                      Suomenkielinen puhe
+                    </label>
+                    <label class="check block-check">
+                      <input
+                        type="checkbox"
+                        [name]="'sub-fi-' + mi + '-' + fi"
+                        [disabled]="finnishSubtitleId == null || regionImpliesFinnishSubs()"
+                        [checked]="hasSubtitle(f, finnishSubtitleId)"
+                        (change)="toggleSubtitle(f, finnishSubtitleId, $any($event.target).checked)"
+                      />
+                      Suomenkielinen tekstitys
+                    </label>
+                    <label class="check block-check">
+                      <input
+                        type="checkbox"
+                        [name]="'sub-en-' + mi + '-' + fi"
+                        [disabled]="englishSubtitleId == null"
+                        [checked]="hasSubtitle(f, englishSubtitleId)"
+                        (change)="toggleSubtitle(f, englishSubtitleId, $any($event.target).checked)"
+                      />
+                      Englanninkielinen tekstitys
+                    </label>
+                  </div>
+                </div>
+              }
+              </div>
+            </div>
+          }
+          </div>
+        </div>
+      }
+
+      @if (message()) {
+        <p class="error">{{ message() }}</p>
+      }
+    </div>
+
+    @if (saving()) {
+      <div class="saving-overlay" aria-live="polite">
+        <div class="saving-box">
+          <div class="spinner" aria-hidden="true"></div>
+          <span>Tallennetaan...</span>
+        </div>
+      </div>
+    }
+  </div>
+</section>
+
+@if (movieSearchOpen) {
+  <div class="modal-backdrop nested" (click)="closeMovieSearch()">
+    <div class="modal modal-small" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+      <header class="modal-head">
+        <h2>Lisää elokuva</h2>
+      </header>
+      <div class="modal-body">
+        <label class="block">
+          Haku
+          <input
+            [(ngModel)]="movieSearchQuery"
+            name="movieSearchQuery"
+            (ngModelChange)="onMovieSearchInput()"
+            autofocus
+          />
+        </label>
+        <ul class="picker">
+          @for (m of movieSearchResults; track m.Id) {
+            <li>
+              <button type="button" class="linkish" (click)="addMovieToDraft(m)">
+                {{ movieTitleBase(m) }}
+                @if (movieVersionLabel(m); as ver) {
+                  - <span class="version-name">{{ ver }}</span>
+                }
+              </button>
+            </li>
+          }
+        </ul>
+      </div>
+      <footer class="modal-foot">
+        <button type="button" class="ghost" (click)="closeMovieSearch()">Peruuta</button>
+      </footer>
+    </div>
+  </div>
+}
+
+@if (catalogModalOpen) {
+  <div class="modal-backdrop nested" (click)="closeCatalogModal()">
+    <div class="modal modal-small" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+      <header class="modal-head">
+        <h2>{{ catalogModalTitle() }}</h2>
+      </header>
+      <div class="modal-body">
+        <label class="block">
+          Arvo
+          <input
+            #catalogValueInput
+            [(ngModel)]="catalogValue"
+            name="catalogValue"
+            (keydown.enter)="$event.preventDefault(); saveCatalogModal()"
+          />
+        </label>
+        @if (catalogError) {
+          <p class="error">{{ catalogError }}</p>
+        }
+      </div>
+      <footer class="modal-foot">
+        <button type="button" class="primary" (click)="saveCatalogModal()">Tallenna</button>
+        <button type="button" class="ghost" (click)="closeCatalogModal()">Peruuta</button>
+      </footer>
+    </div>
+  </div>
+}

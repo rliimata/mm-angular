@@ -252,7 +252,7 @@
 .modal-head h1,
 .modal-head h2 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 
 .modal-body {
@@ -456,7 +456,7 @@
   border-radius: 4px;
   background: transparent;
   font: inherit;
-  font-size: 1.15rem;
+  font-size: 1rem;
   line-height: 1;
   cursor: pointer;
   display: grid;
@@ -474,6 +474,11 @@
   color: #1f4b7a;
 }
 
+.icon-btn.icon-edit {
+  color: #1f4b7a;
+  font-size: 1rem;
+}
+
 .icon-btn.icon-del,
 .icon-btn.icon-close {
   color: #8b1e1e;
@@ -485,7 +490,7 @@
 
 .icon-btn.icon-view {
   color: #1f4b7a;
-  font-size: 0.95rem;
+  font-size: 1rem;
 }
 
 .icon-btn:hover:not(:disabled) {
@@ -666,7 +671,7 @@ input[type='number']::-webkit-inner-spin-button {
 }
 
 .role-chip .chip-label {
-  font-size: 0.85rem;
+  font-size: 1rem;
 }
 
 .role-chip .icon-btn {
@@ -681,7 +686,7 @@ input[type='number']::-webkit-inner-spin-button {
 
 .hits {
   max-width: 20rem;
-  font-size: 0.8rem;
+  font-size: 1rem;
 }
 
 .hit-name {
@@ -705,7 +710,7 @@ input[type='number']::-webkit-inner-spin-button {
 
 .mini {
   padding: 0.2rem 0.45rem !important;
-  font-size: 0.8rem !important;
+  font-size: 1rem !important;
 }
 
 .role-block {
@@ -752,7 +757,7 @@ button.ghost {
   background: #8b1e1e;
   color: #fff;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 1rem;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -770,4 +775,46 @@ button.ghost {
   display: grid;
   place-items: center;
   padding: 1rem;
+}
+
+.modal-small {
+  width: min(28rem, 100%);
+}
+
+.title-match-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  max-height: min(18rem, 50vh);
+  overflow: auto;
+}
+
+.title-match-btn {
+  width: 100%;
+  display: grid;
+  gap: 0.15rem;
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #d0d8e0;
+  border-radius: 6px;
+  background: #f7fafc;
+  color: #111;
+  font: inherit;
+  cursor: pointer;
+}
+
+.title-match-btn:hover {
+  border-color: #1f4b7a;
+  background: #eef4fa;
+}
+
+.title-match-main {
+  font-weight: 600;
+}
+
+.title-match-dirs {
+  color: #5a6570;
+  font-size: 1rem;
 }

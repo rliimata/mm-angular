@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { decodeEntities, swapTitle } from '../core/format.util';
+import { decodeEntities, swapNames, swapTitle } from '../core/format.util';
+import { reverseMovieRelationLabel } from '../core/movie-relation.util';
 import { Movie, LookupRow } from '../core/models';
 import { getSupabase } from '../core/supabase.client';
 import { mediaFormatShort } from './ownership.service';
@@ -36,7 +37,16 @@ export interface MovieDetails {
   aka: { Title: string; Language: string }[];
   roles: { PersonId: number; RoleId: number; Sequence: number; Name: string; Role: string }[];
   awards: { Award: string; PersonId: number | null; PersonName: string | null }[];
-  related: { MovieId: number; Title: string; Year: number | null; Relation: string }[];
+  related: {
+    MovieId: number;
+    Title: string;
+    Year: number | null;
+    Version: string;
+    /** Display label (forward for outgoing, reverse for incoming). */
+    Relation: string;
+    RelationId: number;
+    Incoming: boolean;
+  }[];
   version: string;
   ratio: string;
   distribution: string;
@@ -247,25 +257,111 @@ export class MovieService {
     let filterIds: number[] | null = null;
     const term = query.trim();
     if (mode === 'text' && term) {
-      // Exact title first rank is approximated by sorting later; include AKA + text matches like PHP.
-      const [{ data: akaHits }, { data: textHits }, { data: triviaHits }, { data: titleHits }] =
-        await Promise.all([
-          getSupabase().from('Aka').select('MovieId').ilike('Title', `%${term}%`),
-          getSupabase().from('MovieText').select('MovieId').ilike('Text', `%${term}%`),
-          getSupabase().from('MovieTrivia').select('MovieId').ilike('Text', `%${term}%`),
-          getSupabase().from('Movie').select('Id').ilike('Title', `%${term}%`),
-        ]);
-      filterIds = [
-        ...new Set([
-          ...(((titleHits as { Id: number }[]) ?? []).map((r) => r.Id)),
-          ...(((akaHits as { MovieId: number }[]) ?? []).map((r) => r.MovieId)),
-          ...(((textHits as { MovieId: number }[]) ?? []).map((r) => r.MovieId)),
-          ...(((triviaHits as { MovieId: number }[]) ?? []).map((r) => r.MovieId)),
-        ]),
-      ];
-      if (!filterIds.length) {
+      // Title + Aka only; exact matches ranked first (handled below).
+      const [{ data: akaHits }, { data: titleHits }] = await Promise.all([
+        getSupabase().from('Aka').select('MovieId, Title, TitleLanguageId').ilike('Title', `%${term}%`),
+        getSupabase()
+          .from('Movie')
+          .select('Id, Title, Year, DistributionId, TitleLanguageId, VersionId')
+          .ilike('Title', `%${term}%`),
+      ]);
+      const titleMovies = (titleHits as Movie[]) ?? [];
+      const akaRows =
+        (akaHits as { MovieId: number; Title: string; TitleLanguageId: number | null }[]) ?? [];
+      const byId = new Map<number, Movie>(titleMovies.map((m) => [m.Id, m]));
+      const missingIds = [...new Set(akaRows.map((a) => a.MovieId))].filter((id) => !byId.has(id));
+      if (missingIds.length) {
+        const { data: akaMovies, error: akaMovieErr } = await getSupabase()
+          .from('Movie')
+          .select('Id, Title, Year, DistributionId, TitleLanguageId, VersionId')
+          .in('Id', missingIds);
+        if (akaMovieErr) {
+          throw akaMovieErr;
+        }
+        for (const m of (akaMovies as Movie[]) ?? []) {
+          byId.set(m.Id, m);
+        }
+      }
+      if (!byId.size) {
         return { rows: [], count: 0 };
       }
+
+      const akaByMovie = new Map<number, { Title: string; TitleLanguageId: number | null }[]>();
+      for (const a of akaRows) {
+        const list = akaByMovie.get(a.MovieId) ?? [];
+        list.push({ Title: a.Title, TitleLanguageId: a.TitleLanguageId });
+        akaByMovie.set(a.MovieId, list);
+      }
+
+      const termLower = term.toLowerCase();
+      const norm = (value: string, langId: number | null | undefined) => {
+        const raw = decodeEntities(value).trim().toLowerCase();
+        const swapped = swapTitle(value, langId).trim().toLowerCase();
+        return [...new Set([raw, swapped].filter(Boolean))];
+      };
+      const rankMovie = (m: Movie): number => {
+        const titles = norm(m.Title, m.TitleLanguageId);
+        if (titles.includes(termLower)) {
+          return 0; // exact title
+        }
+        const akas = akaByMovie.get(m.Id) ?? [];
+        if (akas.some((a) => norm(a.Title, a.TitleLanguageId).includes(termLower))) {
+          return 1; // exact aka
+        }
+        if (titles.some((t) => t.startsWith(termLower))) {
+          return 2;
+        }
+        if (akas.some((a) => norm(a.Title, a.TitleLanguageId).some((t) => t.startsWith(termLower)))) {
+          return 3;
+        }
+        return 4; // partial title/aka
+      };
+
+      let ranked = [...byId.values()].sort((a, b) => {
+        const ra = rankMovie(a);
+        const rb = rankMovie(b);
+        if (ra !== rb) {
+          return ra - rb;
+        }
+        return a.Title.localeCompare(b.Title, 'fi', { sensitivity: 'base' }) || (a.Year ?? 0) - (b.Year ?? 0);
+      });
+
+      if (categoryId) {
+        const allowed = new Set(
+          await this.linkMovieIds(
+            'CategoryLink',
+            'CategoryId',
+            categoryId,
+            ranked.map((m) => m.Id)
+          )
+        );
+        ranked = ranked.filter((m) => allowed.has(m.Id));
+      }
+      if (countryId) {
+        const allowed = new Set(
+          await this.linkMovieIds(
+            'CountryLink',
+            'CountryId',
+            countryId,
+            ranked.map((m) => m.Id)
+          )
+        );
+        ranked = ranked.filter((m) => allowed.has(m.Id));
+      }
+      if (soundId) {
+        const allowed = new Set(
+          await this.linkMovieIds(
+            'SoundLink',
+            'SoundId',
+            soundId,
+            ranked.map((m) => m.Id)
+          )
+        );
+        ranked = ranked.filter((m) => allowed.has(m.Id));
+      }
+
+      const pageRows = await this.enrichListItems(ranked.slice(from, to + 1) as MovieListItem[]);
+      return { rows: pageRows, count: ranked.length };
     }
 
     if (categoryId) {
@@ -302,6 +398,79 @@ export class MovieService {
     }
     const rows = await this.enrichListItems((data as MovieListItem[]) ?? []);
     return { rows, count: count ?? 0 };
+  }
+
+  /** Exact title matches (case-insensitive) with year + directors for duplicate check. */
+  async findExactTitleMatches(
+    title: string
+  ): Promise<{ Id: number; Title: string; Year: number | null; Directors: string[] }[]> {
+    const trimmed = title.trim();
+    if (!trimmed) {
+      return [];
+    }
+    const { data, error } = await getSupabase()
+      .from('Movie')
+      .select('Id, Title, Year, TitleLanguageId')
+      .ilike('Title', trimmed)
+      .order('Year', { ascending: true });
+    if (error) {
+      throw error;
+    }
+    let rows =
+      (data as { Id: number; Title: string; Year: number | null; TitleLanguageId: number | null }[]) ??
+      [];
+    const termLower = trimmed.toLowerCase();
+    rows = rows.filter((r) => {
+      const raw = decodeEntities(r.Title).trim().toLowerCase();
+      const swapped = swapTitle(r.Title, r.TitleLanguageId).trim().toLowerCase();
+      return raw === termLower || swapped === termLower;
+    });
+    if (!rows.length) {
+      return [];
+    }
+    const ids = rows.map((r) => r.Id);
+    const { data: links, error: linkErr } = await getSupabase()
+      .from('RoleLink')
+      .select('MovieId, PersonId, Sequence')
+      .eq('RoleId', 1)
+      .in('MovieId', ids)
+      .order('Sequence');
+    if (linkErr) {
+      throw linkErr;
+    }
+    const linkRows = (links as { MovieId: number; PersonId: number; Sequence: number }[]) ?? [];
+    const personIds = [...new Set(linkRows.map((l) => l.PersonId))];
+    const nameMap = new Map<number, string>();
+    if (personIds.length) {
+      const { data: people, error: pErr } = await getSupabase()
+        .from('Person')
+        .select('Id, Name')
+        .in('Id', personIds);
+      if (pErr) {
+        throw pErr;
+      }
+      for (const p of (people as { Id: number; Name: string }[]) ?? []) {
+        nameMap.set(p.Id, swapNames(decodeEntities(p.Name)));
+      }
+    }
+    const directorsByMovie = new Map<number, string[]>();
+    for (const l of linkRows) {
+      const name = nameMap.get(l.PersonId);
+      if (!name) {
+        continue;
+      }
+      const list = directorsByMovie.get(l.MovieId) ?? [];
+      if (!list.includes(name)) {
+        list.push(name);
+      }
+      directorsByMovie.set(l.MovieId, list);
+    }
+    return rows.map((r) => ({
+      Id: r.Id,
+      Title: swapTitle(r.Title, r.TitleLanguageId),
+      Year: r.Year,
+      Directors: directorsByMovie.get(r.Id) ?? [],
+    }));
   }
 
   private async enrichListItems(rows: MovieListItem[]): Promise<MovieListItem[]> {
@@ -367,7 +536,8 @@ export class MovieService {
       akaRows,
       roles,
       awardLinks,
-      movieLinks,
+      movieLinksOut,
+      movieLinksIn,
       versions,
       ratios,
       distributions,
@@ -389,6 +559,7 @@ export class MovieService {
       this.getRoles(id),
       getSupabase().from('AwardLink').select('PersonId, AwardId').eq('MovieId', id),
       getSupabase().from('MovieLink').select('DestinationId, RelationId').eq('SourceId', id),
+      getSupabase().from('MovieLink').select('SourceId, RelationId').eq('DestinationId', id),
       getSupabase().from('Version').select('Id, Value'),
       getSupabase().from('Ratio').select('Id, Value'),
       getSupabase().from('Distribution').select('Id, Value'),
@@ -435,26 +606,57 @@ export class MovieService {
       personMap = new Map(((people as { Id: number; Name: string }[]) ?? []).map((p) => [p.Id, p.Name]));
     }
 
-    const relatedRows = (movieLinks.data as { DestinationId: number; RelationId: number }[]) ?? [];
+    const outRows = (movieLinksOut.data as { DestinationId: number; RelationId: number }[]) ?? [];
+    const inRows = (movieLinksIn.data as { SourceId: number; RelationId: number }[]) ?? [];
+    const relatedIds = [
+      ...new Set([...outRows.map((r) => r.DestinationId), ...inRows.map((r) => r.SourceId)]),
+    ];
     let related: MovieDetails['related'] = [];
-    if (relatedRows.length) {
+    if (relatedIds.length) {
       const { data: movies } = await getSupabase()
         .from('Movie')
-        .select('Id, Title, Year, TitleLanguageId')
-        .in(
-          'Id',
-          relatedRows.map((r) => r.DestinationId)
-        );
-      const movieMap = new Map(((movies as Movie[]) ?? []).map((m) => [m.Id, m]));
-      related = relatedRows.map((r) => {
-        const m = movieMap.get(r.DestinationId);
-        return {
-          MovieId: r.DestinationId,
-          Title: m ? swapTitle(m.Title, m.TitleLanguageId) : `#${r.DestinationId}`,
-          Year: m?.Year ?? null,
-          Relation: relMap.get(r.RelationId) ?? String(r.RelationId),
-        };
-      });
+        .select('Id, Title, Year, TitleLanguageId, VersionId')
+        .in('Id', relatedIds);
+      type RelatedMovie = Movie & { VersionId: number | null };
+      const movieMap = new Map(((movies as RelatedMovie[]) ?? []).map((m) => [m.Id, m]));
+      const versionMap = new Map(
+        ((versions.data as LookupRow[]) ?? []).map((r) => [r.Id, decodeEntities(String(r.Value))])
+      );
+      const versionOf = (m: RelatedMovie | undefined) => {
+        if (!m?.VersionId || m.VersionId <= 0) {
+          return '';
+        }
+        const v = versionMap.get(m.VersionId) ?? '';
+        return !v || v === '-' ? '' : v;
+      };
+      // Incoming first with reverse labels (Jatkoa elokuvalle / Alkuperäisversio / …),
+      // then outgoing with stored MovieRelation labels.
+      related = [
+        ...inRows.map((r) => {
+          const m = movieMap.get(r.SourceId);
+          return {
+            MovieId: r.SourceId,
+            Title: m ? swapTitle(m.Title, m.TitleLanguageId) : `#${r.SourceId}`,
+            Year: m?.Year ?? null,
+            Version: versionOf(m),
+            Relation: reverseMovieRelationLabel(r.RelationId),
+            RelationId: r.RelationId,
+            Incoming: true,
+          };
+        }),
+        ...outRows.map((r) => {
+          const m = movieMap.get(r.DestinationId);
+          return {
+            MovieId: r.DestinationId,
+            Title: m ? swapTitle(m.Title, m.TitleLanguageId) : `#${r.DestinationId}`,
+            Year: m?.Year ?? null,
+            Version: versionOf(m),
+            Relation: relMap.get(r.RelationId) ?? String(r.RelationId),
+            RelationId: r.RelationId,
+            Incoming: false,
+          };
+        }),
+      ];
     }
 
     return {

@@ -146,6 +146,61 @@ export class CatalogService {
     return (count ?? 0) > 0;
   }
 
+  async updateValue(table: CatalogTable, id: number, value: string): Promise<void> {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      throw new Error('Arvo ei voi olla tyhjä.');
+    }
+    if (table === 'AgeRating') {
+      const n = Number(trimmed.replace(/\D+/g, ''));
+      if (!Number.isFinite(n) || n <= 0) {
+        throw new Error('Ikärajan on oltava positiivinen luku.');
+      }
+      const { data: existing } = await getSupabase()
+        .from('AgeRating')
+        .select('Id, Value')
+        .eq('Value', n)
+        .neq('Id', id)
+        .maybeSingle();
+      if (existing) {
+        throw new Error(`Ikäraja ${n} on jo olemassa.`);
+      }
+      const { data, error } = await getSupabase()
+        .from('AgeRating')
+        .update({ Value: n })
+        .eq('Id', id)
+        .select('Id')
+        .maybeSingle();
+      if (error) {
+        throw error;
+      }
+      if (!data) {
+        throw new Error('Arvon päivitys estetty tai riviä ei löytynyt.');
+      }
+      return;
+    }
+
+    const { data: existing } = await getSupabase().from(table).select('Id, Value').ilike('Value', trimmed);
+    const hit = ((existing as { Id: number; Value: string }[]) ?? []).find(
+      (r) => r.Id !== id && r.Value.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (hit) {
+      throw new Error(`Arvo "${hit.Value}" on jo olemassa.`);
+    }
+    const { data, error } = await getSupabase()
+      .from(table)
+      .update({ Value: trimmed })
+      .eq('Id', id)
+      .select('Id')
+      .maybeSingle();
+    if (error) {
+      throw error;
+    }
+    if (!data) {
+      throw new Error('Arvon päivitys estetty tai riviä ei löytynyt.');
+    }
+  }
+
   async deleteValue(table: CatalogTable, id: number): Promise<void> {
     if (await this.isInUse(table, id)) {
       throw new Error('Arvoa ei voi poistaa, koska se on käytössä.');

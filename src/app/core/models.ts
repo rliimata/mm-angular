@@ -72,6 +72,10 @@ export interface OwnershipMovie {
   Sequence: number;
 }
 
+/** OwnershipFormat.ContentType */
+export const OWNERSHIP_CONTENT_FEATURE = 1;
+export const OWNERSHIP_CONTENT_BONUS = 2;
+
 export interface OwnershipFormat {
   Id: number;
   OwnershipMovieId: number;
@@ -79,14 +83,27 @@ export interface OwnershipFormat {
   Sequence: number;
   ReleasePictureId: number | null;
   RatioId: number | null;
-  Anamorphic: boolean;
+  ContentType: number;
+  MediaConditionId: number | null;
 }
 
 export interface OwnershipFormatDraft {
+  /** Local UI key so multiple rows can share the same MediaFormatId. */
+  key: string;
   mediaFormatId: number;
   ratioId: number | null;
-  anamorphic: boolean;
-  /** ReleaseSubtitle ids — UI exposes Suomi/Englanti checkboxes. */
+  /** 1 = Feature, 2 = Bonus Disc */
+  contentType: number;
+  /** Disc/cassette condition (ReleaseCondition id). */
+  mediaConditionId: number | null;
+  /**
+   * Digital Copy only: true = physical disc (ask condition), false = code-only.
+   * Ignored for other formats.
+   */
+  digitalHasDisc?: boolean;
+  /** ReleaseAudio ids — e.g. Finnish dialogue checkbox. */
+  audioIds: number[];
+  /** ReleaseSubtitle ids — FI/EN checkboxes. */
   subtitleIds: number[];
 }
 
@@ -95,10 +112,9 @@ export interface OwnershipMovieDraft {
   title: string;
   titleLanguageId: number | null;
   year: number | null;
-  /** Movie.RatioId for "(alkuperäinen)" hint on format aspect ratio. */
+  /** Movie.RatioId (unused in UI after original-hint removal; kept for data). */
   ratioId: number | null;
-  /** Stable reference for multi-check binding; kept in sync with formats. */
-  formatIds: number[];
+  versionLabel?: string | null;
   formats: OwnershipFormatDraft[];
 }
 

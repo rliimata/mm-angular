@@ -180,7 +180,7 @@ import { LookupRow } from '../core/models';
     .ss-empty {
       padding: 0.45rem;
       color: #777;
-      font-size: 0.9rem;
+      font-size: 1rem;
     }
   `,
   providers: [
@@ -196,13 +196,13 @@ export class SearchSelectComponent implements ControlValueAccessor, OnInit, OnDe
   @Input() placeholder = 'Valitse…';
   @Input() labelMap: Record<number, string> | null = null;
   @Input() searchable = true;
+  @Input() disabled = false;
   @Output() readonly opened = new EventEmitter<void>();
 
   readonly open = signal(false);
   readonly filteredOptions = signal<LookupRow[]>([]);
   query = '';
   value: number | null = null;
-  disabled = false;
 
   private onChange: (v: number | null) => void = () => undefined;
   private onTouched: () => void = () => undefined;
