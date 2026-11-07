@@ -2,14 +2,16 @@ import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChange
 import { FormsModule } from '@angular/forms';
 import { confirmAction, showError } from '../core/confirm.util';
 import { errorMessage } from '../core/error.util';
-import { initCapName, swapNames } from '../core/format.util';
+import { initCapName, swapNames, swapTitle } from '../core/format.util';
 import { LookupRow, Person } from '../core/models';
 import { CatalogService, CatalogTable } from '../data/catalog.service';
 import { LookupService } from '../data/lookup.service';
+import { MovieService } from '../data/movie.service';
 import { PersonService } from '../data/person.service';
 import { FlexibleDateComponent, FlexibleDateValue } from './flexible-date.component';
 import { SearchSelectComponent } from './search-select.component';
 import { CatalogAddModal } from '../pages/modals/catalog-add/catalog-add.modal';
+import { DigitsOnlyDirective } from './digits-only.directive';
 
 interface PersonLinkDraft {
   personId: number;
@@ -17,10 +19,23 @@ interface PersonLinkDraft {
   name: string;
 }
 
+interface SalaryDraft {
+  movieId: number;
+  movieTitle: string;
+  salary: number;
+  currencyId: number;
+}
+
 @Component({
   selector: 'app-person-form',
   standalone: true,
-  imports: [FormsModule, FlexibleDateComponent, SearchSelectComponent, CatalogAddModal],
+  imports: [
+    FormsModule,
+    FlexibleDateComponent,
+    SearchSelectComponent,
+    CatalogAddModal,
+    DigitsOnlyDirective,
+  ],
   template: `
     <form id="personEditForm" class="person-form" (ngSubmit)="save()">
       @if (error()) {
@@ -277,6 +292,76 @@ interface PersonLinkDraft {
         }
       </section>
 
+      <section class="plain-block">
+        <h3>Palkkiot</h3>
+        <ul class="item-list">
+          @for (s of salaries; track s.movieId + '-' + $index) {
+            <li>
+              <span
+                >{{ s.movieTitle }}: {{ s.salary }}
+                {{ currencyLabel(s.currencyId) }}</span
+              >
+              <button
+                type="button"
+                class="icon-btn icon-del"
+                (click)="removeSalary($index)"
+                aria-label="Poista"
+                title="Poista"
+              >
+                ×
+              </button>
+            </li>
+          }
+        </ul>
+        <div class="link-add salary-add">
+          <input
+            type="text"
+            inputmode="numeric"
+            appDigitsOnly
+            [(ngModel)]="salaryAmount"
+            name="pfSalaryAmount"
+            placeholder="Summa…"
+            maxlength="12"
+          />
+          <app-search-select
+            [options]="currencies"
+            [(ngModel)]="salaryCurrencyId"
+            name="pfSalaryCurrencyId"
+            placeholder="Valuutta…"
+            [searchable]="false"
+          />
+          <input
+            [(ngModel)]="salaryMovieQuery"
+            name="pfSalaryMovieQuery"
+            placeholder="Hae elokuvaa…"
+            (ngModelChange)="onSalaryMovieQueryInput()"
+            autocomplete="off"
+          />
+        </div>
+        @if (salaryMovieHits.length) {
+          <ul class="hits">
+            @for (m of salaryMovieHits; track m.Id) {
+              <li>
+                <span
+                  >{{ swapTitle(m.Title, m.TitleLanguageId) }}@if (m.Year) {
+                    ({{ m.Year }})
+                  }</span
+                >
+                <button
+                  type="button"
+                  class="icon-btn icon-add"
+                  (click)="addSalary(m)"
+                  aria-label="Lisää"
+                  title="Lisää"
+                >
+                  +
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
       @if (showFooter) {
         <div class="actions">
           <button type="submit" class="primary" [disabled]="saving() || !canSave()">Tallenna</button>
@@ -415,8 +500,12 @@ interface PersonLinkDraft {
       .link-add {
         grid-template-columns: 8.5rem minmax(0, 1fr);
       }
+      .salary-add {
+        grid-template-columns: 6.5rem 7rem minmax(0, 1fr);
+      }
       @media (max-width: 560px) {
-        .link-add {
+        .link-add,
+        .salary-add {
           grid-template-columns: 1fr;
         }
       }
@@ -559,9 +648,18 @@ export class PersonFormComponent implements OnInit, OnChanges {
   linkHits: Person[] = [];
   private linkSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
+  salaries: SalaryDraft[] = [];
+  salaryAmount = '';
+  salaryCurrencyId: number | null = null;
+  salaryMovieQuery = '';
+  salaryMovieHits: { Id: number; Title: string; Year: number | null; TitleLanguageId: number | null }[] =
+    [];
+  private salaryMovieTimer: ReturnType<typeof setTimeout> | null = null;
+
   countries: LookupRow[] = [];
   deathReasons: LookupRow[] = [];
   personRelations: LookupRow[] = [];
+  currencies: LookupRow[] = [];
 
   catalogAddOpen = false;
   catalogAddTable: 'Country' | 'DeathReason' | null = null;
@@ -574,6 +672,7 @@ export class PersonFormComponent implements OnInit, OnChanges {
   readonly saving = signal(false);
   readonly initCap = initCapName;
   readonly swapNames = swapNames;
+  readonly swapTitle = swapTitle;
 
   sortedLookups(rows: LookupRow[], selectedId: number | null | undefined): LookupRow[] {
     const selected = selectedId != null && selectedId > 0 ? new Set([selectedId]) : new Set<number>();
@@ -586,6 +685,7 @@ export class PersonFormComponent implements OnInit, OnChanges {
 
   constructor(
     private readonly people: PersonService,
+    private readonly movies: MovieService,
     private readonly lookups: LookupService,
     private readonly catalog: CatalogService
   ) {}
@@ -593,18 +693,23 @@ export class PersonFormComponent implements OnInit, OnChanges {
   async ngOnInit(): Promise<void> {
     await this.reloadLookups();
     this.linkRelationId = this.personRelations[0]?.Id ?? 0;
+    if (this.salaryCurrencyId == null) {
+      this.salaryCurrencyId = this.currencies[0]?.Id ?? null;
+    }
     await this.load();
   }
 
   private async reloadLookups(): Promise<void> {
-    const [countries, deathReasons, personRelations] = await Promise.all([
+    const [countries, deathReasons, personRelations, currencies] = await Promise.all([
       this.lookups.get('Country'),
       this.lookups.get('DeathReason'),
       this.lookups.get('PersonRelation'),
+      this.lookups.get('Currency'),
     ]);
     this.countries = countries;
     this.deathReasons = deathReasons;
     this.personRelations = personRelations;
+    this.currencies = currencies.filter((c) => c.Id !== 0);
   }
 
   openCatalogAdd(table: 'Country' | 'DeathReason', target: 'birth' | 'death' | null = null): void {
@@ -790,6 +895,71 @@ export class PersonFormComponent implements OnInit, OnChanges {
     this.links = this.links.filter((_, idx) => idx !== i);
   }
 
+  currencyLabel(id: number): string {
+    return this.lookups.label(this.currencies, id) || '';
+  }
+
+  onSalaryMovieQueryInput(): void {
+    if (this.salaryMovieTimer) {
+      clearTimeout(this.salaryMovieTimer);
+    }
+    this.salaryMovieTimer = setTimeout(() => void this.searchSalaryMovies(), 250);
+  }
+
+  async searchSalaryMovies(): Promise<void> {
+    const q = this.salaryMovieQuery.trim();
+    if (q.length < 2) {
+      this.salaryMovieHits = [];
+      return;
+    }
+    const res = await this.movies.search({
+      query: q,
+      mode: 'text',
+      page: 1,
+      pageSize: 20,
+    });
+    const existing = new Set(this.salaries.map((s) => s.movieId));
+    this.salaryMovieHits = res.rows
+      .filter((m) => !existing.has(m.Id))
+      .map((m) => ({
+        Id: m.Id,
+        Title: m.Title,
+        Year: m.Year,
+        TitleLanguageId: m.TitleLanguageId,
+      }));
+  }
+
+  addSalary(m: {
+    Id: number;
+    Title: string;
+    Year: number | null;
+    TitleLanguageId: number | null;
+  }): void {
+    const amount = Number(this.salaryAmount.replace(/\D+/g, ''));
+    if (!Number.isFinite(amount) || amount <= 0 || !this.salaryCurrencyId) {
+      return;
+    }
+    if (this.salaries.some((s) => s.movieId === m.Id)) {
+      return;
+    }
+    this.salaries = [
+      ...this.salaries,
+      {
+        movieId: m.Id,
+        movieTitle: swapTitle(m.Title, m.TitleLanguageId),
+        salary: amount,
+        currencyId: this.salaryCurrencyId,
+      },
+    ];
+    this.salaryAmount = '';
+    this.salaryMovieQuery = '';
+    this.salaryMovieHits = [];
+  }
+
+  removeSalary(i: number): void {
+    this.salaries = this.salaries.filter((_, idx) => idx !== i);
+  }
+
   private async load(): Promise<void> {
     if (!this.personId) {
       this.name = initCapName(this.initialName);
@@ -804,6 +974,7 @@ export class PersonFormComponent implements OnInit, OnChanges {
       this.triviaItems = [];
       this.triviaDraft = '';
       this.links = [];
+      this.salaries = [];
       return;
     }
     const details = await this.people.getDetails(this.personId);
@@ -829,6 +1000,12 @@ export class PersonFormComponent implements OnInit, OnChanges {
         relationId: r.RelationId,
         name: r.Name,
       }));
+    this.salaries = details.salaries.map((s) => ({
+      movieId: s.MovieId,
+      movieTitle: s.MovieTitle,
+      salary: s.Salary,
+      currencyId: s.CurrencyId,
+    }));
   }
 
   canSave(): boolean {
@@ -859,6 +1036,11 @@ export class PersonFormComponent implements OnInit, OnChanges {
       const id = await this.people.savePerson(payload, this.text, {
         trivia: this.triviaItems,
         links: this.links.map((l) => ({ personId: l.personId, relationId: l.relationId })),
+        salaries: this.salaries.map((s) => ({
+          movieId: s.movieId,
+          salary: s.salary,
+          currencyId: s.currencyId,
+        })),
       });
       this.saved.emit({
         Id: id,

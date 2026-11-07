@@ -19,7 +19,14 @@ export interface PersonDetails {
   deathReason: string;
   relations: { PersonId: number; Name: string; Relation: string; RelationId: number; SortId: number; Incoming: boolean }[];
   awards: { MovieId: number; MovieTitle: string; Year: number | null; Award: string }[];
-  salaries: { MovieId: number; MovieTitle: string; Year: number | null; Salary: number; Currency: string }[];
+  salaries: {
+    MovieId: number;
+    MovieTitle: string;
+    Year: number | null;
+    Salary: number;
+    CurrencyId: number;
+    Currency: string;
+  }[];
   filmography: { MovieId: number; Title: string; Year: number | null; Roles: string[] }[];
 }
 
@@ -265,6 +272,7 @@ export class PersonService {
           MovieTitle: m ? swapTitle(m.Title, m.TitleLanguageId) : `#${s.MovieId}`,
           Year: s.Year ?? m?.Year ?? null,
           Salary: s.Salary,
+          CurrencyId: s.CurrencyId,
           Currency: curMap.get(s.CurrencyId) ?? '',
         };
       });
@@ -388,6 +396,7 @@ export class PersonService {
     extras?: {
       trivia?: string[];
       links?: { personId: number; relationId: number }[];
+      salaries?: { movieId: number; salary: number; currencyId: number }[];
     }
   ): Promise<number> {
     if (person.Id) {
@@ -403,6 +412,9 @@ export class PersonService {
       if (extras?.links) {
         await this.replaceLinks(Id, extras.links);
       }
+      if (extras?.salaries) {
+        await this.replaceSalaries(Id, extras.salaries);
+      }
       return Id;
     }
     const { data, error } = await getSupabase().from('Person').insert(person).select('Id').single();
@@ -416,6 +428,9 @@ export class PersonService {
     }
     if (extras?.links) {
       await this.replaceLinks(id, extras.links);
+    }
+    if (extras?.salaries) {
+      await this.replaceSalaries(id, extras.salaries);
     }
     return id;
   }
@@ -464,6 +479,29 @@ export class PersonService {
       return;
     }
     const { error } = await getSupabase().from('PersonLink').insert(rows);
+    if (error) {
+      throw error;
+    }
+  }
+
+  private async replaceSalaries(
+    personId: number,
+    salaries: { movieId: number; salary: number; currencyId: number }[]
+  ): Promise<void> {
+    await getSupabase().from('SalaryLink').delete().eq('PersonId', personId);
+    const rows = salaries
+      .filter((s) => s.movieId > 0 && s.salary > 0 && s.currencyId > 0)
+      .map((s) => ({
+        PersonId: personId,
+        MovieId: s.movieId,
+        Salary: s.salary,
+        CurrencyId: s.currencyId,
+        Year: null as number | null,
+      }));
+    if (!rows.length) {
+      return;
+    }
+    const { error } = await getSupabase().from('SalaryLink').insert(rows);
     if (error) {
       throw error;
     }

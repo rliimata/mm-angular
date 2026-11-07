@@ -36,7 +36,12 @@ export interface MovieDetails {
   sounds: string[];
   aka: { Title: string; Language: string }[];
   roles: { PersonId: number; RoleId: number; Sequence: number; Name: string; Role: string }[];
-  awards: { Award: string; PersonId: number | null; PersonName: string | null }[];
+  awards: {
+    AwardId: number;
+    Award: string;
+    PersonId: number | null;
+    PersonName: string | null;
+  }[];
   related: {
     MovieId: number;
     Title: string;
@@ -703,6 +708,7 @@ export class MovieService {
       })),
       roles,
       awards: awardRows.map((a) => ({
+        AwardId: a.AwardId,
         Award: awardMap.get(a.AwardId) ?? String(a.AwardId),
         PersonId: a.PersonId,
         PersonName: a.PersonId != null ? personMap.get(a.PersonId) ?? null : null,
@@ -786,6 +792,8 @@ export class MovieService {
       roles?: { roleId: number; personId: number }[];
       aka?: { title: string; titleLanguageId: number }[];
       trivia?: string[];
+      awards?: { awardId: number; personId: number | null }[];
+      movieLinks?: { destinationId: number; relationId: number }[];
     }
   ): Promise<number> {
     let id: number;
@@ -819,6 +827,8 @@ export class MovieService {
       roles?: { roleId: number; personId: number }[];
       aka?: { title: string; titleLanguageId: number }[];
       trivia?: string[];
+      awards?: { awardId: number; personId: number | null }[];
+      movieLinks?: { destinationId: number; relationId: number }[];
     }
   ): Promise<void> {
     if (links.categoryIds) {
@@ -881,6 +891,36 @@ export class MovieService {
         await getSupabase()
           .from('MovieTrivia')
           .insert(items.map((Text) => ({ MovieId: movieId, Text: Text.replace(/\n/g, '<br />\n') })));
+      }
+    }
+    if (links.awards) {
+      await getSupabase().from('AwardLink').delete().eq('MovieId', movieId);
+      if (links.awards.length) {
+        const { error } = await getSupabase().from('AwardLink').insert(
+          links.awards.map((a) => ({
+            MovieId: movieId,
+            AwardId: a.awardId,
+            PersonId: a.personId != null && a.personId > 0 ? a.personId : null,
+          }))
+        );
+        if (error) {
+          throw error;
+        }
+      }
+    }
+    if (links.movieLinks) {
+      await getSupabase().from('MovieLink').delete().eq('SourceId', movieId);
+      if (links.movieLinks.length) {
+        const { error } = await getSupabase().from('MovieLink').insert(
+          links.movieLinks.map((l) => ({
+            SourceId: movieId,
+            DestinationId: l.destinationId,
+            RelationId: l.relationId,
+          }))
+        );
+        if (error) {
+          throw error;
+        }
       }
     }
   }

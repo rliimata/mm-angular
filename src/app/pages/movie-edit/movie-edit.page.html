@@ -333,7 +333,13 @@
                     <button type="button" class="icon-btn icon-edit" (click)="openCatalogEdit('Ratio', ratioId)" [disabled]="!ratioId" aria-label="Muokkaa kuvasuhdetta" title="Muokkaa">✎</button>
                     <button type="button" class="icon-btn icon-del" (click)="deleteSelectedCatalog('Ratio')" [disabled]="!ratioId" aria-label="Poista" title="Poista">×</button>
                   </div>
-                  <app-search-select [options]="ratios" [(ngModel)]="ratioId" name="ratioId" placeholder="Valitse…" />
+                  <app-search-select
+                    class="stretch"
+                    [options]="ratios"
+                    [(ngModel)]="ratioId"
+                    name="ratioId"
+                    placeholder="Valitse…"
+                  />
                 </div>
 
                 <div class="labeled-field">
@@ -360,6 +366,7 @@
                     </button>
                   </div>
                   <app-search-select
+                    class="stretch"
                     [options]="distributions"
                     [(ngModel)]="distributionId"
                     name="distributionId"
@@ -385,7 +392,13 @@
                     </button>
                     <button type="button" class="icon-btn icon-del" (click)="deleteSelectedCatalog('AgeRating')" [disabled]="age == null" aria-label="Poista" title="Poista">×</button>
                   </div>
-                  <app-search-select [options]="ageSelectOptions()" [(ngModel)]="age" name="age" placeholder="Valitse…" />
+                  <app-search-select
+                    class="stretch"
+                    [options]="ageSelectOptions()"
+                    [(ngModel)]="age"
+                    name="age"
+                    placeholder="Valitse…"
+                  />
                 </div>
 
                 <div class="labeled-field">
@@ -423,6 +436,152 @@
                       <option value="pal">PAL</option>
                       <option value="ntsc">NTSC</option>
                     </select>
+                  </div>
+                </div>
+              </div>
+
+              <div class="labeled-field">
+                <div class="field-head">
+                  <span class="field-caption">Palkinnot</span>
+                  <button
+                    type="button"
+                    class="icon-btn icon-add"
+                    (click)="openCatalogAdd('Award')"
+                    aria-label="Lisää palkinto katalogiin"
+                    title="Lisää palkinto"
+                  >
+                    +
+                  </button>
+                </div>
+                @if (awardItems.length) {
+                  <ul class="trivia-list">
+                    @for (a of awardItems; track a.awardId + '-' + (a.personId ?? 0) + '-' + $index) {
+                      <li>
+                        <p>{{ awardItemLabel(a) }}</p>
+                        <button
+                          type="button"
+                          class="icon-btn icon-del"
+                          (click)="removeAward($index)"
+                          aria-label="Poista"
+                          title="Poista"
+                        >
+                          ×
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                }
+                <div class="link-add-row">
+                  <app-search-select
+                    class="stretch"
+                    [options]="awards"
+                    [(ngModel)]="awardIdDraft"
+                    (ngModelChange)="onAwardSelected()"
+                    name="awardIdDraft"
+                    placeholder="Palkinto…"
+                  />
+                  <div class="link-search-col">
+                    <input
+                      #awardPersonInput
+                      [(ngModel)]="awardPersonQuery"
+                      name="awardPersonQuery"
+                      placeholder="Hae henkilöä…"
+                      autocomplete="off"
+                      (ngModelChange)="onAwardPersonQueryInput()"
+                    />
+                    @if (awardPersonHits.length) {
+                      <ul class="hits">
+                        @for (p of awardPersonHits; track p.Id) {
+                          <li>
+                            <span>{{ swapNames(p.Name) }}</span>
+                            <button
+                              type="button"
+                              class="icon-btn icon-add"
+                              (click)="addAward(p)"
+                              aria-label="Lisää"
+                              title="Lisää"
+                            >
+                              +
+                            </button>
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </div>
+                </div>
+              </div>
+
+              <div class="labeled-field">
+                <div class="field-head">
+                  <span class="field-caption">Elokuvalinkit</span>
+                  <button
+                    type="button"
+                    class="icon-btn icon-add"
+                    (click)="openCatalogAdd('MovieRelation')"
+                    aria-label="Lisää suhde katalogiin"
+                    title="Lisää suhde"
+                  >
+                    +
+                  </button>
+                </div>
+                @if (movieLinkItems.length) {
+                  <ul class="trivia-list">
+                    @for (l of movieLinkItems; track l.destinationId + '-' + l.relationId + '-' + $index) {
+                      <li>
+                        <p>{{ movieLinkItemLabel(l) }}</p>
+                        <button
+                          type="button"
+                          class="icon-btn icon-del"
+                          (click)="removeMovieLink($index)"
+                          aria-label="Poista"
+                          title="Poista"
+                        >
+                          ×
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                }
+                <div class="link-add-row">
+                  <app-search-select
+                    class="stretch"
+                    [options]="movieRelations"
+                    [(ngModel)]="movieLinkRelationId"
+                    (ngModelChange)="onMovieLinkRelationSelected()"
+                    name="movieLinkRelationId"
+                    placeholder="Suhde…"
+                  />
+                  <div class="link-search-col">
+                    <input
+                      #movieLinkInput
+                      [(ngModel)]="movieLinkQuery"
+                      name="movieLinkQuery"
+                      placeholder="Hae elokuvaa…"
+                      autocomplete="off"
+                      (ngModelChange)="onMovieLinkQueryInput()"
+                    />
+                    @if (movieLinkHits.length) {
+                      <ul class="hits">
+                        @for (m of movieLinkHits; track m.Id) {
+                          <li>
+                            <span
+                              >{{ swapTitle(m.Title, m.TitleLanguageId) }}@if (m.Year) {
+                                ({{ m.Year }})
+                              }</span
+                            >
+                            <button
+                              type="button"
+                              class="icon-btn icon-add"
+                              (click)="addMovieLink(m)"
+                              aria-label="Lisää"
+                              title="Lisää"
+                            >
+                              +
+                            </button>
+                          </li>
+                        }
+                      </ul>
+                    }
                   </div>
                 </div>
               </div>

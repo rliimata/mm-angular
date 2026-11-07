@@ -96,6 +96,15 @@ export class AuthService {
     this.profileSig.set(null);
   }
 
+  async changePassword(newPassword: string): Promise<{ error: string | null }> {
+    const trimmed = newPassword.trim();
+    if (trimmed.length < 6) {
+      return { error: 'Salasanan on oltava vähintään 6 merkkiä.' };
+    }
+    const { error } = await getSupabase().auth.updateUser({ password: trimmed });
+    return { error: error?.message ?? null };
+  }
+
   /** Composite datetime for LastLogin column. */
   private nowComposite(): string {
     const n = new Date();

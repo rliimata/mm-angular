@@ -46,6 +46,21 @@ interface RolePick {
   name: string;
 }
 
+interface AwardPick {
+  awardId: number;
+  awardLabel: string;
+  personId: number | null;
+  personName: string | null;
+}
+
+interface MovieLinkPick {
+  destinationId: number;
+  relationId: number;
+  title: string;
+  year: number | null;
+  relationLabel: string;
+}
+
 @Component({
   selector: 'app-movie-edit',
   standalone: true,
@@ -64,6 +79,8 @@ interface RolePick {
 })
 export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('titleInput') private titleInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('awardPersonInput') private awardPersonInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('movieLinkInput') private movieLinkInput?: ElementRef<HTMLInputElement>;
 
   id = 0;
   title = '';
@@ -86,6 +103,8 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
   soundIds: number[] = [];
   aka: { title: string; titleLanguageId: number }[] = [];
   roles: RolePick[] = [];
+  awardItems: AwardPick[] = [];
+  movieLinkItems: MovieLinkPick[] = [];
 
   akaTitle = '';
   akaLangId = 2;
@@ -94,6 +113,17 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
   roleHits: Record<number, Person[]> = {};
   private roleSearchTimers: Record<number, ReturnType<typeof setTimeout> | null> = {};
   activeRoleIdForPerson = 1;
+
+  awardIdDraft: number | null = null;
+  awardPersonQuery = '';
+  awardPersonHits: Person[] = [];
+  private awardPersonTimer: ReturnType<typeof setTimeout> | null = null;
+
+  movieLinkRelationId: number | null = null;
+  movieLinkQuery = '';
+  movieLinkHits: { Id: number; Title: string; Year: number | null; TitleLanguageId: number | null }[] =
+    [];
+  private movieLinkTimer: ReturnType<typeof setTimeout> | null = null;
   dragRoleId: number | null = null;
   dragFromIndex: number | null = null;
   dragOverRoleId: number | null = null;
@@ -109,6 +139,8 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
   sounds: LookupRow[] = [];
   roleTypes: LookupRow[] = [];
   ageRatings: LookupRow[] = [];
+  awards: LookupRow[] = [];
+  movieRelations: LookupRow[] = [];
 
   catalogAddOpen = false;
   catalogAddTable: CatalogTable | null = null;
@@ -180,6 +212,21 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
         personId: r.PersonId,
         name: r.Name,
       }));
+      this.awardItems = details.awards.map((a) => ({
+        awardId: a.AwardId,
+        awardLabel: a.Award,
+        personId: a.PersonId,
+        personName: a.PersonName,
+      }));
+      this.movieLinkItems = details.related
+        .filter((r) => !r.Incoming)
+        .map((r) => ({
+          destinationId: r.MovieId,
+          relationId: r.RelationId,
+          title: r.Title,
+          year: r.Year,
+          relationLabel: r.Relation,
+        }));
       this.pageTitle.set(swapTitle(this.title, this.titleLanguageId) || 'Muokkaa elokuvaa');
     } else {
       this.pageTitle.set('Uusi elokuva');
@@ -198,6 +245,145 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
         clearTimeout(timer);
       }
     }
+    if (this.awardPersonTimer) {
+      clearTimeout(this.awardPersonTimer);
+    }
+    if (this.movieLinkTimer) {
+      clearTimeout(this.movieLinkTimer);
+    }
+  }
+
+  onAwardSelected(): void {
+    if (!this.awardIdDraft) {
+      return;
+    }
+    setTimeout(() => this.awardPersonInput?.nativeElement.focus(), 0);
+  }
+
+  onAwardPersonQueryInput(): void {
+    if (this.awardPersonTimer) {
+      clearTimeout(this.awardPersonTimer);
+    }
+    this.awardPersonTimer = setTimeout(() => void this.searchAwardPeople(), 250);
+  }
+
+  async searchAwardPeople(): Promise<void> {
+    const q = this.awardPersonQuery.trim();
+    if (q.length < 2) {
+      this.awardPersonHits = [];
+      return;
+    }
+    this.awardPersonHits = await this.people.searchNameExact(q, 20);
+  }
+
+  addAward(person: Person | null = null): void {
+    if (!this.awardIdDraft) {
+      return;
+    }
+    const award = this.awards.find((a) => a.Id === this.awardIdDraft);
+    if (!award) {
+      return;
+    }
+    const personId = person?.Id ?? null;
+    if (
+      this.awardItems.some(
+        (a) => a.awardId === award.Id && (a.personId ?? null) === (personId ?? null)
+      )
+    ) {
+      return;
+    }
+    this.awardItems = [
+      ...this.awardItems,
+      {
+        awardId: award.Id,
+        awardLabel: String(award.Value),
+        personId,
+        personName: person ? swapNames(person.Name) : null,
+      },
+    ];
+    this.awardIdDraft = null;
+    this.awardPersonQuery = '';
+    this.awardPersonHits = [];
+  }
+
+  removeAward(i: number): void {
+    this.awardItems = this.awardItems.filter((_, idx) => idx !== i);
+  }
+
+  awardItemLabel(a: AwardPick): string {
+    return a.personName ? `${a.awardLabel}: ${a.personName}` : a.awardLabel;
+  }
+
+  movieLinkItemLabel(l: MovieLinkPick): string {
+    const year = l.year ? ` (${l.year})` : '';
+    return `${l.relationLabel}: ${l.title}${year}`;
+  }
+
+  onMovieLinkRelationSelected(): void {
+    if (!this.movieLinkRelationId) {
+      return;
+    }
+    setTimeout(() => this.movieLinkInput?.nativeElement.focus(), 0);
+  }
+
+  onMovieLinkQueryInput(): void {
+    if (this.movieLinkTimer) {
+      clearTimeout(this.movieLinkTimer);
+    }
+    this.movieLinkTimer = setTimeout(() => void this.searchMovieLinks(), 250);
+  }
+
+  async searchMovieLinks(): Promise<void> {
+    const q = this.movieLinkQuery.trim();
+    if (q.length < 2) {
+      this.movieLinkHits = [];
+      return;
+    }
+    const res = await this.movies.search({
+      query: q,
+      mode: 'text',
+      page: 1,
+      pageSize: 20,
+    });
+    const existing = new Set(this.movieLinkItems.map((l) => l.destinationId));
+    this.movieLinkHits = res.rows
+      .filter((m) => m.Id !== this.id && !existing.has(m.Id))
+      .map((m) => ({
+        Id: m.Id,
+        Title: m.Title,
+        Year: m.Year,
+        TitleLanguageId: m.TitleLanguageId,
+      }));
+  }
+
+  addMovieLink(m: { Id: number; Title: string; Year: number | null; TitleLanguageId: number | null }): void {
+    if (!this.movieLinkRelationId) {
+      return;
+    }
+    const relation = this.movieRelations.find((r) => r.Id === this.movieLinkRelationId);
+    if (!relation) {
+      return;
+    }
+    if (this.movieLinkItems.some((l) => l.destinationId === m.Id && l.relationId === relation.Id)) {
+      return;
+    }
+    this.movieLinkItems = [
+      ...this.movieLinkItems,
+      {
+        destinationId: m.Id,
+        relationId: relation.Id,
+        title: swapTitle(m.Title, m.TitleLanguageId),
+        year: m.Year,
+        relationLabel: String(relation.Value),
+      },
+    ];
+    this.movieLinkRelationId = null;
+    this.movieLinkQuery = '';
+    this.movieLinkHits = [];
+  }
+
+  removeMovieLink(i: number): void {
+    this.movieLinkItems = this.movieLinkItems.filter((_, idx) => idx !== i);
   }
 
   private async reloadLookups(): Promise<void> {
@@ -212,6 +398,8 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
       sounds,
       roles,
       ages,
+      awards,
+      movieRelations,
     ] = await Promise.all([
       this.lookups.get('Version'),
       this.lookups.get('Ratio'),
@@ -223,6 +411,8 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
       this.lookups.get('Sound'),
       this.lookups.get('Role'),
       this.lookups.get('AgeRating'),
+      this.lookups.get('Award'),
+      this.lookups.get('MovieRelation'),
     ]);
     this.versions = this.sortAlpha(versions.filter((r) => r.Id !== 0));
     this.ratios = this.sortAlpha(ratios.filter((r) => r.Id !== 0));
@@ -233,6 +423,8 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
     this.countries = this.sortAlpha(countries.filter((c) => c.Id !== 0));
     this.sounds = this.sortAlpha(sounds.filter((c) => c.Id !== 0));
     this.roleTypes = roles;
+    this.awards = this.sortAlpha(awards.filter((r) => r.Id !== 0));
+    this.movieRelations = this.sortAlpha(movieRelations.filter((r) => r.Id !== 0));
     this.ageRatings = [...ages].sort((a, b) =>
       this.ageLabel(Number(a.Value)).localeCompare(this.ageLabel(Number(b.Value)), 'fi', {
         sensitivity: 'base',
@@ -516,6 +708,10 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
         return edit ? 'Muokkaa levitystä' : 'Uusi levitys';
       case 'TitleLanguage':
         return edit ? 'Muokkaa kieltä' : 'Uusi kieli';
+      case 'Award':
+        return edit ? 'Muokkaa palkintoa' : 'Uusi palkinto';
+      case 'MovieRelation':
+        return edit ? 'Muokkaa elokuvasuhdetta' : 'Uusi elokuvasuhde';
       default:
         return edit ? 'Muokkaa arvoa' : 'Uusi arvo';
     }
@@ -558,6 +754,12 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
         this.distributionId = id;
       } else if (table === 'TitleLanguage') {
         this.titleLanguageId = id;
+      } else if (table === 'Award') {
+        this.awardIdDraft = id;
+        this.onAwardSelected();
+      } else if (table === 'MovieRelation') {
+        this.movieLinkRelationId = id;
+        this.onMovieLinkRelationSelected();
       }
       this.closeCatalogAdd();
     } catch (e: unknown) {
@@ -866,6 +1068,14 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
         roles: this.roles.map((r) => ({ roleId: r.roleId, personId: r.personId })),
         aka: this.aka,
         trivia: this.triviaItems.map((t) => t.trim()).filter(Boolean),
+        awards: this.awardItems.map((a) => ({
+          awardId: a.awardId,
+          personId: a.personId,
+        })),
+        movieLinks: this.movieLinkItems.map((l) => ({
+          destinationId: l.destinationId,
+          relationId: l.relationId,
+        })),
       });
       this.navigateAfterEdit(id, true);
     } catch (e: unknown) {

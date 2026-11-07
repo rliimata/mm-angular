@@ -319,26 +319,18 @@
                   <li class="review-item">
                     <div class="review-head">
                       <span class="review-name">{{ r.Name }}</span>
-                      @if (r.Formats) {
-                        <span class="review-formats">{{ r.Formats }}</span>
-                      }
-                      @if (!r.Text) {
+                      <span class="review-formats">{{ r.Formats }}</span>
+                      <span class="review-score">
                         @if (reviewScoreDisplay(r.ScoreId); as score) {
                           <span class="score-star" [attr.title]="'Arvosana ' + score">
                             <span class="score-star-glyph" aria-hidden="true">★</span>
                             <span class="score-star-value">{{ score }}</span>
                           </span>
                         }
-                      }
+                      </span>
                     </div>
                     @if (r.Text) {
                       <div class="review-bubble">
-                        @if (reviewScoreDisplay(r.ScoreId); as score) {
-                          <span class="score-star" [attr.title]="'Arvosana ' + score">
-                            <span class="score-star-glyph" aria-hidden="true">★</span>
-                            <span class="score-star-value">{{ score }}</span>
-                          </span>
-                        }
                         <div class="prose review-text" [innerHTML]="r.Text"></div>
                       </div>
                     }

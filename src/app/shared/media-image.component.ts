@@ -41,23 +41,25 @@ import { MediaService } from '../data/media.service';
         } @else if (showEmpty) {
           <span class="placeholder empty-frame" aria-hidden="true"></span>
         }
-        @if (canEdit() && hasImage()) {
-          <span class="hover-cue" aria-hidden="true">Vaihda kuva</span>
-        }
         @if (uploading()) {
           <span class="busy">Ladataan…</span>
         }
       </button>
 
-      @if (canEdit() && (imageSearchHref() || entityId > 0)) {
+      @if (canEdit()) {
         <div class="media-toolbar">
+          <button
+            type="button"
+            class="change-link"
+            [disabled]="uploading()"
+            (click)="openPicker()"
+          >
+            {{ hasImage() ? 'Vaihda kuva' : 'Lisää kuva' }}
+          </button>
           @if (imageSearchHref()) {
             <a class="find-link" [href]="imageSearchHref()!" target="_blank" rel="noopener noreferrer">
               Etsi kuva
             </a>
-          }
-          @if (entityId > 0) {
-            <span class="entity-id" title="Tietueen tunniste">#{{ entityId }}</span>
           }
         </div>
       }
@@ -166,22 +168,6 @@ import { MediaService } from '../data/media.service';
       max-width: 12rem;
     }
 
-    .hover-cue {
-      position: absolute;
-      inset: auto 0 0;
-      padding: 0.55rem;
-      background: linear-gradient(180deg, transparent, rgba(15, 23, 32, 0.72));
-      color: #fff;
-      font-size: 1rem;
-      font-weight: 650;
-      opacity: 0;
-      transition: opacity 0.15s ease;
-    }
-
-    .media-frame.editable:not(:disabled):hover .hover-cue {
-      opacity: 1;
-    }
-
     .busy {
       position: absolute;
       inset: 0;
@@ -196,48 +182,33 @@ import { MediaService } from '../data/media.service';
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 0.45rem 0.75rem;
+      justify-content: center;
+      gap: 0.45rem 0.85rem;
     }
 
-    .tool-btn {
+    .change-link,
+    .find-link {
       margin: 0;
-      padding: 0.4rem 0.7rem;
-      border: 1px solid #c5d0dc;
-      border-radius: 6px;
-      background: #e8eef4;
+      padding: 0;
+      border: 0;
+      background: transparent;
       color: #1f4b7a;
       font: inherit;
       font-size: 1rem;
-      font-weight: 600;
+      font-weight: 400;
+      text-decoration: none;
       cursor: pointer;
     }
 
-    .tool-btn:hover:not(:disabled) {
-      background: #dce6f0;
-    }
-
-    .tool-btn:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
-
-    .find-link {
-      color: #1f4b7a;
-      font-size: 1rem;
-      font-weight: 400;
-      text-decoration: none;
-    }
-
+    .change-link:hover:not(:disabled),
     .find-link:hover {
       color: #163a5f;
       text-decoration: none;
     }
 
-    .entity-id {
-      margin-left: auto;
-      color: #6a7582;
-      font-size: 1rem;
-      font-variant-numeric: tabular-nums;
+    .change-link:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
     }
 
     .media-error {

@@ -29,3 +29,12 @@ export async function showError(message: string, title = 'Virhe'): Promise<void>
     confirmButtonText: 'OK',
   });
 }
+
+export async function showInfo(message: string): Promise<void> {
+  await Swal.fire({
+    text: message,
+    icon: 'success',
+    confirmButtonColor: '#2f6b3a',
+    confirmButtonText: 'OK',
+  });
+}

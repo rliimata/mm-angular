@@ -18,10 +18,19 @@ import {
 import { AppDateTime, LookupRow } from '../core/models';
 import { LookupService } from '../data/lookup.service';
 import { MovieDetails, MovieService } from '../data/movie.service';
+import { OwnershipService } from '../data/ownership.service';
 import { PersonDetails, PersonService } from '../data/person.service';
 import { UserLinkService } from '../data/user-link.service';
 import { MediaImageComponent } from './media-image.component';
 import { ListPreviewItem, ListPreviewService } from './list-preview.service';
+
+type PreviewReview = {
+  UserId: number;
+  ScoreId: number | null;
+  Text: string | null;
+  Name: string;
+  Formats: string;
+};
 
 @Component({
   selector: 'app-list-preview',
@@ -119,6 +128,34 @@ import { ListPreviewItem, ListPreviewService } from './list-preview.service';
                         }
                       </p>
                     </div>
+                  }
+                  @if (reviews().length) {
+                    <section class="lp-reviews">
+                      <h3>Arvostelut</h3>
+                      <ul class="lp-reviews-list">
+                        @for (r of reviews(); track r.UserId) {
+                          <li class="lp-review-item">
+                            <div class="lp-review-head">
+                              <span class="lp-review-name">{{ r.Name }}</span>
+                              <span class="lp-review-formats">{{ r.Formats }}</span>
+                              <span class="lp-review-score">
+                                @if (reviewScoreDisplay(r.ScoreId); as score) {
+                                  <span class="lp-score-star lp-score-star-sm" [attr.title]="'Arvosana ' + score">
+                                    <span class="lp-score-star-glyph" aria-hidden="true">★</span>
+                                    <span class="lp-score-star-value">{{ score }}</span>
+                                  </span>
+                                }
+                              </span>
+                            </div>
+                            @if (r.Text) {
+                              <div class="lp-review-bubble">
+                                <div class="lp-review-text" [innerHTML]="r.Text"></div>
+                              </div>
+                            }
+                          </li>
+                        }
+                      </ul>
+                    </section>
                   }
                 </div>
               </div>
@@ -257,7 +294,9 @@ import { ListPreviewItem, ListPreviewService } from './list-preview.service';
 
     .lp-frame {
       min-height: 0;
-      overflow: auto;
+      min-width: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
       padding: 0.85rem;
       border: 2px solid #c5d0dc;
       border-radius: 10px;
@@ -367,6 +406,142 @@ import { ListPreviewItem, ListPreviewService } from './list-preview.service';
 
     .lp-meta-sep {
       opacity: 0.65;
+    }
+
+    .lp-reviews {
+      margin-top: 0.55rem;
+      display: grid;
+      gap: 0.45rem;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .lp-reviews > h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #111;
+    }
+
+    .lp-reviews-list {
+      list-style: none;
+      margin: 0;
+      padding: 0 0 0 0.85rem;
+      display: grid;
+      gap: 0;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    .lp-review-item {
+      display: grid;
+      gap: 0;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .lp-review-head {
+      display: grid;
+      grid-template-columns: minmax(0, 8.5rem) minmax(0, 3.5rem) 2.5rem;
+      column-gap: 0.5rem;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .lp-review-name {
+      font-weight: 400;
+      color: #111;
+      line-height: 1.15;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .lp-review-formats {
+      color: #1b7a3d;
+      font-size: 0.88em;
+      font-weight: 700;
+      line-height: 1.15;
+      min-height: 1.15em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .lp-review-score {
+      display: grid;
+      place-items: center;
+      width: 2.5rem;
+      height: 2.5rem;
+    }
+
+    .lp-review-bubble {
+      --lp-review-bubble-bg: #dbe7f2;
+      position: relative;
+      margin: 0.15rem 0 0.35rem;
+      padding: 0.65rem 0.8rem;
+      border: 1px solid #b7c9da;
+      border-radius: 10px;
+      background: var(--lp-review-bubble-bg);
+      color: #111;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    .lp-review-bubble::before,
+    .lp-review-bubble::after {
+      content: '';
+      position: absolute;
+      left: 1rem;
+      width: 0;
+      height: 0;
+      border-left: 0.45rem solid transparent;
+      border-right: 0.45rem solid transparent;
+    }
+
+    .lp-review-bubble::before {
+      top: -0.5rem;
+      border-bottom: 0.5rem solid #b7c9da;
+    }
+
+    .lp-review-bubble::after {
+      top: -0.38rem;
+      border-bottom: 0.45rem solid var(--lp-review-bubble-bg);
+    }
+
+    .lp-review-text {
+      flex: 1 1 auto;
+      min-width: 0;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .lp-review-text :is(p, div, span, br) {
+      max-width: 100%;
+    }
+
+    .lp-score-star-sm {
+      width: 2.5rem;
+      height: 2.5rem;
+    }
+
+    .lp-review-score .lp-score-star-sm {
+      width: 100%;
+      height: 100%;
+    }
+
+    .lp-score-star-sm .lp-score-star-glyph {
+      font-size: 2.5rem;
+    }
+
+    .lp-score-star-sm .lp-score-star-value {
+      font-size: 0.75rem;
+      margin-top: 0.12rem;
     }
 
     .lp-score-star {
@@ -504,6 +679,7 @@ export class ListPreviewComponent implements OnDestroy {
   private readonly movies = inject(MovieService);
   private readonly people = inject(PersonService);
   private readonly userLinks = inject(UserLinkService);
+  private readonly ownershipApi = inject(OwnershipService);
   private readonly lookups = inject(LookupService);
   private readonly router = inject(Router);
 
@@ -512,11 +688,13 @@ export class ListPreviewComponent implements OnDestroy {
   readonly movie = signal<MovieDetails | null>(null);
   readonly person = signal<PersonDetails | null>(null);
   readonly avgScore = signal<string | null>(null);
+  readonly reviews = signal<PreviewReview[]>([]);
   readonly swapNames = swapNames;
 
   private readonly movieCache = new Map<number, MovieDetails>();
   private readonly personCache = new Map<number, PersonDetails>();
   private readonly avgScoreCache = new Map<number, string | null>();
+  private readonly reviewsCache = new Map<number, PreviewReview[]>();
   private scores: LookupRow[] = [];
   private scoresLoaded = false;
   private loadToken = 0;
@@ -537,6 +715,7 @@ export class ListPreviewComponent implements OnDestroy {
       this.movieCache.clear();
       this.personCache.clear();
       this.avgScoreCache.clear();
+      this.reviewsCache.clear();
       this.preview.resume();
     });
 
@@ -596,6 +775,21 @@ export class ListPreviewComponent implements OnDestroy {
     return !!(this.movie() || this.person());
   }
 
+  reviewScoreDisplay(scoreId: number | null | undefined): string | null {
+    if (scoreId == null || scoreId <= 0) {
+      return null;
+    }
+    const row = this.scores.find((s) => s.Id === scoreId);
+    if (!row) {
+      return null;
+    }
+    const n = Number(row.Value);
+    if (!Number.isFinite(n)) {
+      return null;
+    }
+    return (Math.round(n * 10) / 10).toFixed(1);
+  }
+
   openEdit(): void {
     const returnUrl = this.router.url;
     const m = this.movie();
@@ -653,7 +847,7 @@ export class ListPreviewComponent implements OnDestroy {
     }
     const budget = Number(d.movie.Budget);
     if (Number.isFinite(budget) && budget > 0) {
-      const money = budget.toLocaleString('en-US');
+      const money = String(Math.trunc(budget));
       chips.push(d.currency && d.currency !== '-' ? `${money} ${d.currency}` : money);
     }
     const ntsc = resolveNtscMinutes(d.movie.Ntsc, d.movie.Pal);
@@ -750,9 +944,10 @@ export class ListPreviewComponent implements OnDestroy {
         this.person.set(null);
         this.movie.set(cached);
         this.avgScore.set(this.avgScoreCache.get(item.id) ?? null);
+        this.reviews.set(this.reviewsCache.get(item.id) ?? []);
         this.loading.set(false);
-        if (!this.avgScoreCache.has(item.id)) {
-          void this.loadAvgScore(item.id, token);
+        if (!this.avgScoreCache.has(item.id) || !this.reviewsCache.has(item.id)) {
+          void this.loadReviewsAndAvg(item.id, token);
         }
         return;
       }
@@ -760,6 +955,7 @@ export class ListPreviewComponent implements OnDestroy {
       this.movie.set(null);
       this.person.set(null);
       this.avgScore.set(null);
+      this.reviews.set([]);
       try {
         const details = await this.movies.getDetails(item.id);
         if (token !== this.loadToken) {
@@ -771,7 +967,7 @@ export class ListPreviewComponent implements OnDestroy {
         }
         this.movieCache.set(item.id, details);
         this.movie.set(details);
-        void this.loadAvgScore(item.id, token);
+        void this.loadReviewsAndAvg(item.id, token);
       } catch (e: unknown) {
         if (token !== this.loadToken) {
           return;
@@ -790,6 +986,7 @@ export class ListPreviewComponent implements OnDestroy {
       this.movie.set(null);
       this.person.set(cached);
       this.avgScore.set(null);
+      this.reviews.set([]);
       this.loading.set(false);
       return;
     }
@@ -797,6 +994,7 @@ export class ListPreviewComponent implements OnDestroy {
     this.movie.set(null);
     this.person.set(null);
     this.avgScore.set(null);
+    this.reviews.set([]);
     try {
       const details = await this.people.getDetails(item.id);
       if (token !== this.loadToken) {
@@ -820,16 +1018,29 @@ export class ListPreviewComponent implements OnDestroy {
     }
   }
 
-  private async loadAvgScore(movieId: number, token: number): Promise<void> {
+  private async loadReviewsAndAvg(movieId: number, token: number): Promise<void> {
     try {
       if (!this.scoresLoaded) {
         this.scores = await this.lookups.get('Score');
         this.scoresLoaded = true;
       }
-      const reviews = await this.userLinks.listForMovie(movieId);
+      const raw = await this.userLinks.listForMovie(movieId);
       if (token !== this.loadToken) {
         return;
       }
+      const formatMap = await this.ownershipApi.formatLabelsByUserForMovie(
+        movieId,
+        raw.map((r) => r.UserId)
+      );
+      if (token !== this.loadToken) {
+        return;
+      }
+      const reviews: PreviewReview[] = raw
+        .filter((r) => (r.ScoreId != null && r.ScoreId > 0) || !!r.Text?.trim())
+        .map((r) => ({
+          ...r,
+          Formats: formatMap.get(r.UserId) ?? r.Formats ?? '',
+        }));
       const scored = reviews
         .map((r) => {
           if (r.ScoreId == null || r.ScoreId <= 0) {
@@ -844,13 +1055,17 @@ export class ListPreviewComponent implements OnDestroy {
           ? (Math.round((scored.reduce((sum, v) => sum + v, 0) / scored.length) * 10) / 10).toFixed(1)
           : null;
       this.avgScoreCache.set(movieId, avg);
+      this.reviewsCache.set(movieId, reviews);
       if (this.preview.current()?.kind === 'movie' && this.preview.current()?.id === movieId) {
         this.avgScore.set(avg);
+        this.reviews.set(reviews);
       }
     } catch {
       if (token === this.loadToken) {
         this.avgScoreCache.set(movieId, null);
+        this.reviewsCache.set(movieId, []);
         this.avgScore.set(null);
+        this.reviews.set([]);
       }
     }
   }

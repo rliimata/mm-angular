@@ -410,7 +410,7 @@ export class MovieDetailPage implements OnInit, OnDestroy {
     if (!Number.isFinite(n) || n <= 0) {
       return '';
     }
-    return n.toLocaleString('en-US');
+    return String(Math.trunc(n));
   }
 
   hasBudget(): boolean {

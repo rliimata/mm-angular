@@ -135,22 +135,116 @@ export class OwnershipService {
     page: number,
     pageSize: number
   ): Promise<{ rows: OwnershipSummary[]; count: number }> {
-    const { data, error } = await getSupabase()
-      .from('Ownership')
-      .select(
-        'Id, UserId, Name, Notes, ReleaseRegionId, ReleaseConditionId, ReleasePublisherId, OwnershipTypeId'
-      )
-      .eq('UserId', userId);
-    if (error) {
-      throw error;
+    const ownerships = await this.fetchAllOwnershipRows(userId);
+    if (!ownerships.length) {
+      return { rows: [], count: 0 };
     }
-    const summaries = await Promise.all(((data as Ownership[]) ?? []).map((o) => this.toSummary(o)));
-    summaries.sort(compareOwnershipSummariesByTitle);
+
+    // Light sort index (titles only), then hydrate just the current page.
+    const ownershipIds = ownerships.map((o) => o.Id);
+    const moviesByOwnership = await this.fetchOwnershipMovieSortIndex(ownershipIds);
+    const movieIds = [
+      ...new Set(
+        [...moviesByOwnership.values()].flatMap((rows) => rows.map((r) => r.MovieId))
+      ),
+    ];
+    const movieMeta = await this.fetchMovieSortMeta(movieIds);
+
+    const sortable = ownerships.map((o) => {
+      const linked = (moviesByOwnership.get(o.Id) ?? [])
+        .slice()
+        .sort((a, b) => a.Sequence - b.Sequence)
+        .map((r) => movieMeta.get(r.MovieId))
+        .filter((m): m is { Title: string; TitleLanguageId: number | null } => !!m);
+      const key = linked.length
+        ? linked.map((m) => titleSortKey(m.Title, m.TitleLanguageId)).join('\u0000')
+        : titleSortKey(o.Name, 1);
+      return { o, key };
+    });
+    sortable.sort(
+      (a, b) => a.key.localeCompare(b.key, 'fi', { sensitivity: 'base' }) || a.o.Id - b.o.Id
+    );
+
     const from = (page - 1) * pageSize;
-    return {
-      rows: summaries.slice(from, from + pageSize),
-      count: summaries.length,
-    };
+    const pageOwnerships = sortable.slice(from, from + pageSize).map((x) => x.o);
+    const summaries = await Promise.all(pageOwnerships.map((o) => this.toSummary(o)));
+    return { rows: summaries, count: ownerships.length };
+  }
+
+  private async fetchAllOwnershipRows(userId: number): Promise<Ownership[]> {
+    const pageSizeFetch = 1000;
+    const rows: Ownership[] = [];
+    for (let offset = 0; ; offset += pageSizeFetch) {
+      const { data, error } = await getSupabase()
+        .from('Ownership')
+        .select(
+          'Id, UserId, Name, Notes, ReleaseRegionId, ReleaseConditionId, ReleasePublisherId, OwnershipTypeId'
+        )
+        .eq('UserId', userId)
+        .order('Id')
+        .range(offset, offset + pageSizeFetch - 1);
+      if (error) {
+        throw error;
+      }
+      const batch = (data as Ownership[]) ?? [];
+      rows.push(...batch);
+      if (batch.length < pageSizeFetch) {
+        break;
+      }
+    }
+    return rows;
+  }
+
+  private async fetchOwnershipMovieSortIndex(
+    ownershipIds: number[]
+  ): Promise<Map<number, { MovieId: number; Sequence: number }[]>> {
+    const result = new Map<number, { MovieId: number; Sequence: number }[]>();
+    const chunkSize = 200;
+    for (let i = 0; i < ownershipIds.length; i += chunkSize) {
+      const chunk = ownershipIds.slice(i, i + chunkSize);
+      const { data, error } = await getSupabase()
+        .from('OwnershipMovie')
+        .select('OwnershipId, MovieId, Sequence')
+        .in('OwnershipId', chunk);
+      if (error) {
+        throw error;
+      }
+      for (const row of
+        (data as { OwnershipId: number; MovieId: number; Sequence: number }[]) ?? []) {
+        const list = result.get(row.OwnershipId) ?? [];
+        list.push({ MovieId: row.MovieId, Sequence: row.Sequence });
+        result.set(row.OwnershipId, list);
+      }
+    }
+    return result;
+  }
+
+  private async fetchMovieSortMeta(
+    movieIds: number[]
+  ): Promise<Map<number, { Title: string; TitleLanguageId: number | null }>> {
+    const result = new Map<number, { Title: string; TitleLanguageId: number | null }>();
+    if (!movieIds.length) {
+      return result;
+    }
+    const chunkSize = 200;
+    for (let i = 0; i < movieIds.length; i += chunkSize) {
+      const chunk = movieIds.slice(i, i + chunkSize);
+      const { data, error } = await getSupabase()
+        .from('Movie')
+        .select('Id, Title, TitleLanguageId')
+        .in('Id', chunk);
+      if (error) {
+        throw error;
+      }
+      for (const m of
+        (data as { Id: number; Title: string; TitleLanguageId: number | null }[]) ?? []) {
+        result.set(m.Id, {
+          Title: decodeEntities(m.Title),
+          TitleLanguageId: m.TitleLanguageId,
+        });
+      }
+    }
+    return result;
   }
 
   /**

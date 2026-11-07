@@ -10,7 +10,9 @@ export type CatalogTable =
   | 'Distribution'
   | 'AgeRating'
   | 'DeathReason'
-  | 'TitleLanguage';
+  | 'TitleLanguage'
+  | 'Award'
+  | 'MovieRelation';
 
 @Injectable({ providedIn: 'root' })
 export class CatalogService {
@@ -134,6 +136,8 @@ export class CatalogService {
       Version: { table: 'Movie', column: 'VersionId' },
       Ratio: { table: 'Movie', column: 'RatioId' },
       Distribution: { table: 'Movie', column: 'DistributionId' },
+      Award: { table: 'AwardLink', column: 'AwardId' },
+      MovieRelation: { table: 'MovieLink', column: 'RelationId' },
     };
     const cfg = checks[table];
     const { count, error } = await getSupabase()

@@ -122,6 +122,115 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
+.pwd-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.pwd-btn::before {
+  content: '';
+  display: block;
+  width: 1.05rem;
+  height: 1.05rem;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M12.65 10A5.99 5.99 0 0 0 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6a5.99 5.99 0 0 0 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M12.65 10A5.99 5.99 0 0 0 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6a5.99 5.99 0 0 0 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.pwd-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.pwd-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(15, 23, 32, 0.45);
+}
+
+.pwd-modal {
+  position: fixed;
+  z-index: 41;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(22rem, calc(100vw - 2rem));
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.1rem 1.15rem 1rem;
+  border-radius: 8px;
+  background: #fff;
+  color: #111;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.pwd-modal h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.pwd-modal label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.92rem;
+}
+
+.pwd-modal input {
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #c5ced8;
+  border-radius: 4px;
+  font: inherit;
+}
+
+.pwd-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.25rem;
+}
+
+.pwd-actions .primary {
+  padding: 0.4rem 0.85rem;
+  border: 0;
+  border-radius: 4px;
+  background: #2f6b3a;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pwd-actions .primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.pwd-actions .ghost {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid #c5ced8;
+  border-radius: 4px;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.pwd-error {
+  margin: 0;
+  color: #a11;
+  font-size: 0.9rem;
+}
+
 main {
   width: 100%;
   max-width: none;
