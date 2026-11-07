@@ -19,11 +19,9 @@
         <p class="nav">
           @if (auth.profile()) {
             <button type="button" class="ghost" (click)="openRating()">Arvostele</button>
-            @if (auth.isSuperUser()) {
-              <button type="button" class="ghost desktop-only" (click)="openNewOwnership()">
-                Lisää omistus
-              </button>
-            }
+            <button type="button" class="ghost desktop-only" (click)="openNewOwnership()">
+              Lisää omistus
+            </button>
           }
           @if (auth.isSuperUser()) {
             <button
@@ -131,7 +129,7 @@
           <section class="ownership-section">
             <div class="section-head">
               <h2>Omistukset</h2>
-              @if (auth.isSuperUser() && ownerships().length >= 2) {
+              @if (ownerships().length >= 2) {
                 <button type="button" class="ghost desktop-only" (click)="openMergeOwnerships()">
                   Yhdistä
                 </button>
@@ -206,7 +204,7 @@
                         </div>
                       }
                     </div>
-                    @if (auth.isSuperUser()) {
+                    @if (auth.profile()) {
                       <div class="row-actions desktop-only">
                         <button type="button" class="ghost" (click)="openEditOwnership(o.Id)">Muokkaa</button>
                         <button type="button" class="danger-btn" (click)="deleteOwnership(o.Id)">Poista</button>

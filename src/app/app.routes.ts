@@ -24,13 +24,13 @@ export const routes: Routes = [
   },
   {
     path: 'movie/:movieId/ownership/new',
-    canActivate: [authGuard, superuserGuard],
+    canActivate: [authGuard],
     loadComponent: () =>
       import('./pages/ownership-edit/ownership-edit.page').then((m) => m.OwnershipEditPage),
   },
   {
     path: 'movie/:movieId/ownership/:ownershipId/edit',
-    canActivate: [authGuard, superuserGuard],
+    canActivate: [authGuard],
     loadComponent: () =>
       import('./pages/ownership-edit/ownership-edit.page').then((m) => m.OwnershipEditPage),
   },

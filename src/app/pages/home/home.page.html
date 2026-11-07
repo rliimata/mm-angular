@@ -108,12 +108,12 @@
                 }
               </td>
               <td class="row-actions">
-                @if (auth.isSuperUser() && o.movies.length) {
+                @if (auth.profile() && o.movies.length) {
                   <a
                     class="icon-edit desktop-only"
-                    [routerLink]="['/movie', o.movies[0].Id]"
-                    title="Avaa"
-                    aria-label="Avaa"
+                    [routerLink]="['/movie', o.movies[0].Id, 'ownership', o.Id, 'edit']"
+                    title="Muokkaa omistusta"
+                    aria-label="Muokkaa omistusta"
                     >✎</a
                   >
                 }

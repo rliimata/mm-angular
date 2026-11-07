@@ -483,14 +483,14 @@ export class MovieDetailPage implements OnInit, OnDestroy {
   }
 
   openNewOwnership(): void {
-    if (!this.auth.isSuperUser() || this.isCompact()) {
+    if (!this.auth.profile() || this.isCompact()) {
       return;
     }
     void this.router.navigate(['/movie', this.movieId, 'ownership', 'new']);
   }
 
   openEditOwnership(id: number): void {
-    if (!this.auth.isSuperUser() || this.isCompact()) {
+    if (!this.auth.profile() || this.isCompact()) {
       return;
     }
     void this.router.navigate(['/movie', this.movieId, 'ownership', id, 'edit']);
