@@ -15,7 +15,10 @@
 
     <div class="edit-body">
       @if (booting()) {
-        <p class="soft">Ladataan…</p>
+        <div class="page-loading" aria-live="polite">
+          <div class="spinner" aria-hidden="true"></div>
+          <p>Ladataan…</p>
+        </div>
       } @else {
         <div class="field-stack">
           <div class="top-selects">

@@ -4,7 +4,10 @@
   [class.gender-female]="details()?.person?.Gender === 1"
 >
   @if (loading()) {
-    <p>Ladataan…</p>
+    <div class="page-loading" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Ladataan…</p>
+    </div>
   } @else if (error()) {
     <p class="error">{{ error() }}</p>
   } @else if (details()) {
@@ -13,51 +16,68 @@
         kind="person"
         [entityId]="details()!.person.Id"
         [alt]="swapNames(details()!.person.Name)"
-        [editable]="auth.isSuperUser()"
+        [editable]="auth.isSuperUser() && !isCompact()"
         [imageSearchQuery]="swapNames(details()!.person.Name)"
       />
       <div class="detail-main">
         <p class="nav">
           @if (auth.isSuperUser()) {
-            <button type="button" class="ghost" [routerLink]="['/person', details()!.person.Id, 'edit']">
-              Muokkaa henkilöä
+            <button
+              type="button"
+              class="ghost desktop-only"
+              [routerLink]="['/person', details()!.person.Id, 'edit']"
+            >
+              Muokkaa
             </button>
-            <button type="button" class="danger-btn" (click)="deletePerson()">Poista</button>
+            <button type="button" class="danger-btn desktop-only" (click)="deletePerson()">Poista</button>
           }
         </p>
 
         <header class="person-header">
           <h1>{{ swapNames(details()!.person.Name) }}</h1>
           @if (details()!.person.RealName) {
-            <p class="meta">{{ details()!.person.RealName }}</p>
+            <p class="meta">{{ swapNames(details()!.person.RealName) }}</p>
           }
-          <p class="meta">
-            @if (formatDate(details()!.person.BirthDate) || details()!.birthCountry) {
-              <span
-                >s.
-                @if (formatDate(details()!.person.BirthDate)) {
-                  {{ formatDate(details()!.person.BirthDate) }}
+          @if (isDeceased(details()!)) {
+            @if (
+              datePlace(details()!.person.BirthDate, details()!.birthCountry) ||
+              datePlace(details()!.person.DeathDate, details()!.deathCountry)
+            ) {
+              <p class="meta life-line">
+                @if (datePlace(details()!.person.BirthDate, details()!.birthCountry); as birth) {
+                  <span>{{ birth }}</span>
                 }
-                @if (details()!.birthCountry) {
-                  {{ details()!.birthCountry }}
+                @if (
+                  datePlace(details()!.person.BirthDate, details()!.birthCountry) &&
+                  datePlace(details()!.person.DeathDate, details()!.deathCountry)
+                ) {
+                  <span>–</span>
                 }
-              </span>
+                @if (datePlace(details()!.person.DeathDate, details()!.deathCountry); as death) {
+                  <span>{{ death }}</span>
+                }
+              </p>
             }
-            @if (formatDate(details()!.person.DeathDate) || details()!.deathCountry || details()!.deathReason) {
-              <span
-                >– k.
-                @if (formatDate(details()!.person.DeathDate)) {
-                  {{ formatDate(details()!.person.DeathDate) }}
+            @if (deathAgePrefix(details()!) || deathReasonLabel(details()!)) {
+              <p class="meta death-age-line">
+                @if (deathAgePrefix(details()!); as age) {
+                  <span>{{ age }}</span>
                 }
-                @if (details()!.deathCountry) {
-                  {{ details()!.deathCountry }}
+                @if (deathReasonLabel(details()!); as reason) {
+                  <span class="death-reason">({{ reason }})</span>
                 }
-                @if (details()!.deathReason) {
-                  , {{ details()!.deathReason }}
-                }
-              </span>
+              </p>
             }
-          </p>
+          } @else if (datePlace(details()!.person.BirthDate, details()!.birthCountry) || livingAgeLabel(details()!)) {
+            <p class="meta life-line">
+              @if (datePlace(details()!.person.BirthDate, details()!.birthCountry); as birth) {
+                <span>{{ birth }}</span>
+              }
+              @if (livingAgeLabel(details()!); as age) {
+                <span class="age">{{ age }}</span>
+              }
+            </p>
+          }
         </header>
 
         @if (details()!.text) {
@@ -125,14 +145,19 @@
         }
 
         <section>
-          <h2>Elokuvatuotanto ({{ details()!.filmography.length }})</h2>
+          <div class="list-heading">
+            <h2>Elokuvatuotanto ({{ details()!.filmography.length }})</h2>
+            @if (allMoviesPreviewItems().length) {
+              <button
+                type="button"
+                class="list-preview-btn"
+                (click)="openMoviesPreview()"
+                title="Esikatsele elokuvia"
+                aria-label="Esikatsele elokuvia"
+              ></button>
+            }
+          </div>
           <table>
-            <thead>
-              <tr>
-                <th>Elokuva</th>
-                <th>Rooli</th>
-              </tr>
-            </thead>
             <tbody>
               @for (f of details()!.filmography; track f.MovieId) {
                 <tr>

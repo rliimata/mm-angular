@@ -603,7 +603,12 @@ export class MovieService {
     let personMap = new Map<number, string>();
     if (personIds.length) {
       const { data: people } = await getSupabase().from('Person').select('Id, Name').in('Id', personIds);
-      personMap = new Map(((people as { Id: number; Name: string }[]) ?? []).map((p) => [p.Id, p.Name]));
+      personMap = new Map(
+        ((people as { Id: number; Name: string }[]) ?? []).map((p) => [
+          p.Id,
+          swapNames(decodeEntities(p.Name)),
+        ])
+      );
     }
 
     const outRows = (movieLinksOut.data as { DestinationId: number; RelationId: number }[]) ?? [];
@@ -629,8 +634,7 @@ export class MovieService {
         const v = versionMap.get(m.VersionId) ?? '';
         return !v || v === '-' ? '' : v;
       };
-      // Incoming first with reverse labels (Jatkoa elokuvalle / Alkuperäisversio / …),
-      // then outgoing with stored MovieRelation labels.
+      // Incoming with reverse labels, then outgoing; sequel links (Jatkoa…) first.
       related = [
         ...inRows.map((r) => {
           const m = movieMap.get(r.SourceId);
@@ -657,6 +661,27 @@ export class MovieService {
           };
         }),
       ];
+      related.sort((a, b) => {
+        const rank = (r: { RelationId: number; Relation: string }) => {
+          if (r.RelationId === 1) {
+            return 0;
+          }
+          const label = r.Relation.trim().toLowerCase();
+          if (label === 'jatkoa' || label.startsWith('jatkoa ')) {
+            return 0;
+          }
+          return 1;
+        };
+        const d = rank(a) - rank(b);
+        if (d !== 0) {
+          return d;
+        }
+        // Keep incoming sequel before outgoing sequel when both are rank 0.
+        if (a.Incoming !== b.Incoming) {
+          return a.Incoming ? -1 : 1;
+        }
+        return 0;
+      });
     }
 
     return {

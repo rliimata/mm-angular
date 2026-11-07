@@ -38,6 +38,8 @@ import { MediaService } from '../data/media.service';
           <span class="placeholder">
             <span class="ph-hint">Klikkaa tai raahaa kuva tähän</span>
           </span>
+        } @else if (showEmpty) {
+          <span class="placeholder empty-frame" aria-hidden="true"></span>
         }
         @if (canEdit() && hasImage()) {
           <span class="hover-cue" aria-hidden="true">Vaihda kuva</span>
@@ -76,8 +78,10 @@ import { MediaService } from '../data/media.service';
     :host {
       display: grid;
       gap: 0.35rem;
-      width: 300px;
-      flex: 0 0 300px;
+      width: min(300px, 100%);
+      max-width: 100%;
+      flex: 0 1 300px;
+      box-sizing: border-box;
     }
 
     :host.is-hidden {
@@ -87,7 +91,7 @@ import { MediaService } from '../data/media.service';
     .media-card {
       display: grid;
       gap: 0.45rem;
-      width: 300px;
+      width: 100%;
     }
 
     .media-card.dragover .media-frame {
@@ -97,7 +101,7 @@ import { MediaService } from '../data/media.service';
 
     .media-frame {
       position: relative;
-      width: 300px;
+      width: 100%;
       margin: 0;
       padding: 0;
       border: 1px solid #d0d8e0;
@@ -256,7 +260,32 @@ import { MediaService } from '../data/media.service';
     }
 
     :host.person-kind .media-card {
-      width: 300px;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    @media (max-width: 640px) {
+      :host {
+        width: 100%;
+        max-width: none;
+        flex: 1 1 auto;
+      }
+
+      :host.person-kind .media-card {
+        max-width: none;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: none;
+        box-shadow: none;
+      }
+
+      :host.person-kind .media-frame,
+      :host.movie-kind .media-frame {
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+      }
     }
   `,
 })
@@ -265,6 +294,8 @@ export class MediaImageComponent implements OnChanges {
   @Input({ required: true }) entityId!: number;
   @Input() alt = '';
   @Input() editable = false;
+  /** Keep an empty frame visible when there is no image (e.g. list preview). */
+  @Input() showEmpty = false;
   /** Prebuilt Google Images query string (unencoded). When set, shows Etsi kuva. */
   @Input() imageSearchQuery = '';
 
@@ -284,7 +315,7 @@ export class MediaImageComponent implements OnChanges {
 
   /** Hide empty frame when there is no image and upload is not available. */
   hostVisible(): boolean {
-    return this.hasImage() || this.canEdit();
+    return this.hasImage() || this.canEdit() || this.showEmpty;
   }
 
   displayUrl(): string {

@@ -5,13 +5,17 @@
   padding-bottom: 1rem;
   font-size: 1rem;
   color: #111;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .edit-layout {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
   gap: 1.25rem 1.5rem;
   align-items: start;
+  width: 100%;
 }
 
 .edit-layout:has(> app-media-image.is-hidden) {
@@ -25,6 +29,12 @@
   align-content: start;
 }
 
+@media (max-width: 900px) {
+  .edit-layout {
+    grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 720px) {
   .edit-layout {
     grid-template-columns: 1fr;
@@ -33,6 +43,7 @@
 
 .edit-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
@@ -334,40 +345,39 @@
 
 .title-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(11rem, 14rem) 5rem;
+  grid-template-columns: minmax(0, 1fr) minmax(9rem, 14rem) auto;
   gap: 0.5rem;
   align-items: end;
 }
 
 .compact-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
   gap: 0.5rem;
   align-items: end;
 }
 
 .compact-row.two {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
 }
 
 .age-ratio-row {
   display: grid;
-  grid-template-columns: max-content max-content 1fr auto;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
   gap: 0.5rem;
   align-items: end;
 }
 
-.age-field {
-  width: 14.5rem;
-}
-
+.age-field,
 .ratio-field {
-  width: 18.5rem;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .version-budget-row {
   display: grid;
-  grid-template-columns: minmax(16rem, 26rem) 1fr auto;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: 0.5rem;
   align-items: end;
 }
@@ -377,20 +387,19 @@
 }
 
 .budget-field {
-  justify-self: end;
-  grid-column: 3;
+  justify-self: stretch;
 }
 
 .budget-field .budget-row {
   display: grid;
-  grid-template-columns: 8.5rem minmax(5.5rem, 7rem);
+  grid-template-columns: minmax(0, 1fr) minmax(5rem, 7rem);
   gap: 0.5rem;
 }
 
 .runtime-field {
-  width: 9.5rem;
-  justify-self: end;
-  grid-column: 4;
+  width: auto;
+  max-width: 100%;
+  justify-self: stretch;
 }
 
 .runtime-field .runtime-row {
@@ -401,7 +410,7 @@
   max-width: 7rem;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .title-row,
   .compact-row,
   .compact-row.two,
@@ -412,8 +421,17 @@
   }
 
   .age-field,
-  .ratio-field {
+  .ratio-field,
+  .lang-field,
+  .year-field {
     width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .year-field input {
+    width: 100%;
+    max-width: none;
   }
 
   .budget-field,

@@ -12,12 +12,14 @@ import {
   formatRuntimeMinutes,
   palMinutesFromNtsc,
   resolveNtscMinutes,
+  roleSingularLabel,
   swapNames,
   swapTitle,
   titleWithYear,
   versionDisplayLabel,
 } from '../../core/format.util';
 import { PageTitleService } from '../../core/page-title.service';
+import { PHONE_MEDIA_QUERY } from '../../core/viewport.util';
 import { LookupRow } from '../../core/models';
 import { LookupService } from '../../data/lookup.service';
 import { MovieDetails, MovieService } from '../../data/movie.service';
@@ -32,6 +34,7 @@ import {
 import { UserLinkService } from '../../data/user-link.service';
 import { MemolistService } from '../../data/memolist.service';
 import { WatchlistService } from '../../data/watchlist.service';
+import { ListPreviewItem, ListPreviewService } from '../../shared/list-preview.service';
 import { MediaImageComponent } from '../../shared/media-image.component';
 import { SearchSelectComponent } from '../../shared/search-select.component';
 
@@ -75,11 +78,15 @@ export class MovieDetailPage implements OnInit, OnDestroy {
   readonly mediaFormatShort = mediaFormatShort;
   readonly ageLabel = ageRatingLabel;
   readonly ageImageSrc = ageRatingImageSrc;
+  /** Phone: view + rate only (no movie/ownership editing). Pads keep editing. */
+  readonly isCompact = signal(false);
 
   private movieId = 0;
   private routeSub: Subscription | null = null;
   private refreshSub: Subscription | null = null;
   private bootstrapped = false;
+  private compactMq: MediaQueryList | null = null;
+  private compactListener: ((ev: MediaQueryListEvent) => void) | null = null;
 
   constructor(
     readonly auth: AuthService,
@@ -92,10 +99,59 @@ export class MovieDetailPage implements OnInit, OnDestroy {
     private readonly ownershipApi: OwnershipService,
     private readonly lookups: LookupService,
     private readonly detailRefresh: DetailRefreshService,
-    private readonly pageTitle: PageTitleService
+    private readonly pageTitle: PageTitleService,
+    private readonly listPreview: ListPreviewService
   ) {}
 
+  /** All unique people credited on this movie (roles + awards). */
+  allPeoplePreviewItems(): ListPreviewItem[] {
+    const rolesByPerson = new Map<number, string[]>();
+    const order: number[] = [];
+    for (const r of this.details()?.roles ?? []) {
+      let roles = rolesByPerson.get(r.PersonId);
+      if (!roles) {
+        roles = [];
+        rolesByPerson.set(r.PersonId, roles);
+        order.push(r.PersonId);
+      }
+      const label = roleSingularLabel(r.Role) || r.Role.trim();
+      if (label && !roles.includes(label)) {
+        roles.push(label);
+      }
+    }
+    for (const a of this.details()?.awards ?? []) {
+      if (a.PersonId == null) {
+        continue;
+      }
+      if (!rolesByPerson.has(a.PersonId)) {
+        rolesByPerson.set(a.PersonId, []);
+        order.push(a.PersonId);
+      }
+    }
+    return order.map((id) => ({
+      kind: 'person' as const,
+      id,
+      roles: rolesByPerson.get(id) ?? [],
+    }));
+  }
+
+  openPeoplePreview(startPersonId?: number): void {
+    const items = this.allPeoplePreviewItems();
+    if (!items.length) {
+      return;
+    }
+    const index =
+      startPersonId != null ? Math.max(0, items.findIndex((it) => it.id === startPersonId)) : 0;
+    this.listPreview.show(items, index);
+  }
+
   ngOnInit(): void {
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      this.compactMq = window.matchMedia(PHONE_MEDIA_QUERY);
+      this.compactListener = (ev) => this.isCompact.set(ev.matches);
+      this.isCompact.set(this.compactMq.matches);
+      this.compactMq.addEventListener('change', this.compactListener);
+    }
     this.routeSub = this.route.paramMap.subscribe((params) => {
       const nextId = Number(params.get('id'));
       if (!nextId) {
@@ -121,6 +177,9 @@ export class MovieDetailPage implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.routeSub?.unsubscribe();
     this.refreshSub?.unsubscribe();
+    if (this.compactMq && this.compactListener) {
+      this.compactMq.removeEventListener('change', this.compactListener);
+    }
   }
 
   private async bootstrap(): Promise<void> {
@@ -424,14 +483,14 @@ export class MovieDetailPage implements OnInit, OnDestroy {
   }
 
   openNewOwnership(): void {
-    if (!this.auth.isSuperUser()) {
+    if (!this.auth.isSuperUser() || this.isCompact()) {
       return;
     }
     void this.router.navigate(['/movie', this.movieId, 'ownership', 'new']);
   }
 
   openEditOwnership(id: number): void {
-    if (!this.auth.isSuperUser()) {
+    if (!this.auth.isSuperUser() || this.isCompact()) {
       return;
     }
     void this.router.navigate(['/movie', this.movieId, 'ownership', id, 'edit']);
@@ -461,6 +520,9 @@ export class MovieDetailPage implements OnInit, OnDestroy {
   }
 
   openMergeOwnerships(): void {
+    if (this.isCompact()) {
+      return;
+    }
     const list = this.ownerships();
     if (list.length < 2) {
       return;

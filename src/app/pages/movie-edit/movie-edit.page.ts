@@ -23,6 +23,7 @@ import {
   swapTitle,
 } from '../../core/format.util';
 import { PageTitleService } from '../../core/page-title.service';
+import { isPhoneViewport } from '../../core/viewport.util';
 import { LookupRow, Movie, Person } from '../../core/models';
 import { CatalogService, CatalogTable } from '../../data/catalog.service';
 import { LookupService } from '../../data/lookup.service';
@@ -149,6 +150,16 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
   ) {}
 
   async ngOnInit(): Promise<void> {
+    if (isPhoneViewport()) {
+      const param =
+        this.route.snapshot.paramMap.get('id') ?? this.route.parent?.snapshot.paramMap.get('id');
+      if (param && param !== 'new') {
+        void this.router.navigate(['/movie', param]);
+      } else {
+        void this.router.navigateByUrl('/');
+      }
+      return;
+    }
     await this.reloadLookups();
     const param =
       this.route.snapshot.paramMap.get('id') ?? this.route.parent?.snapshot.paramMap.get('id');

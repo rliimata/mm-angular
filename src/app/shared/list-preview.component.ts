@@ -1,0 +1,857 @@
+import { Component, HostListener, OnDestroy, effect, inject, signal } from '@angular/core';
+import { NavigationEnd, NavigationStart, Router, RouterLink } from '@angular/router';
+import { filter } from 'rxjs/operators';
+import { AuthService } from '../core/auth.service';
+import { formatAppDate, parseAppDateTime } from '../core/datetime.util';
+import { errorMessage } from '../core/error.util';
+import {
+  ageRatingImageSrc,
+  ageRatingLabel,
+  formatRuntimeMinutes,
+  palMinutesFromNtsc,
+  resolveNtscMinutes,
+  roleSingularLabel,
+  swapNames,
+  titleWithYear,
+  versionDisplayLabel,
+} from '../core/format.util';
+import { AppDateTime, LookupRow } from '../core/models';
+import { LookupService } from '../data/lookup.service';
+import { MovieDetails, MovieService } from '../data/movie.service';
+import { PersonDetails, PersonService } from '../data/person.service';
+import { UserLinkService } from '../data/user-link.service';
+import { MediaImageComponent } from './media-image.component';
+import { ListPreviewItem, ListPreviewService } from './list-preview.service';
+
+@Component({
+  selector: 'app-list-preview',
+  standalone: true,
+  imports: [RouterLink, MediaImageComponent],
+  template: `
+    @if (preview.open()) {
+      <div class="lp-backdrop" (click)="preview.close()" role="presentation">
+        <div
+          class="lp-panel"
+          (click)="$event.stopPropagation()"
+          role="dialog"
+          aria-modal="true"
+          [attr.aria-label]="heading()"
+        >
+          <div class="lp-toolbar">
+            @if (canEdit()) {
+              <button type="button" class="ghost lp-edit desktop-only" (click)="openEdit()">
+                Muokkaa
+              </button>
+            } @else {
+              <span></span>
+            }
+            <button type="button" class="lp-close" (click)="preview.close()" aria-label="Sulje">
+              ×
+            </button>
+          </div>
+
+          <div class="lp-frame">
+            @if (loading()) {
+              <div class="page-loading page-loading-inline" aria-live="polite">
+                <div class="spinner" aria-hidden="true"></div>
+                <p>Ladataan…</p>
+              </div>
+            } @else if (error()) {
+              <p class="lp-error">{{ error() }}</p>
+            } @else if (movie()) {
+              <div class="lp-layout">
+                <app-media-image
+                  kind="movie"
+                  [entityId]="movie()!.movie.Id"
+                  [alt]="movie()!.movie.Title"
+                  [editable]="false"
+                  [showEmpty]="true"
+                />
+                <div class="lp-main">
+                  <h2>
+                    <a [routerLink]="['/movie', movie()!.movie.Id]" (click)="preview.close()">
+                      {{ movieHeading(movie()!) }}
+                    </a>
+                    @if (ageLabel(movie()!.movie.Age)) {
+                      @if (ageImageSrc(movie()!.movie.Age); as ageSrc) {
+                        <img class="lp-age-image" [src]="ageSrc" [alt]="ageLabel(movie()!.movie.Age)" />
+                      } @else {
+                        <span class="lp-age-badge">{{ ageLabel(movie()!.movie.Age) }}</span>
+                      }
+                    }
+                  </h2>
+                  @if (avgScore() || movieDetailMeta(movie()!).length) {
+                    <div class="lp-meta-row">
+                      @if (avgScore(); as avg) {
+                        <span class="lp-score-star" [attr.title]="'Keskiarvo ' + avg">
+                          <span class="lp-score-star-glyph" aria-hidden="true">★</span>
+                          <span class="lp-score-star-value">{{ avg }}</span>
+                        </span>
+                      }
+                      @if (movieDetailMeta(movie()!).length) {
+                        <div class="lp-meta-chips">
+                          @for (chip of movieDetailMeta(movie()!); track chip; let last = $last) {
+                            <span>{{ chip }}</span
+                            >@if (!last) {
+                              <span class="lp-meta-sep"> · </span>
+                            }
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+                  @for (roleName of movieRoleNames(); track roleName) {
+                    <div class="lp-role-block">
+                      <p class="lp-role-label">{{ roleName }}</p>
+                      <p class="lp-people">
+                        @for (
+                          r of movieRolesByType(roleName);
+                          track r.PersonId + '-' + r.Sequence;
+                          let last = $last
+                        ) {
+                          <a
+                            [routerLink]="['/person', r.PersonId]"
+                            (click)="preview.close()"
+                            >{{ swapNames(r.Name) }}</a
+                          >@if (!last) {
+                            <span>, </span>
+                          }
+                        }
+                      </p>
+                    </div>
+                  }
+                </div>
+              </div>
+            } @else if (person()) {
+              <div
+                class="lp-layout"
+                [class.gender-male]="person()!.person.Gender === 0"
+                [class.gender-female]="person()!.person.Gender === 1"
+              >
+                <a
+                  class="lp-image-link"
+                  [routerLink]="['/person', person()!.person.Id]"
+                  (click)="preview.close()"
+                  [attr.aria-label]="swapNames(person()!.person.Name)"
+                >
+                  <app-media-image
+                    kind="person"
+                    [entityId]="person()!.person.Id"
+                    [alt]="swapNames(person()!.person.Name)"
+                    [editable]="false"
+                    [showEmpty]="true"
+                  />
+                </a>
+                <div class="lp-main">
+                  <h2>
+                    <a [routerLink]="['/person', person()!.person.Id]" (click)="preview.close()">
+                      {{ swapNames(person()!.person.Name) }}
+                    </a>
+                  </h2>
+                  @if (person()!.person.RealName) {
+                    <p class="lp-meta">{{ swapNames(person()!.person.RealName) }}</p>
+                  }
+                  @if (personLife(person()!); as life) {
+                    <p class="lp-meta">{{ life }}</p>
+                  }
+                  @if (personRoles(); as roles) {
+                    <p class="lp-meta lp-roles">{{ roles }}</p>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+
+          <div class="lp-nav">
+            <button
+              type="button"
+              class="lp-arrow"
+              (click)="preview.prev()"
+              [disabled]="preview.items().length < 2"
+              aria-label="Edellinen"
+            >
+              ←
+            </button>
+            <span class="lp-count" aria-live="polite">
+              {{ preview.index() + 1 }} / {{ preview.items().length }}
+            </span>
+            <button
+              type="button"
+              class="lp-arrow"
+              (click)="preview.next()"
+              [disabled]="preview.items().length < 2"
+              aria-label="Seuraava"
+            >
+              →
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+  `,
+  styles: `
+    .lp-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+      background: rgba(15, 23, 32, 0.58);
+    }
+
+    .lp-panel {
+      width: min(44rem, 100%);
+      max-height: calc(100vh - 2rem);
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: 0.55rem;
+      padding: 0.75rem 1rem 0.85rem;
+      border-radius: 12px;
+      background: #f7f9fc;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+      box-sizing: border-box;
+    }
+
+    .lp-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      min-height: 2rem;
+    }
+
+    .lp-edit {
+      padding: 0.35rem 0.7rem;
+      border: 1px solid #c5d0dc;
+      border-radius: 4px;
+      background: #e8eef4;
+      color: #1f4b7a;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .lp-edit:hover {
+      background: #dce6f0;
+    }
+
+    .lp-close {
+      display: inline-grid;
+      place-items: center;
+      width: 2rem;
+      height: 2rem;
+      margin: 0 0 0 auto;
+      padding: 0;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: #1f4b7a;
+      font-size: 1.55rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .lp-close:hover {
+      background: rgba(31, 75, 122, 0.12);
+    }
+
+    .lp-frame {
+      min-height: 0;
+      overflow: auto;
+      padding: 0.85rem;
+      border: 2px solid #c5d0dc;
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8);
+    }
+
+    .lp-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 160px) minmax(0, 1fr);
+      gap: 1rem 1.15rem;
+      align-items: start;
+    }
+
+    .lp-layout.gender-male {
+      background: #e7f1fa;
+      margin: -0.85rem;
+      padding: 0.85rem;
+      border-radius: 8px;
+    }
+
+    .lp-layout.gender-female {
+      background: #fce8ef;
+      margin: -0.85rem;
+      padding: 0.85rem;
+      border-radius: 8px;
+    }
+
+    .lp-image-link {
+      display: block;
+      color: inherit;
+      text-decoration: none;
+      min-width: 0;
+    }
+
+    .lp-main {
+      display: grid;
+      gap: 0.35rem;
+      min-width: 0;
+      align-content: start;
+    }
+
+    h2 {
+      margin: 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem 0.55rem;
+      font-size: 1.2rem;
+      font-weight: 700;
+      line-height: 1.3;
+      color: #111;
+    }
+
+    h2 a {
+      color: inherit;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    h2 a:hover {
+      color: #1f4b7a;
+    }
+
+    .lp-age-image {
+      height: 1.35rem;
+      width: auto;
+      display: block;
+    }
+
+    .lp-age-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      background: #1f4b7a;
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .lp-meta-row {
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 0.55rem 0.75rem;
+      margin: 0.15rem 0 0;
+    }
+
+    .lp-meta-row > .lp-score-star {
+      align-self: center;
+      order: 0;
+    }
+
+    .lp-meta-chips {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.1rem 0;
+      margin: 0;
+      min-width: 0;
+      flex: 1 1 auto;
+      color: #111;
+      line-height: 1.4;
+      order: 1;
+    }
+
+    .lp-meta-sep {
+      opacity: 0.65;
+    }
+
+    .lp-score-star {
+      position: relative;
+      flex: 0 0 auto;
+      display: inline-grid;
+      place-items: center;
+      width: 2.85rem;
+      height: 2.85rem;
+      line-height: 1;
+    }
+
+    .lp-score-star-glyph {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-size: 2.85rem;
+      color: #ffd000;
+      text-shadow: 0 0 1px #b8860b;
+      pointer-events: none;
+    }
+
+    .lp-score-star-value {
+      position: relative;
+      z-index: 1;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-top: 0.14rem;
+    }
+
+    .lp-meta {
+      margin: 0;
+      color: #111;
+      line-height: 1.4;
+    }
+
+    .lp-roles {
+      font-weight: 600;
+      color: #1f4b7a;
+    }
+
+    .lp-role-block {
+      display: grid;
+      gap: 0.15rem;
+      margin-top: 0.35rem;
+    }
+
+    .lp-role-label {
+      margin: 0;
+      font-weight: 700;
+      color: #111;
+    }
+
+    .lp-people {
+      margin: 0;
+      line-height: 1.4;
+      color: #111;
+    }
+
+    .lp-people a {
+      color: #1f4b7a;
+      text-decoration: none;
+    }
+
+    .lp-people a:hover {
+      color: #163a5f;
+    }
+
+    .lp-error {
+      margin: 0;
+      color: #a40000;
+    }
+
+    .lp-nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      padding-bottom: 0.15rem;
+    }
+
+    .lp-arrow {
+      width: 2.6rem;
+      height: 2.35rem;
+      margin: 0;
+      padding: 0;
+      border: 1px solid #c5d0dc;
+      border-radius: 6px;
+      background: #e8eef4;
+      color: #1f4b7a;
+      font-size: 1.25rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .lp-arrow:hover:not(:disabled) {
+      background: #dce6f0;
+    }
+
+    .lp-arrow:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .lp-count {
+      min-width: 4.5rem;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      color: #1f4b7a;
+      font-weight: 600;
+    }
+
+    @media (max-width: 640px) {
+      .lp-panel {
+        width: 100%;
+        padding: 0.65rem 0.75rem 0.65rem;
+      }
+
+      .lp-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .lp-layout > app-media-image,
+      .lp-image-link {
+        display: none !important;
+      }
+    }
+  `,
+})
+export class ListPreviewComponent implements OnDestroy {
+  readonly preview = inject(ListPreviewService);
+  readonly auth = inject(AuthService);
+  private readonly movies = inject(MovieService);
+  private readonly people = inject(PersonService);
+  private readonly userLinks = inject(UserLinkService);
+  private readonly lookups = inject(LookupService);
+  private readonly router = inject(Router);
+
+  readonly loading = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly movie = signal<MovieDetails | null>(null);
+  readonly person = signal<PersonDetails | null>(null);
+  readonly avgScore = signal<string | null>(null);
+  readonly swapNames = swapNames;
+
+  private readonly movieCache = new Map<number, MovieDetails>();
+  private readonly personCache = new Map<number, PersonDetails>();
+  private readonly avgScoreCache = new Map<number, string | null>();
+  private scores: LookupRow[] = [];
+  private scoresLoaded = false;
+  private loadToken = 0;
+  private readonly routerStartSub = this.router.events
+    .pipe(filter((e): e is NavigationStart => e instanceof NavigationStart))
+    .subscribe(() => {
+      if (this.preview.open()) {
+        this.preview.close();
+      }
+    });
+
+  private readonly routerEndSub = this.router.events
+    .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+    .subscribe((e) => {
+      if (!this.preview.isPaused() || this.isEditUrl(e.urlAfterRedirects)) {
+        return;
+      }
+      this.movieCache.clear();
+      this.personCache.clear();
+      this.avgScoreCache.clear();
+      this.preview.resume();
+    });
+
+  constructor() {
+    effect(() => {
+      if (!this.preview.open()) {
+        return;
+      }
+      const item = this.preview.current();
+      if (!item) {
+        return;
+      }
+      void this.loadItem(item);
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.routerStartSub.unsubscribe();
+    this.routerEndSub.unsubscribe();
+  }
+
+  private isEditUrl(url: string): boolean {
+    const path = url.split('?')[0];
+    return (
+      /\/movie\/\d+\/edit$/.test(path) ||
+      /\/person\/\d+\/edit$/.test(path) ||
+      path === '/movie/new' ||
+      path === '/person/new'
+    );
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onKeydown(ev: KeyboardEvent): void {
+    if (!this.preview.open()) {
+      return;
+    }
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      this.preview.close();
+      return;
+    }
+    if (ev.key === 'ArrowLeft') {
+      ev.preventDefault();
+      this.preview.prev();
+      return;
+    }
+    if (ev.key === 'ArrowRight') {
+      ev.preventDefault();
+      this.preview.next();
+    }
+  }
+
+  canEdit(): boolean {
+    if (!this.auth.isSuperUser() || this.loading() || this.error()) {
+      return false;
+    }
+    return !!(this.movie() || this.person());
+  }
+
+  openEdit(): void {
+    const returnUrl = this.router.url;
+    const m = this.movie();
+    if (m) {
+      this.preview.pauseForEdit();
+      void this.router.navigate(['/movie', m.movie.Id, 'edit'], {
+        queryParams: { return: returnUrl },
+      });
+      return;
+    }
+    const p = this.person();
+    if (p) {
+      this.preview.pauseForEdit();
+      void this.router.navigate(['/person', p.person.Id, 'edit'], {
+        queryParams: { return: returnUrl },
+      });
+    }
+  }
+
+  heading(): string {
+    const m = this.movie();
+    if (m) {
+      return this.movieHeading(m);
+    }
+    const p = this.person();
+    if (p) {
+      return swapNames(p.person.Name);
+    }
+    return 'Esikatselu';
+  }
+
+  movieHeading(d: MovieDetails): string {
+    const withYear = titleWithYear(d.movie.Title, d.movie.TitleLanguageId, d.movie.Year);
+    const ver = versionDisplayLabel(d.version);
+    return ver ? `${withYear} – ${ver}` : withYear;
+  }
+
+  readonly ageLabel = ageRatingLabel;
+  readonly ageImageSrc = ageRatingImageSrc;
+
+  /** Same basic fields as movie-detail meta chips (without average score). */
+  movieDetailMeta(d: MovieDetails): string[] {
+    const chips: string[] = [];
+    if (d.countries.length) {
+      chips.push(d.countries.join(', '));
+    }
+    if (d.categories.length) {
+      chips.push(d.categories.join(', '));
+    }
+    if (d.ratio && d.ratio !== '-') {
+      chips.push(d.ratio);
+    }
+    if (d.sounds.length) {
+      chips.push(d.sounds.join(', '));
+    }
+    const budget = Number(d.movie.Budget);
+    if (Number.isFinite(budget) && budget > 0) {
+      const money = budget.toLocaleString('en-US');
+      chips.push(d.currency && d.currency !== '-' ? `${money} ${d.currency}` : money);
+    }
+    const ntsc = resolveNtscMinutes(d.movie.Ntsc, d.movie.Pal);
+    if (ntsc != null) {
+      const runtime = formatRuntimeMinutes(palMinutesFromNtsc(ntsc));
+      if (runtime) {
+        chips.push(runtime);
+      }
+    }
+    return chips;
+  }
+
+  movieRoleNames(): string[] {
+    return [...new Set((this.movie()?.roles ?? []).map((r) => r.Role))];
+  }
+
+  movieRolesByType(roleName: string) {
+    return (this.movie()?.roles ?? []).filter((r) => r.Role === roleName);
+  }
+
+  personRoles(): string {
+    const fromItem = this.preview.current()?.roles?.filter((r) => !!r?.trim()) ?? [];
+    if (fromItem.length) {
+      return fromItem.join(', ');
+    }
+    const details = this.person();
+    if (!details?.filmography.length) {
+      return '';
+    }
+    const seen = new Set<string>();
+    const labels: string[] = [];
+    for (const f of details.filmography) {
+      for (const role of f.Roles) {
+        const label = roleSingularLabel(role) || role.trim();
+        if (!label || seen.has(label)) {
+          continue;
+        }
+        seen.add(label);
+        labels.push(label);
+      }
+    }
+    return labels.join(', ');
+  }
+
+  personLife(d: PersonDetails): string {
+    const birth = this.datePlace(d.person.BirthDate, d.birthCountry);
+    const death = this.datePlace(d.person.DeathDate, d.deathCountry);
+    if (death) {
+      return [birth, death].filter(Boolean).join(' – ');
+    }
+    const age = this.livingAge(d);
+    return [birth, age].filter(Boolean).join(' ');
+  }
+
+  private datePlace(
+    dateValue: AppDateTime | string | null | undefined,
+    place: string | null | undefined
+  ): string {
+    const raw = formatAppDate(dateValue);
+    const date = raw ? raw.replace(/^0(\d)\./, '$1.').replace(/\.0(\d)\./, '.$1.') : '';
+    const loc = (place ?? '').trim();
+    return [date, loc].filter(Boolean).join(' ');
+  }
+
+  private livingAge(d: PersonDetails): string {
+    const death = parseAppDateTime(d.person.DeathDate);
+    if (death && death.year > 0) {
+      return '';
+    }
+    const birth = parseAppDateTime(d.person.BirthDate);
+    if (!birth?.year || birth.year <= 0) {
+      return '';
+    }
+    let years = new Date().getFullYear() - birth.year;
+    const fromMonth = birth.month > 0 ? birth.month : 1;
+    const fromDay = birth.day > 0 ? birth.day : 1;
+    const now = new Date();
+    if (
+      now.getMonth() + 1 < fromMonth ||
+      (now.getMonth() + 1 === fromMonth && now.getDate() < fromDay)
+    ) {
+      years -= 1;
+    }
+    return years >= 0 ? `(${years}v)` : '';
+  }
+
+  private async loadItem(item: ListPreviewItem): Promise<void> {
+    const token = ++this.loadToken;
+    this.error.set(null);
+
+    if (item.kind === 'movie') {
+      const cached = this.movieCache.get(item.id);
+      if (cached) {
+        this.person.set(null);
+        this.movie.set(cached);
+        this.avgScore.set(this.avgScoreCache.get(item.id) ?? null);
+        this.loading.set(false);
+        if (!this.avgScoreCache.has(item.id)) {
+          void this.loadAvgScore(item.id, token);
+        }
+        return;
+      }
+      this.loading.set(true);
+      this.movie.set(null);
+      this.person.set(null);
+      this.avgScore.set(null);
+      try {
+        const details = await this.movies.getDetails(item.id);
+        if (token !== this.loadToken) {
+          return;
+        }
+        if (!details) {
+          this.error.set('Elokuvaa ei löytynyt.');
+          return;
+        }
+        this.movieCache.set(item.id, details);
+        this.movie.set(details);
+        void this.loadAvgScore(item.id, token);
+      } catch (e: unknown) {
+        if (token !== this.loadToken) {
+          return;
+        }
+        this.error.set(errorMessage(e));
+      } finally {
+        if (token === this.loadToken) {
+          this.loading.set(false);
+        }
+      }
+      return;
+    }
+
+    const cached = this.personCache.get(item.id);
+    if (cached) {
+      this.movie.set(null);
+      this.person.set(cached);
+      this.avgScore.set(null);
+      this.loading.set(false);
+      return;
+    }
+    this.loading.set(true);
+    this.movie.set(null);
+    this.person.set(null);
+    this.avgScore.set(null);
+    try {
+      const details = await this.people.getDetails(item.id);
+      if (token !== this.loadToken) {
+        return;
+      }
+      if (!details) {
+        this.error.set('Henkilöä ei löytynyt.');
+        return;
+      }
+      this.personCache.set(item.id, details);
+      this.person.set(details);
+    } catch (e: unknown) {
+      if (token !== this.loadToken) {
+        return;
+      }
+      this.error.set(errorMessage(e));
+    } finally {
+      if (token === this.loadToken) {
+        this.loading.set(false);
+      }
+    }
+  }
+
+  private async loadAvgScore(movieId: number, token: number): Promise<void> {
+    try {
+      if (!this.scoresLoaded) {
+        this.scores = await this.lookups.get('Score');
+        this.scoresLoaded = true;
+      }
+      const reviews = await this.userLinks.listForMovie(movieId);
+      if (token !== this.loadToken) {
+        return;
+      }
+      const scored = reviews
+        .map((r) => {
+          if (r.ScoreId == null || r.ScoreId <= 0) {
+            return null;
+          }
+          const row = this.scores.find((s) => s.Id === r.ScoreId);
+          return row ? Number(row.Value) : null;
+        })
+        .filter((v): v is number => v != null && !Number.isNaN(v));
+      const avg =
+        scored.length > 0
+          ? (Math.round((scored.reduce((sum, v) => sum + v, 0) / scored.length) * 10) / 10).toFixed(1)
+          : null;
+      this.avgScoreCache.set(movieId, avg);
+      if (this.preview.current()?.kind === 'movie' && this.preview.current()?.id === movieId) {
+        this.avgScore.set(avg);
+      }
+    } catch {
+      if (token === this.loadToken) {
+        this.avgScoreCache.set(movieId, null);
+        this.avgScore.set(null);
+      }
+    }
+  }
+}

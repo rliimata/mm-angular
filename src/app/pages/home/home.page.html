@@ -8,7 +8,7 @@
     <button type="button" [class.active]="mode === 'shelf'" (click)="setMode('shelf')">Arvonta</button>
     <button type="button" [class.active]="mode === 'watchlist'" (click)="setMode('watchlist')">Katselulista</button>
     <button type="button" [class.active]="mode === 'memolist'" (click)="setMode('memolist')">Muistilista</button>
-    <button type="button" [class.active]="mode === 'birthdays'" (click)="setMode('birthdays')">Syntymäpäivät</button>
+    <button type="button" [class.active]="mode === 'birthdays'" (click)="setMode('birthdays')">Synttärit</button>
   </div>
 
   @if (mode === 'text') {
@@ -28,12 +28,24 @@
   }
 
   @if (loading()) {
-    <p class="muted">Ladataan…</p>
+    <div class="page-loading" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Ladataan…</p>
+    </div>
   } @else if (mode === 'birthdays') {
     @if (people().length) {
-      <p class="meta">
-        {{ people().length === 1 ? '1 syntymäpäivä tänään' : people().length + ' syntymäpäivää tänään' }}
-      </p>
+      <div class="list-heading">
+        <p class="meta">
+          {{ people().length === 1 ? '1 syntymäpäivä tänään' : people().length + ' syntymäpäivää tänään' }}
+        </p>
+        <button
+          type="button"
+          class="list-preview-btn"
+          (click)="openPeoplePreview()"
+          title="Esikatsele"
+          aria-label="Esikatsele"
+        ></button>
+      </div>
       <table>
         <tbody>
           @for (p of people(); track p.Id) {
@@ -44,7 +56,7 @@
               <td class="row-actions">
                 @if (auth.isSuperUser()) {
                   <a
-                    class="icon-edit"
+                    class="icon-edit desktop-only"
                     [routerLink]="['/person', p.Id, 'edit']"
                     [queryParams]="{ return: '/' }"
                     title="Muokkaa"
@@ -71,9 +83,18 @@
   } @else if (mode === 'owned') {
     @if (ownershipTotal() > 0) {
       <div class="list-head">
-        <p class="meta">
-          {{ ownershipTotal() === 1 ? '1 omistus' : ownershipTotal() + ' omistusta' }}
-        </p>
+        <div class="list-heading">
+          <p class="meta">
+            {{ ownershipTotal() === 1 ? '1 omistus' : ownershipTotal() + ' omistusta' }}
+          </p>
+          <button
+            type="button"
+            class="list-preview-btn"
+            (click)="openOwnershipPreview()"
+            title="Esikatsele"
+            aria-label="Esikatsele"
+          ></button>
+        </div>
       </div>
       <table>
         <tbody>
@@ -89,7 +110,7 @@
               <td class="row-actions">
                 @if (auth.isSuperUser() && o.movies.length) {
                   <a
-                    class="icon-edit"
+                    class="icon-edit desktop-only"
                     [routerLink]="['/movie', o.movies[0].Id]"
                     title="Avaa"
                     aria-label="Avaa"
@@ -107,7 +128,16 @@
   } @else {
     @if (mode === 'text' && people().length) {
       <section class="result-block">
-        <p class="meta">{{ people().length === 1 ? '1 henkilö' : people().length + ' henkilöä' }}</p>
+        <div class="list-heading">
+          <p class="meta">{{ people().length === 1 ? '1 henkilö' : people().length + ' henkilöä' }}</p>
+          <button
+            type="button"
+            class="list-preview-btn"
+            (click)="openPeoplePreview()"
+            title="Esikatsele"
+            aria-label="Esikatsele"
+          ></button>
+        </div>
         <table>
           <tbody>
             @for (p of people(); track p.Id) {
@@ -118,7 +148,7 @@
                 <td class="row-actions">
                   @if (auth.isSuperUser()) {
                     <a
-                      class="icon-edit"
+                      class="icon-edit desktop-only"
                       [routerLink]="['/person', p.Id, 'edit']"
                       [queryParams]="{ return: '/' }"
                       title="Muokkaa"
@@ -136,7 +166,16 @@
 
     @if (total() > 0) {
       <section class="result-block">
-        <p class="meta">{{ total() === 1 ? '1 elokuva' : total() + ' elokuvaa' }}</p>
+        <div class="list-heading">
+          <p class="meta">{{ total() === 1 ? '1 elokuva' : total() + ' elokuvaa' }}</p>
+          <button
+            type="button"
+            class="list-preview-btn"
+            (click)="openMoviesPreview()"
+            title="Esikatsele"
+            aria-label="Esikatsele"
+          ></button>
+        </div>
         <table>
           <tbody>
             @for (m of movies(); track m.Id) {
@@ -166,7 +205,7 @@
                   }
                   @if (auth.isSuperUser()) {
                     <a
-                      class="icon-edit"
+                      class="icon-edit desktop-only"
                       [routerLink]="['/movie', m.Id, 'edit']"
                       [queryParams]="{ return: '/' }"
                       title="Muokkaa"

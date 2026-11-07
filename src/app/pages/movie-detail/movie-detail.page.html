@@ -1,6 +1,9 @@
 <section class="detail">
   @if (loading()) {
-    <p>Ladataan…</p>
+    <div class="page-loading" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Ladataan…</p>
+    </div>
   } @else if (error()) {
     <p class="error">{{ error() }}</p>
   } @else if (details()) {
@@ -9,22 +12,28 @@
         kind="movie"
         [entityId]="details()!.movie.Id"
         [alt]="details()!.movie.Title"
-        [editable]="auth.isSuperUser()"
+        [editable]="auth.isSuperUser() && !isCompact()"
         [imageSearchQuery]="imageSearchQuery()"
       />
       <div class="detail-main">
         <p class="nav">
           @if (auth.profile()) {
-            <button type="button" class="primary" (click)="openRating()">Arvostele</button>
+            <button type="button" class="ghost" (click)="openRating()">Arvostele</button>
             @if (auth.isSuperUser()) {
-              <button type="button" class="ghost" (click)="openNewOwnership()">Lisää omistus</button>
+              <button type="button" class="ghost desktop-only" (click)="openNewOwnership()">
+                Lisää omistus
+              </button>
             }
           }
           @if (auth.isSuperUser()) {
-            <button type="button" class="ghost" [routerLink]="['/movie', details()!.movie.Id, 'edit']">
-              Muokkaa elokuvaa
+            <button
+              type="button"
+              class="ghost desktop-only"
+              [routerLink]="['/movie', details()!.movie.Id, 'edit']"
+            >
+              Muokkaa
             </button>
-            <button type="button" class="danger-btn" (click)="deleteMovie()">Poista</button>
+            <button type="button" class="danger-btn desktop-only" (click)="deleteMovie()">Poista</button>
           }
         </p>
 
@@ -50,16 +59,11 @@
                     }}</span>
                   }
                 }
-                @if (averageScore(); as avg) {
-                  <span class="score-star" [attr.title]="'Keskiarvo ' + avg">
-                    <span class="score-star-glyph" aria-hidden="true">★</span>
-                    <span class="score-star-value">{{ avg }}</span>
-                  </span>
-                }
               </span>
             </h1>
           </div>
           @if (
+            averageScore() ||
             details()!.countries.length ||
             details()!.categories.length ||
             details()!.ratio ||
@@ -67,28 +71,36 @@
             hasBudget() ||
             runtimeLabel()
           ) {
-            <p class="meta-row">
-              @if (details()!.countries.length) {
-                <span class="chip chip-country">{{ details()!.countries.join(', ') }}</span>
+            <div class="meta-row">
+              @if (averageScore(); as avg) {
+                <span class="score-star" [attr.title]="'Keskiarvo ' + avg">
+                  <span class="score-star-glyph" aria-hidden="true">★</span>
+                  <span class="score-star-value">{{ avg }}</span>
+                </span>
               }
-              @if (details()!.categories.length) {
-                <span class="chip chip-category">{{ details()!.categories.join(', ') }}</span>
-              }
-              @if (details()!.ratio) {
-                <span class="chip chip-ratio">{{ details()!.ratio }}</span>
-              }
-              @if (details()!.sounds.length) {
-                <span class="chip chip-sound">{{ details()!.sounds.join(', ') }}</span>
-              }
-              @if (hasBudget()) {
-                <span class="chip chip-budget"
-                  >{{ formatBudget(details()!.movie.Budget) }} {{ details()!.currency }}</span
-                >
-              }
-              @if (runtimeLabel()) {
-                <span class="chip chip-runtime">{{ runtimeLabel() }}</span>
-              }
-            </p>
+              <div class="meta-chips">
+                @if (details()!.countries.length) {
+                  <span class="chip chip-country">{{ details()!.countries.join(', ') }}</span>
+                }
+                @if (details()!.categories.length) {
+                  <span class="chip chip-category">{{ details()!.categories.join(', ') }}</span>
+                }
+                @if (details()!.ratio) {
+                  <span class="chip chip-ratio">{{ details()!.ratio }}</span>
+                }
+                @if (details()!.sounds.length) {
+                  <span class="chip chip-sound">{{ details()!.sounds.join(', ') }}</span>
+                }
+                @if (hasBudget()) {
+                  <span class="chip chip-budget"
+                    >{{ formatBudget(details()!.movie.Budget) }} {{ details()!.currency }}</span
+                  >
+                }
+                @if (runtimeLabel()) {
+                  <span class="chip chip-runtime">{{ runtimeLabel() }}</span>
+                }
+              </div>
+            </div>
           }
         </header>
 
@@ -120,7 +132,9 @@
             <div class="section-head">
               <h2>Omistukset</h2>
               @if (auth.isSuperUser() && ownerships().length >= 2) {
-                <button type="button" class="ghost" (click)="openMergeOwnerships()">Yhdistä</button>
+                <button type="button" class="ghost desktop-only" (click)="openMergeOwnerships()">
+                  Yhdistä
+                </button>
               }
             </div>
             <div class="card">
@@ -193,7 +207,7 @@
                       }
                     </div>
                     @if (auth.isSuperUser()) {
-                      <div class="row-actions">
+                      <div class="row-actions desktop-only">
                         <button type="button" class="ghost" (click)="openEditOwnership(o.Id)">Muokkaa</button>
                         <button type="button" class="danger-btn" (click)="deleteOwnership(o.Id)">Poista</button>
                       </div>
@@ -246,9 +260,20 @@
             </section>
           }
 
-          @for (roleName of roleNames(); track roleName) {
+          @for (roleName of roleNames(); track roleName; let firstRole = $first) {
             <section>
-              <h2>{{ roleName }}</h2>
+              <div class="list-heading">
+                <h2>{{ roleName }}</h2>
+                @if (firstRole && allPeoplePreviewItems().length) {
+                  <button
+                    type="button"
+                    class="list-preview-btn"
+                    (click)="openPeoplePreview()"
+                    title="Esikatsele henkilöitä"
+                    aria-label="Esikatsele henkilöitä"
+                  ></button>
+                }
+              </div>
               <p class="people-inline">
                 @for (r of rolesByType(roleName); track r.PersonId + '-' + r.Sequence; let last = $last) {
                   <a [routerLink]="['/person', r.PersonId]">{{ swapNames(r.Name) }}</a
@@ -262,14 +287,25 @@
 
           @if (details()!.awards.length) {
             <section>
-              <h2>Palkinnot</h2>
+              <div class="list-heading">
+                <h2>Palkinnot</h2>
+                @if (!roleNames().length && allPeoplePreviewItems().length) {
+                  <button
+                    type="button"
+                    class="list-preview-btn"
+                    (click)="openPeoplePreview()"
+                    title="Esikatsele henkilöitä"
+                    aria-label="Esikatsele henkilöitä"
+                  ></button>
+                }
+              </div>
               <ul>
                 @for (a of details()!.awards; track a.Award + (a.PersonId ?? 0)) {
                   <li>
                     {{ a.Award }}
                     @if (a.PersonId && a.PersonName) {
                       :
-                      <a [routerLink]="['/person', a.PersonId]">{{ a.PersonName }}</a>
+                      <a [routerLink]="['/person', a.PersonId]">{{ swapNames(a.PersonName) }}</a>
                     }
                   </li>
                 }

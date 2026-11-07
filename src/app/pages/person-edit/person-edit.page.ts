@@ -4,6 +4,7 @@ import { DetailRefreshService } from '../../core/detail-refresh.service';
 import { swapNames } from '../../core/format.util';
 import { PageTitleService } from '../../core/page-title.service';
 import { Person } from '../../core/models';
+import { isPhoneViewport } from '../../core/viewport.util';
 import { PersonService } from '../../data/person.service';
 import { MediaImageComponent } from '../../shared/media-image.component';
 import { PersonFormComponent } from '../../shared/person-form.component';
@@ -35,6 +36,14 @@ export class PersonEditPage implements OnInit {
   async ngOnInit(): Promise<void> {
     const param =
       this.route.snapshot.paramMap.get('id') ?? this.route.parent?.snapshot.paramMap.get('id');
+    if (isPhoneViewport()) {
+      if (param && param !== 'new') {
+        void this.router.navigate(['/person', param]);
+      } else {
+        void this.router.navigateByUrl('/');
+      }
+      return;
+    }
     if (param && param !== 'new') {
       this.id = Number(param);
     }

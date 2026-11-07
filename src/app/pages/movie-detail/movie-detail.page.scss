@@ -7,7 +7,7 @@
 
 .detail-layout {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
   gap: 1.25rem 1.5rem;
   align-items: start;
 }
@@ -23,14 +23,38 @@
   align-content: start;
 }
 
-.detail-main > section > :not(h2),
-.read-body section > :not(h2) {
+.detail-main > section > :not(h2):not(.list-heading),
+.read-body section > :not(h2):not(.list-heading) {
   margin-left: 4px;
+}
+
+.read-body section > .list-heading {
+  margin-bottom: 0.45rem;
+}
+
+.read-body section > .list-heading > h2 {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .detail-layout {
+    grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+    gap: 1rem 1.15rem;
+  }
 }
 
 @media (max-width: 720px) {
   .detail-layout {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .detail-layout > app-media-image {
+    width: calc(100% + 1.5rem);
+    max-width: none;
+    margin-left: -0.75rem;
+    margin-right: -0.75rem;
   }
 }
 
@@ -45,6 +69,7 @@
 h1 {
   margin: 0;
   font-size: 1.35rem;
+  font-weight: 700;
   line-height: 1.35;
   letter-spacing: -0.01em;
   display: flex;
@@ -56,6 +81,7 @@ h1 {
 
 .title-text {
   margin-right: 0.15rem;
+  font-weight: 700;
 }
 
 .version-name {
@@ -81,7 +107,7 @@ h2 {
 }
 
 .detail-narrow {
-  width: 700px;
+  width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   display: grid;
@@ -133,8 +159,7 @@ button.text-link:hover {
 }
 
 .title-badges {
-  margin-left: auto;
-  margin-right: 200px;
+  margin-left: 0.35rem;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -257,10 +282,23 @@ button.text-link:hover {
 
 .meta-row {
   display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+  margin: 0.35rem 0 0;
+}
+
+.meta-row > .score-star {
+  align-self: center;
+}
+
+.meta-chips {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem 0.65rem;
-  margin: 0.35rem 0 0;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .meta {
@@ -422,13 +460,13 @@ label.block,
 
 .ownership-section {
   width: fit-content;
-  max-width: none;
+  max-width: 100%;
   justify-self: start;
 }
 
 .ownership-section .card {
   width: fit-content;
-  max-width: none;
+  max-width: 100%;
   box-sizing: border-box;
 }
 
@@ -453,27 +491,27 @@ label.block,
   align-items: flex-start;
   gap: 0.65rem;
   width: fit-content;
+  max-width: 100%;
 }
 
 .ownership-list li {
   --ownership-section-gap: 1.75rem;
   display: inline-flex;
-  flex-wrap: nowrap;
-  /* Same distance as formats → meta. */
+  flex-wrap: wrap;
   gap: 0.75rem var(--ownership-section-gap);
   align-items: center;
   width: fit-content;
-  max-width: none;
+  max-width: 100%;
 }
 
 .ownership-main {
   display: inline-flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--ownership-section-gap);
-  flex: 0 0 auto;
-  width: max-content;
-  max-width: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ownership-format {
@@ -754,6 +792,18 @@ button {
   cursor: pointer;
 }
 
+button.list-preview-btn {
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #1f4b7a !important;
+}
+
+button.list-preview-btn:hover:not(:disabled) {
+  background: transparent !important;
+  color: #163a5f !important;
+}
+
 button.primary {
   background: #1f4b7a;
 }
@@ -777,14 +827,15 @@ button.danger,
   z-index: 40;
   display: grid;
   place-items: center;
-  padding: 1rem;
+  padding: 0.75rem;
   background: rgba(15, 23, 32, 0.55);
 }
 
 .modal {
   position: relative;
   width: min(32rem, 100%);
-  max-height: calc(100vh - 2rem);
+  max-width: 100%;
+  max-height: calc(100dvh - 1.5rem);
   border-radius: 10px;
   background: #fff;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
@@ -1006,7 +1057,7 @@ button.danger,
   --review-bubble-bg: #dbe7f2;
   position: relative;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.65rem;
   margin-top: 0.55rem;
   padding: 0.75rem 0.9rem;

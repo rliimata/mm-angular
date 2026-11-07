@@ -4,6 +4,8 @@
   padding: 1rem;
   border-radius: 10px;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   color: #111;
 }
 
@@ -17,9 +19,10 @@
 
 .detail-layout {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
   gap: 1.25rem 1.5rem;
   align-items: start;
+  width: 100%;
 }
 
 .detail-layout:has(> app-media-image.is-hidden) {
@@ -33,19 +36,58 @@
   align-content: start;
 }
 
-.detail-main > section > :not(h2) {
+.detail-main > section > :not(h2):not(.list-heading) {
   margin-left: 4px;
 }
 
+.detail-main > section > .list-heading {
+  margin-bottom: 0.5rem;
+}
+
+.detail-main > section > .list-heading > h2 {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .detail-layout {
+    grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+    gap: 1rem 1.15rem;
+  }
+}
+
 @media (max-width: 720px) {
+  .detail {
+    padding: 0.75rem;
+  }
+
   .detail-layout {
     grid-template-columns: 1fr;
   }
 }
 
+@media (max-width: 640px) {
+  .detail {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .detail-main {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .detail-layout > app-media-image {
+    width: calc(100% + 1.5rem);
+    max-width: none;
+    margin-left: -0.75rem;
+    margin-right: -0.75rem;
+  }
+}
+
 .nav {
   display: flex;
-  gap: 0.85rem;
+  flex-wrap: wrap;
+  gap: 0.65rem;
   align-items: center;
   margin: 0;
 }
@@ -59,8 +101,10 @@
 h1 {
   margin: 0;
   font-size: 1.35rem;
-  font-weight: 650;
+  font-weight: 700;
   color: #111;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 h2 {
@@ -74,6 +118,29 @@ h2 {
 .meta {
   margin: 0.25rem 0 0;
   color: #111;
+}
+
+.life-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.45rem;
+}
+
+.life-line .age {
+  white-space: nowrap;
+}
+
+.death-age-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.4rem;
+}
+
+.death-reason {
+  font-weight: 400;
+  text-transform: lowercase;
 }
 
 ul {

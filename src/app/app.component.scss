@@ -5,9 +5,9 @@
 }
 
 .top {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
   padding: 0.75rem 1.25rem;
   background: #152536;
@@ -37,26 +37,16 @@
   line-height: 1;
 }
 
-.brand-text {
-  position: relative;
-  display: inline-block;
-  padding-right: 1.6rem;
-  line-height: 1.1;
-}
-
 .brand-name {
   font-weight: 600;
   letter-spacing: 0.02em;
 }
 
-.brand-version {
-  position: absolute;
-  top: -0.15rem;
-  right: 0;
-  font-size: 0.62rem;
-  font-weight: 500;
-  opacity: 0.7;
-  letter-spacing: 0.02em;
+.top-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
 }
 
 .top-right {
@@ -65,6 +55,7 @@
   gap: 0.85rem;
   flex-wrap: wrap;
   justify-content: flex-end;
+  justify-self: end;
 }
 
 .top-actions {
@@ -101,14 +92,34 @@
   font-size: 0.75rem;
 }
 
-.user button {
-  padding: 0.35rem 0.65rem;
+.logout-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  margin: 0;
+  padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 4px;
   background: transparent;
   color: #fff;
-  font: inherit;
   cursor: pointer;
+}
+
+.logout-btn::before {
+  content: '';
+  display: block;
+  width: 1.05rem;
+  height: 1.05rem;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5v-2H5V5h5V3zm10.59 9-4.3-4.29L15 9l3 3H9v2h9l-3 3 1.29 1.29L20.59 12z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5v-2H5V5h5V3zm10.59 9-4.3-4.29L15 9l3 3H9v2h9l-3 3 1.29 1.29L20.59 12z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.logout-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 main {
@@ -116,4 +127,17 @@ main {
   max-width: none;
   margin: 0;
   padding: 1.25rem 1.5rem 2rem;
+  box-sizing: border-box;
+}
+
+@media (max-width: 900px) {
+  main {
+    padding: 1rem 1rem 1.75rem;
+  }
+}
+
+@media (max-width: 640px) {
+  main {
+    padding: 0.75rem 0.75rem 1.35rem;
+  }
 }

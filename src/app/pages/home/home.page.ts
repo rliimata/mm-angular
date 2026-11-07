@@ -19,6 +19,7 @@ import {
   OwnershipSummary,
 } from '../../data/ownership.service';
 import { PersonService } from '../../data/person.service';
+import { ListPreviewService } from '../../shared/list-preview.service';
 
 export type HomeMode = MovieSearchMode | 'birthdays' | 'shelf';
 
@@ -83,8 +84,25 @@ export class HomePage implements OnInit, AfterViewInit {
     private readonly peopleApi: PersonService,
     private readonly ownershipApi: OwnershipService,
     private readonly lookups: LookupService,
-    private readonly pageTitle: PageTitleService
+    private readonly pageTitle: PageTitleService,
+    private readonly listPreview: ListPreviewService
   ) {}
+
+  openPeoplePreview(): void {
+    this.listPreview.show(this.people().map((p) => ({ kind: 'person', id: p.Id })));
+  }
+
+  openMoviesPreview(): void {
+    this.listPreview.show(this.movies().map((m) => ({ kind: 'movie', id: m.Id })));
+  }
+
+  openOwnershipPreview(): void {
+    this.listPreview.show(
+      this.ownerships()
+        .filter((o) => o.movies.length > 0)
+        .map((o) => ({ kind: 'movie' as const, id: o.movies[0].Id }))
+    );
+  }
 
   async ngOnInit(): Promise<void> {
     this.pageTitle.set('Haku');

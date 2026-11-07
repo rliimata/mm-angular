@@ -174,3 +174,13 @@ a:hover {
   opacity: 0.45;
   cursor: default;
 }
+
+@media (max-width: 900px) {
+  .presets {
+    gap: 0.35rem;
+  }
+
+  .presets button {
+    padding: 0.45rem 0.7rem;
+  }
+}

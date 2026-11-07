@@ -6,7 +6,10 @@
       </header>
       <div class="modal-body">
         @if (loading) {
-          <p>Ladataan…</p>
+          <div class="page-loading page-loading-inline" aria-live="polite">
+            <div class="spinner" aria-hidden="true"></div>
+            <p>Ladataan…</p>
+          </div>
         } @else if (preview) {
           @if (preview.person.RealName) {
             <p class="soft">oik. {{ swapNames(preview.person.RealName) }}</p>

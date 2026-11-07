@@ -36,6 +36,7 @@ import {
   OwnershipService,
 } from '../../data/ownership.service';
 import { getSupabase } from '../../core/supabase.client';
+import { isPhoneViewport } from '../../core/viewport.util';
 import { SearchSelectComponent } from '../../shared/search-select.component';
 
 export type OwnershipSeedMovie = {
@@ -154,6 +155,14 @@ export class OwnershipEditPage implements OnInit, OnDestroy {
     this.movieId = Number(movieParam);
     this.ownershipId =
       ownershipParam && ownershipParam !== 'new' ? Number(ownershipParam) : null;
+    if (isPhoneViewport()) {
+      if (this.movieId > 0) {
+        void this.router.navigate(['/movie', this.movieId]);
+      } else {
+        void this.router.navigateByUrl('/');
+      }
+      return;
+    }
     await this.bootstrapAndLoad();
   }
 
