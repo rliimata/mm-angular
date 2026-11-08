@@ -1,9 +1,9 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { decodeEntities, swapNames, swapTitle } from '../core/format.util';
 import { reverseMovieRelationLabel } from '../core/movie-relation.util';
 import { Movie, LookupRow } from '../core/models';
 import { getSupabase } from '../core/supabase.client';
-import { mediaFormatShort } from './ownership.service';
+import { OwnershipService, mediaFormatShort } from './ownership.service';
 
 export type MovieSearchMode =
   | 'text'
@@ -61,6 +61,18 @@ export interface MovieDetails {
 
 @Injectable({ providedIn: 'root' })
 export class MovieService {
+  private readonly ownershipApi = inject(OwnershipService);
+
+  async countAll(): Promise<number> {
+    const { count, error } = await getSupabase()
+      .from('Movie')
+      .select('Id', { count: 'exact', head: true });
+    if (error) {
+      throw error;
+    }
+    return count ?? 0;
+  }
+
   async search(opts: {
     query: string;
     mode: MovieSearchMode;
@@ -107,7 +119,7 @@ export class MovieService {
         const rows: MovieListItem[] = ((movies as Movie[]) ?? [])
           .map((m) => ({ ...m, MyScoreId: linkMap.get(m.Id)?.ScoreId ?? null }))
           .sort((a, b) => a.Title.localeCompare(b.Title) || (a.Year ?? 0) - (b.Year ?? 0));
-        const pageRows = await this.enrichListItems(rows.slice(from, to + 1));
+        const pageRows = await this.enrichListItems(rows.slice(from, to + 1), userId);
         return { rows: pageRows, count: count ?? rows.length };
       }
 
@@ -134,7 +146,7 @@ export class MovieService {
         const rows: MovieListItem[] = ((movies as Movie[]) ?? []).sort(
           (a, b) => a.Title.localeCompare(b.Title) || (a.Year ?? 0) - (b.Year ?? 0)
         );
-        const pageRows = await this.enrichListItems(rows.slice(from, to + 1));
+        const pageRows = await this.enrichListItems(rows.slice(from, to + 1), userId);
         return { rows: pageRows, count: count ?? rows.length };
       }
 
@@ -196,7 +208,7 @@ export class MovieService {
             .filter(Boolean),
         }))
         .sort((a, b) => a.Title.localeCompare(b.Title) || (a.Year ?? 0) - (b.Year ?? 0));
-      const pageRows = await this.enrichListItems(rows.slice(from, to + 1));
+      const pageRows = await this.enrichListItems(rows.slice(from, to + 1), userId);
       return { rows: pageRows, count: movieIds.length };
     }
 
@@ -254,13 +266,17 @@ export class MovieService {
         slice.flatMap((s) => {
           const m = map.get(s.id);
           return m ? [{ ...m, AvgScore: Math.round(s.avg * 10) / 10 }] : [];
-        })
+        }),
+        userId
       );
       return { rows, count: ranked.length };
     }
 
     let filterIds: number[] | null = null;
     const term = query.trim();
+    if (mode === 'text' && !term) {
+      return { rows: [], count: 0 };
+    }
     if (mode === 'text' && term) {
       // Title + Aka only; exact matches ranked first (handled below).
       const [{ data: akaHits }, { data: titleHits }] = await Promise.all([
@@ -365,7 +381,10 @@ export class MovieService {
         ranked = ranked.filter((m) => allowed.has(m.Id));
       }
 
-      const pageRows = await this.enrichListItems(ranked.slice(from, to + 1) as MovieListItem[]);
+      const pageRows = await this.enrichListItems(
+        ranked.slice(from, to + 1) as MovieListItem[],
+        userId
+      );
       return { rows: pageRows, count: ranked.length };
     }
 
@@ -401,7 +420,7 @@ export class MovieService {
     if (error) {
       throw error;
     }
-    const rows = await this.enrichListItems((data as MovieListItem[]) ?? []);
+    const rows = await this.enrichListItems((data as MovieListItem[]) ?? [], userId);
     return { rows, count: count ?? 0 };
   }
 
@@ -478,14 +497,20 @@ export class MovieService {
     }));
   }
 
-  private async enrichListItems(rows: MovieListItem[]): Promise<MovieListItem[]> {
+  private async enrichListItems(
+    rows: MovieListItem[],
+    userId?: number | null
+  ): Promise<MovieListItem[]> {
     if (!rows.length) {
       return rows;
     }
     const ids = rows.map((r) => r.Id);
-    const [{ data: akas }, { data: versions }] = await Promise.all([
+    const [{ data: akas }, { data: versions }, formatMap] = await Promise.all([
       getSupabase().from('Aka').select('MovieId, Title, TitleLanguageId').in('MovieId', ids).eq('TitleLanguageId', 2),
       getSupabase().from('Version').select('Id, Value'),
+      userId
+        ? this.ownershipApi.formatLabelsForUserMovies(userId, ids)
+        : Promise.resolve(new Map<number, string[]>()),
     ]);
     const akaMap = new Map<number, string>();
     for (const a of (akas as { MovieId: number; Title: string; TitleLanguageId: number }[]) ?? []) {
@@ -505,6 +530,8 @@ export class MovieService {
         r.VersionId && versionMap.get(r.VersionId) && versionMap.get(r.VersionId) !== '-'
           ? versionMap.get(r.VersionId)!
           : null,
+      FormatLabels:
+        r.FormatLabels?.length ? r.FormatLabels : formatMap.get(r.Id) ?? r.FormatLabels,
     }));
   }
 

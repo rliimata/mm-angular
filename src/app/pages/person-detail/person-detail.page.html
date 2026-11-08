@@ -165,6 +165,9 @@
                     <a [routerLink]="['/movie', f.MovieId]"
                       >{{ f.Title }}{{ f.Year ? ' (' + f.Year + ')' : '' }}</a
                     >
+                    @if (ownershipLabel(f.MovieId); as own) {
+                      <span class="ownership-mark">{{ own }}</span>
+                    }
                   </td>
                   <td class="roles-col">
                     @for (role of f.Roles; track role) {

@@ -316,11 +316,12 @@ export class MultiCheckSelectComponent implements ControlValueAccessor, OnInit, 
     } else {
       this.query = '';
       this.open = true;
-      // Position after open so panel exists in layout measurements.
-      queueMicrotask(() => {
+      // Wait for panel to render before measuring / focusing search.
+      setTimeout(() => {
         this.positionPanel();
         const input = this.host.nativeElement.querySelector('.mcs-search') as HTMLInputElement | null;
         input?.focus();
+        input?.select();
       });
     }
   }
@@ -353,24 +354,30 @@ export class MultiCheckSelectComponent implements ControlValueAccessor, OnInit, 
       return;
     }
     const rect = trigger.getBoundingClientRect();
-    const panelMax = Math.min(224, window.innerHeight * 0.4);
-    const spaceBelow = window.innerHeight - rect.bottom - 8;
-    const openUp = spaceBelow < Math.min(panelMax, 160) && rect.top > spaceBelow;
-    const width = Math.max(rect.width, 180);
-    const left = Math.min(rect.left, window.innerWidth - width - 8);
+    const margin = 8;
+    const preferred = Math.min(18 * 16, window.innerHeight * 0.5);
+    const spaceBelow = window.innerHeight - rect.bottom - margin;
+    const spaceAbove = rect.top - margin;
+    const openUp = spaceBelow < Math.min(preferred, 160) && spaceAbove > spaceBelow;
+    const available = Math.max(120, openUp ? spaceAbove : spaceBelow);
+    const maxHeight = Math.min(preferred, available);
+    const width = Math.min(Math.max(rect.width, 180), window.innerWidth - margin * 2);
+    const left = Math.min(Math.max(margin, rect.left), window.innerWidth - width - margin);
     if (openUp) {
       this.panelStyle = {
         top: 'auto',
         bottom: `${window.innerHeight - rect.top + 4}px`,
-        left: `${Math.max(8, left)}px`,
+        left: `${left}px`,
         width: `${width}px`,
+        maxHeight: `${maxHeight}px`,
       };
     } else {
       this.panelStyle = {
         top: `${rect.bottom + 4}px`,
         bottom: 'auto',
-        left: `${Math.max(8, left)}px`,
+        left: `${left}px`,
         width: `${width}px`,
+        maxHeight: `${maxHeight}px`,
       };
     }
   }

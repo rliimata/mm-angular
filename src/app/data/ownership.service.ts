@@ -140,7 +140,7 @@ export class OwnershipService {
       return { rows: [], count: 0 };
     }
 
-    // Light sort index (titles only), then hydrate just the current page.
+    // Light sort index (titles only), then hydrate just the current page in one batch.
     const ownershipIds = ownerships.map((o) => o.Id);
     const moviesByOwnership = await this.fetchOwnershipMovieSortIndex(ownershipIds);
     const movieIds = [
@@ -167,8 +167,260 @@ export class OwnershipService {
 
     const from = (page - 1) * pageSize;
     const pageOwnerships = sortable.slice(from, from + pageSize).map((x) => x.o);
-    const summaries = await Promise.all(pageOwnerships.map((o) => this.toSummary(o)));
+    const summaries = await this.buildListSummaries(pageOwnerships, moviesByOwnership);
     return { rows: summaries, count: ownerships.length };
+  }
+
+  /**
+   * Short format tags for many movies belonging to one user, e.g. movieId → ['BD','DVD'].
+   */
+  async formatLabelsForUserMovies(
+    userId: number,
+    movieIds: number[]
+  ): Promise<Map<number, string[]>> {
+    const result = new Map<number, string[]>();
+    const ids = [...new Set(movieIds.filter((id) => id > 0))];
+    if (!userId || !ids.length) {
+      return result;
+    }
+
+    const { data: omRows, error: omErr } = await getSupabase()
+      .from('OwnershipMovie')
+      .select('Id, MovieId, OwnershipId')
+      .in('MovieId', ids);
+    if (omErr) {
+      throw omErr;
+    }
+    const allOm = (omRows as { Id: number; MovieId: number; OwnershipId: number }[]) ?? [];
+    if (!allOm.length) {
+      return result;
+    }
+
+    const ownershipIds = [...new Set(allOm.map((r) => r.OwnershipId))];
+    const { data: ownerships, error: oErr } = await getSupabase()
+      .from('Ownership')
+      .select('Id')
+      .eq('UserId', userId)
+      .in('Id', ownershipIds);
+    if (oErr) {
+      throw oErr;
+    }
+    const userOwnershipIds = new Set(((ownerships as { Id: number }[]) ?? []).map((o) => o.Id));
+    if (!userOwnershipIds.size) {
+      return result;
+    }
+
+    const ownershipMovies = allOm.filter((r) => userOwnershipIds.has(r.OwnershipId));
+    if (!ownershipMovies.length) {
+      return result;
+    }
+
+    const omIds = ownershipMovies.map((r) => r.Id);
+    const { data: formats, error: fErr } = await getSupabase()
+      .from('OwnershipFormat')
+      .select('OwnershipMovieId, MediaFormatId')
+      .in('OwnershipMovieId', omIds);
+    if (fErr) {
+      throw fErr;
+    }
+
+    const formatsByOm = new Map<number, number[]>();
+    for (const f of (formats as { OwnershipMovieId: number; MediaFormatId: number }[]) ?? []) {
+      const list = formatsByOm.get(f.OwnershipMovieId) ?? [];
+      if (!list.includes(f.MediaFormatId)) {
+        list.push(f.MediaFormatId);
+      }
+      formatsByOm.set(f.OwnershipMovieId, list);
+    }
+
+    const formatsByMovie = new Map<number, Set<number>>();
+    for (const om of ownershipMovies) {
+      const set = formatsByMovie.get(om.MovieId) ?? new Set<number>();
+      for (const fid of formatsByOm.get(om.Id) ?? []) {
+        set.add(fid);
+      }
+      formatsByMovie.set(om.MovieId, set);
+    }
+
+    for (const [movieId, set] of formatsByMovie) {
+      const labels = [...set].map((id) => mediaFormatShort(id)).filter(Boolean);
+      if (labels.length) {
+        result.set(movieId, labels);
+      }
+    }
+    return result;
+  }
+
+  /** Batch light summaries for ownership list (no N+1 catalog fetches). */
+  private async buildListSummaries(
+    ownerships: Ownership[],
+    moviesByOwnership: Map<number, { MovieId: number; Sequence: number }[]>
+  ): Promise<OwnershipSummary[]> {
+    if (!ownerships.length) {
+      return [];
+    }
+    const ownershipIds = ownerships.map((o) => o.Id);
+    const typeIds = [
+      ...new Set(ownerships.map((o) => o.OwnershipTypeId).filter((id): id is number => id != null && id > 0)),
+    ];
+    const pageMovieIds = [
+      ...new Set(
+        ownershipIds.flatMap((id) => (moviesByOwnership.get(id) ?? []).map((r) => r.MovieId))
+      ),
+    ];
+
+    const omIds: number[] = [];
+    const omByOwnership = new Map<number, { Id: number; MovieId: number; Sequence: number }[]>();
+    if (ownershipIds.length) {
+      const chunkSize = 200;
+      for (let i = 0; i < ownershipIds.length; i += chunkSize) {
+        const chunk = ownershipIds.slice(i, i + chunkSize);
+        const { data, error } = await getSupabase()
+          .from('OwnershipMovie')
+          .select('Id, OwnershipId, MovieId, Sequence')
+          .in('OwnershipId', chunk)
+          .order('Sequence');
+        if (error) {
+          throw error;
+        }
+        for (const row of
+          (data as { Id: number; OwnershipId: number; MovieId: number; Sequence: number }[]) ??
+            []) {
+          omIds.push(row.Id);
+          const list = omByOwnership.get(row.OwnershipId) ?? [];
+          list.push({ Id: row.Id, MovieId: row.MovieId, Sequence: row.Sequence });
+          omByOwnership.set(row.OwnershipId, list);
+        }
+      }
+    }
+
+    const formatsByOm = new Map<number, number[]>();
+    if (omIds.length) {
+      const chunkSize = 200;
+      for (let i = 0; i < omIds.length; i += chunkSize) {
+        const chunk = omIds.slice(i, i + chunkSize);
+        const { data, error } = await getSupabase()
+          .from('OwnershipFormat')
+          .select('OwnershipMovieId, MediaFormatId, Sequence')
+          .in('OwnershipMovieId', chunk)
+          .order('Sequence');
+        if (error) {
+          throw error;
+        }
+        for (const f of
+          (data as { OwnershipMovieId: number; MediaFormatId: number }[]) ?? []) {
+          const list = formatsByOm.get(f.OwnershipMovieId) ?? [];
+          if (!list.includes(f.MediaFormatId)) {
+            list.push(f.MediaFormatId);
+          }
+          formatsByOm.set(f.OwnershipMovieId, list);
+        }
+      }
+    }
+
+    const movieMeta = new Map<
+      number,
+      {
+        Title: string;
+        TitleLanguageId: number | null;
+        Year: number | null;
+        VersionId: number | null;
+      }
+    >();
+    if (pageMovieIds.length) {
+      const chunkSize = 200;
+      for (let i = 0; i < pageMovieIds.length; i += chunkSize) {
+        const chunk = pageMovieIds.slice(i, i + chunkSize);
+        const { data, error } = await getSupabase()
+          .from('Movie')
+          .select('Id, Title, TitleLanguageId, Year, VersionId')
+          .in('Id', chunk);
+        if (error) {
+          throw error;
+        }
+        for (const m of
+          (data as {
+            Id: number;
+            Title: string;
+            TitleLanguageId: number | null;
+            Year: number | null;
+            VersionId: number | null;
+          }[]) ?? []) {
+          movieMeta.set(m.Id, {
+            Title: decodeEntities(m.Title),
+            TitleLanguageId: m.TitleLanguageId,
+            Year: m.Year,
+            VersionId: m.VersionId,
+          });
+        }
+      }
+    }
+
+    const versionMap = new Map<number, string>();
+    const { data: versions } = await getSupabase().from('Version').select('Id, Value');
+    for (const v of (versions as { Id: number; Value: string }[]) ?? []) {
+      const label = decodeEntities(String(v.Value));
+      if (label && label !== '-') {
+        versionMap.set(v.Id, label);
+      }
+    }
+
+    const typeMap = new Map<number, string>();
+    if (typeIds.length) {
+      const { data: types } = await getSupabase().from('OwnershipType').select('Id, Value').in('Id', typeIds);
+      for (const t of (types as { Id: number; Value: string }[]) ?? []) {
+        const label = decodeEntities(String(t.Value));
+        if (label && label !== '-') {
+          typeMap.set(t.Id, label);
+        }
+      }
+    }
+
+    return ownerships.map((o) => {
+      const omRows = (omByOwnership.get(o.Id) ?? [])
+        .slice()
+        .sort((a, b) => a.Sequence - b.Sequence);
+      const movies = omRows.map((om) => {
+        const meta = movieMeta.get(om.MovieId);
+        const formatIds = formatsByOm.get(om.Id) ?? [];
+        const formatLabels = formatIds.map((id) => mediaFormatShort(id)).filter(Boolean);
+        return {
+          Id: om.MovieId,
+          Title: meta?.Title ?? `#${om.MovieId}`,
+          TitleLanguageId: meta?.TitleLanguageId ?? null,
+          Year: meta?.Year ?? null,
+          VersionLabel:
+            meta?.VersionId && versionMap.get(meta.VersionId)
+              ? versionMap.get(meta.VersionId)!
+              : null,
+          formats: formatIds.map((id) => ({
+            mediaFormatId: id,
+            label: mediaFormatShort(id) || String(id),
+            ratioLabel: null,
+            ratioMatchesOriginal: false,
+          })),
+          formatIds,
+          formatLabels,
+        };
+      });
+      return {
+        Id: o.Id,
+        Name: o.Name ?? '',
+        Notes: o.Notes,
+        ReleaseRegionId: o.ReleaseRegionId,
+        ReleaseConditionId: o.ReleaseConditionId,
+        ReleasePublisherId: o.ReleasePublisherId,
+        OwnershipTypeId: o.OwnershipTypeId,
+        regionLabel: '',
+        conditionLabel: '',
+        publisherLabel: '',
+        typeLabel: o.OwnershipTypeId ? typeMap.get(o.OwnershipTypeId) ?? '' : '',
+        subtitleLabels: [],
+        audioLabels: [],
+        movieCount: movies.length,
+        movies,
+      };
+    });
   }
 
   private async fetchAllOwnershipRows(userId: number): Promise<Ownership[]> {

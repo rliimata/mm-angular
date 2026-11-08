@@ -1,3 +1,4 @@
+import { LowerCasePipe } from '@angular/common';
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -9,6 +10,7 @@ import { errorMessage } from '../../core/error.util';
 import {
   ageRatingImageSrc,
   ageRatingLabel,
+  distributionPrefix,
   formatRuntimeMinutes,
   palMinutesFromNtsc,
   resolveNtscMinutes,
@@ -41,7 +43,7 @@ import { SearchSelectComponent } from '../../shared/search-select.component';
 @Component({
   selector: 'app-movie-detail',
   standalone: true,
-  imports: [RouterLink, FormsModule, MediaImageComponent, SearchSelectComponent],
+  imports: [RouterLink, FormsModule, LowerCasePipe, MediaImageComponent, SearchSelectComponent],
   templateUrl: './movie-detail.page.html',
   styleUrl: './movie-detail.page.scss',
 })
@@ -294,7 +296,12 @@ export class MovieDetailPage implements OnInit, OnDestroy {
         return;
       }
       this.pageTitle.set(
-        titleWithYear(details.movie.Title, details.movie.TitleLanguageId, details.movie.Year)
+        titleWithYear(
+          details.movie.Title,
+          details.movie.TitleLanguageId,
+          details.movie.Year,
+          details.movie.DistributionId
+        )
       );
       const me = this.auth.profile()?.Id;
       if (me) {
@@ -410,7 +417,16 @@ export class MovieDetailPage implements OnInit, OnDestroy {
     if (!Number.isFinite(n) || n <= 0) {
       return '';
     }
-    return String(Math.trunc(n));
+    return Math.trunc(n).toLocaleString('fi-FI');
+  }
+
+  /** Year with TV/ or V/ prefix when distribution is television or video. */
+  titleYearLabel(): string {
+    const movie = this.details()?.movie;
+    if (!movie?.Year) {
+      return '';
+    }
+    return `${distributionPrefix(movie.DistributionId)}${movie.Year}`;
   }
 
   hasBudget(): boolean {

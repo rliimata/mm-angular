@@ -136,8 +136,12 @@ type PreviewReview = {
                         @for (r of reviews(); track r.UserId) {
                           <li class="lp-review-item">
                             <div class="lp-review-head">
-                              <span class="lp-review-name">{{ r.Name }}</span>
-                              <span class="lp-review-formats">{{ r.Formats }}</span>
+                              <div class="lp-review-who">
+                                <span class="lp-review-name">{{ r.Name }}</span>
+                                @if (r.Formats) {
+                                  <span class="lp-review-formats">{{ r.Formats }}</span>
+                                }
+                              </div>
                               <span class="lp-review-score">
                                 @if (reviewScoreDisplay(r.ScoreId); as score) {
                                   <span class="lp-score-star lp-score-star-sm" [attr.title]="'Arvosana ' + score">
@@ -191,8 +195,28 @@ type PreviewReview = {
                   @if (personLife(person()!); as life) {
                     <p class="lp-meta">{{ life }}</p>
                   }
-                  @if (personRoles(); as roles) {
-                    <p class="lp-meta lp-roles">{{ roles }}</p>
+                  @if (person()!.filmography.length) {
+                    <section class="lp-filmography">
+                      <h3>Elokuvatuotanto ({{ person()!.filmography.length }})</h3>
+                      <ul>
+                        @for (f of person()!.filmography; track f.MovieId) {
+                          <li>
+                            <a
+                              [routerLink]="['/movie', f.MovieId]"
+                              (click)="preview.close()"
+                            >
+                              {{ f.Title }}{{ f.Year ? ' (' + f.Year + ')' : '' }}
+                            </a>
+                            @if (personOwnershipLabel(f.MovieId); as own) {
+                              <span class="ownership-mark">{{ own }}</span>
+                            }
+                            @if (f.Roles.length) {
+                              <span class="lp-film-roles">{{ f.Roles.join(', ') }}</span>
+                            }
+                          </li>
+                        }
+                      </ul>
+                    </section>
                   }
                 </div>
               </div>
@@ -443,10 +467,18 @@ type PreviewReview = {
     }
 
     .lp-review-head {
-      display: grid;
-      grid-template-columns: minmax(0, 8.5rem) minmax(0, 3.5rem) 2.5rem;
-      column-gap: 0.5rem;
+      display: flex;
+      flex-wrap: wrap;
       align-items: center;
+      gap: 0.35rem 0.65rem;
+      min-width: 0;
+    }
+
+    .lp-review-who {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.35rem;
       min-width: 0;
     }
 
@@ -454,8 +486,6 @@ type PreviewReview = {
       font-weight: 400;
       color: #111;
       line-height: 1.15;
-      overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
 
@@ -464,9 +494,6 @@ type PreviewReview = {
       font-size: 0.88em;
       font-weight: 700;
       line-height: 1.15;
-      min-height: 1.15em;
-      overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
 
@@ -516,13 +543,15 @@ type PreviewReview = {
     .lp-review-text {
       flex: 1 1 auto;
       min-width: 0;
+      font-weight: 400;
       line-height: 1.4;
       overflow-wrap: anywhere;
       word-break: break-word;
     }
 
-    .lp-review-text :is(p, div, span, br) {
+    .lp-review-text :is(p, div, span, br, b, strong) {
       max-width: 100%;
+      font-weight: 400;
     }
 
     .lp-score-star-sm {
@@ -540,7 +569,7 @@ type PreviewReview = {
     }
 
     .lp-score-star-sm .lp-score-star-value {
-      font-size: 0.75rem;
+      font-size: 0.92rem;
       margin-top: 0.12rem;
     }
 
@@ -568,7 +597,7 @@ type PreviewReview = {
     .lp-score-star-value {
       position: relative;
       z-index: 1;
-      font-size: 0.8rem;
+      font-size: 1rem;
       font-weight: 700;
       color: #1a1a1a;
       margin-top: 0.14rem;
@@ -593,6 +622,7 @@ type PreviewReview = {
 
     .lp-role-label {
       margin: 0;
+      margin-left: -4px;
       font-weight: 700;
       color: #111;
     }
@@ -626,17 +656,54 @@ type PreviewReview = {
     }
 
     .lp-arrow {
-      width: 2.6rem;
-      height: 2.35rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.4rem;
+      height: 2rem;
       margin: 0;
       padding: 0;
       border: 1px solid #c5d0dc;
       border-radius: 6px;
       background: #e8eef4;
       color: #1f4b7a;
-      font-size: 1.25rem;
+      font-size: 1.15rem;
       line-height: 1;
       cursor: pointer;
+    }
+
+    .lp-filmography {
+      margin-top: 0.55rem;
+    }
+
+    .lp-filmography h3 {
+      margin: 0 0 0.35rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #152536;
+    }
+
+    .lp-filmography ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 0.2rem;
+    }
+
+    .lp-filmography li {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.25rem 0.45rem;
+      font-size: 0.95rem;
+    }
+
+    .lp-film-roles {
+      margin-left: auto;
+      color: #66788c;
+      font-size: 0.88rem;
+      text-align: right;
     }
 
     .lp-arrow:hover:not(:disabled) {
@@ -689,12 +756,14 @@ export class ListPreviewComponent implements OnDestroy {
   readonly person = signal<PersonDetails | null>(null);
   readonly avgScore = signal<string | null>(null);
   readonly reviews = signal<PreviewReview[]>([]);
+  readonly personOwnership = signal<Map<number, string[]>>(new Map());
   readonly swapNames = swapNames;
 
   private readonly movieCache = new Map<number, MovieDetails>();
   private readonly personCache = new Map<number, PersonDetails>();
   private readonly avgScoreCache = new Map<number, string | null>();
   private readonly reviewsCache = new Map<number, PreviewReview[]>();
+  private readonly personOwnershipCache = new Map<number, Map<number, string[]>>();
   private scores: LookupRow[] = [];
   private scoresLoaded = false;
   private loadToken = 0;
@@ -716,6 +785,7 @@ export class ListPreviewComponent implements OnDestroy {
       this.personCache.clear();
       this.avgScoreCache.clear();
       this.reviewsCache.clear();
+      this.personOwnershipCache.clear();
       this.preview.resume();
     });
 
@@ -822,7 +892,12 @@ export class ListPreviewComponent implements OnDestroy {
   }
 
   movieHeading(d: MovieDetails): string {
-    const withYear = titleWithYear(d.movie.Title, d.movie.TitleLanguageId, d.movie.Year);
+    const withYear = titleWithYear(
+      d.movie.Title,
+      d.movie.TitleLanguageId,
+      d.movie.Year,
+      d.movie.DistributionId
+    );
     const ver = versionDisplayLabel(d.version);
     return ver ? `${withYear} – ${ver}` : withYear;
   }
@@ -833,11 +908,11 @@ export class ListPreviewComponent implements OnDestroy {
   /** Same basic fields as movie-detail meta chips (without average score). */
   movieDetailMeta(d: MovieDetails): string[] {
     const chips: string[] = [];
-    if (d.countries.length) {
-      chips.push(d.countries.join(', '));
-    }
     if (d.categories.length) {
       chips.push(d.categories.join(', '));
+    }
+    if (d.countries.length) {
+      chips.push(d.countries.join(', '));
     }
     if (d.ratio && d.ratio !== '-') {
       chips.push(d.ratio);
@@ -847,7 +922,7 @@ export class ListPreviewComponent implements OnDestroy {
     }
     const budget = Number(d.movie.Budget);
     if (Number.isFinite(budget) && budget > 0) {
-      const money = String(Math.trunc(budget));
+      const money = Math.trunc(budget).toLocaleString('fi-FI');
       chips.push(d.currency && d.currency !== '-' ? `${money} ${d.currency}` : money);
     }
     const ntsc = resolveNtscMinutes(d.movie.Ntsc, d.movie.Pal);
@@ -866,6 +941,11 @@ export class ListPreviewComponent implements OnDestroy {
 
   movieRolesByType(roleName: string) {
     return (this.movie()?.roles ?? []).filter((r) => r.Role === roleName);
+  }
+
+  personOwnershipLabel(movieId: number): string {
+    const labels = this.personOwnership().get(movieId);
+    return labels?.length ? labels.join(', ') : '';
   }
 
   personRoles(): string {
@@ -942,6 +1022,7 @@ export class ListPreviewComponent implements OnDestroy {
       const cached = this.movieCache.get(item.id);
       if (cached) {
         this.person.set(null);
+        this.personOwnership.set(new Map());
         this.movie.set(cached);
         this.avgScore.set(this.avgScoreCache.get(item.id) ?? null);
         this.reviews.set(this.reviewsCache.get(item.id) ?? []);
@@ -954,6 +1035,7 @@ export class ListPreviewComponent implements OnDestroy {
       this.loading.set(true);
       this.movie.set(null);
       this.person.set(null);
+      this.personOwnership.set(new Map());
       this.avgScore.set(null);
       this.reviews.set([]);
       try {
@@ -987,7 +1069,11 @@ export class ListPreviewComponent implements OnDestroy {
       this.person.set(cached);
       this.avgScore.set(null);
       this.reviews.set([]);
+      this.personOwnership.set(this.personOwnershipCache.get(item.id) ?? new Map());
       this.loading.set(false);
+      if (!this.personOwnershipCache.has(item.id)) {
+        void this.loadPersonOwnership(item.id, cached, token);
+      }
       return;
     }
     this.loading.set(true);
@@ -995,6 +1081,7 @@ export class ListPreviewComponent implements OnDestroy {
     this.person.set(null);
     this.avgScore.set(null);
     this.reviews.set([]);
+    this.personOwnership.set(new Map());
     try {
       const details = await this.people.getDetails(item.id);
       if (token !== this.loadToken) {
@@ -1006,6 +1093,7 @@ export class ListPreviewComponent implements OnDestroy {
       }
       this.personCache.set(item.id, details);
       this.person.set(details);
+      void this.loadPersonOwnership(item.id, details, token);
     } catch (e: unknown) {
       if (token !== this.loadToken) {
         return;
@@ -1014,6 +1102,39 @@ export class ListPreviewComponent implements OnDestroy {
     } finally {
       if (token === this.loadToken) {
         this.loading.set(false);
+      }
+    }
+  }
+
+  private async loadPersonOwnership(
+    personId: number,
+    details: PersonDetails,
+    token: number
+  ): Promise<void> {
+    const userId = this.auth.profile()?.Id ?? null;
+    if (!userId || !details.filmography.length) {
+      this.personOwnershipCache.set(personId, new Map());
+      if (token === this.loadToken && this.preview.current()?.id === personId) {
+        this.personOwnership.set(new Map());
+      }
+      return;
+    }
+    try {
+      const map = await this.ownershipApi.formatLabelsForUserMovies(
+        userId,
+        details.filmography.map((f) => f.MovieId)
+      );
+      if (token !== this.loadToken) {
+        return;
+      }
+      this.personOwnershipCache.set(personId, map);
+      if (this.preview.current()?.kind === 'person' && this.preview.current()?.id === personId) {
+        this.personOwnership.set(map);
+      }
+    } catch {
+      if (token === this.loadToken) {
+        this.personOwnershipCache.set(personId, new Map());
+        this.personOwnership.set(new Map());
       }
     }
   }

@@ -115,15 +115,21 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   }
 
   const key = `${kind}/${id}.jpg`;
+  const bust = Date.now();
   await env.MEDIA.put(key, file.stream(), {
     httpMetadata: {
       contentType: file.type || 'image/jpeg',
-      cacheControl: 'public, max-age=3600',
+      // Same key is overwritten — avoid long-lived browser/CDN stale copies.
+      cacheControl: 'public, max-age=0, must-revalidate',
+    },
+    customMetadata: {
+      updatedAt: String(bust),
     },
   });
 
   return json(request, 200, {
     key,
-    url: `${PUBLIC_BASE}/${key}?t=${Date.now()}`,
+    url: `${PUBLIC_BASE}/${key}?t=${bust}`,
+    t: bust,
   });
 };

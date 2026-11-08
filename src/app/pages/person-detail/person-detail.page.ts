@@ -10,6 +10,7 @@ import { swapNames } from '../../core/format.util';
 import { PageTitleService } from '../../core/page-title.service';
 import { AppDateTime } from '../../core/models';
 import { PHONE_MEDIA_QUERY } from '../../core/viewport.util';
+import { OwnershipService } from '../../data/ownership.service';
 import { PersonDetails, PersonService } from '../../data/person.service';
 import { ListPreviewItem, ListPreviewService } from '../../shared/list-preview.service';
 import { MediaImageComponent } from '../../shared/media-image.component';
@@ -26,6 +27,7 @@ export class PersonDetailPage implements OnInit, OnDestroy {
   readonly error = signal<string | null>(null);
   readonly loading = signal(true);
   readonly isCompact = signal(false);
+  readonly ownershipByMovie = signal<Map<number, string[]>>(new Map());
   readonly swapNames = swapNames;
 
   private personId = 0;
@@ -39,10 +41,16 @@ export class PersonDetailPage implements OnInit, OnDestroy {
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly people: PersonService,
+    private readonly ownershipApi: OwnershipService,
     private readonly detailRefresh: DetailRefreshService,
     private readonly pageTitle: PageTitleService,
     private readonly listPreview: ListPreviewService
   ) {}
+
+  ownershipLabel(movieId: number): string {
+    const labels = this.ownershipByMovie().get(movieId);
+    return labels?.length ? labels.join(', ') : '';
+  }
 
   /** All unique movies linked to this person (filmography + awards + salaries). */
   allMoviesPreviewItems(): ListPreviewItem[] {
@@ -193,6 +201,7 @@ export class PersonDetailPage implements OnInit, OnDestroy {
   private async load(): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
+    this.ownershipByMovie.set(new Map());
     try {
       const details = await this.people.getDetails(this.personId);
       this.details.set(details);
@@ -201,6 +210,14 @@ export class PersonDetailPage implements OnInit, OnDestroy {
         this.pageTitle.set('Haku');
       } else {
         this.pageTitle.set(swapNames(details.person.Name));
+        const userId = this.auth.profile()?.Id ?? null;
+        if (userId && details.filmography.length) {
+          const map = await this.ownershipApi.formatLabelsForUserMovies(
+            userId,
+            details.filmography.map((f) => f.MovieId)
+          );
+          this.ownershipByMovie.set(map);
+        }
       }
     } catch (e: unknown) {
       this.error.set(errorMessage(e));

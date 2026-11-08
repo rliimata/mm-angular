@@ -1,3 +1,4 @@
+import { NgStyle } from '@angular/common';
 import {
   Component,
   ElementRef,
@@ -16,7 +17,7 @@ import { LookupRow } from '../core/models';
 @Component({
   selector: 'app-search-select',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, NgStyle],
   template: `
     <div class="ss" [class.open]="open()" [class.disabled]="disabled">
       <button type="button" class="ss-trigger" (click)="toggleOpen($event)" [disabled]="disabled">
@@ -24,7 +25,13 @@ import { LookupRow } from '../core/models';
         <span class="ss-caret" aria-hidden="true">▾</span>
       </button>
       @if (open()) {
-        <div class="ss-panel" role="listbox" (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+        <div
+          class="ss-panel"
+          role="listbox"
+          [ngStyle]="panelStyle()"
+          (mousedown)="$event.stopPropagation()"
+          (click)="$event.stopPropagation()"
+        >
           @if (searchable) {
             <input
               class="ss-search"
@@ -36,7 +43,7 @@ import { LookupRow } from '../core/models';
               (keydown.escape)="closePanel()"
             />
           }
-          <div class="ss-list">
+          <div class="ss-list" [style.maxHeight]="listMaxHeight()">
             @for (opt of filteredOptions(); track opt.Id) {
               <button
                 type="button"
@@ -135,13 +142,11 @@ import { LookupRow } from '../core/models';
       font-size: 0.75rem;
     }
     .ss-panel {
-      position: absolute;
-      z-index: 200;
-      top: calc(100% + 4px);
-      left: 0;
-      min-width: 100%;
+      position: fixed;
+      z-index: 400;
+      min-width: 7.5rem;
       width: max-content;
-      max-width: min(24rem, 90vw);
+      max-width: min(24rem, calc(100vw - 16px));
       display: grid;
       gap: 0.35rem;
       padding: 0.45rem;
@@ -149,6 +154,7 @@ import { LookupRow } from '../core/models';
       border-radius: 6px;
       background: #fff;
       box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+      box-sizing: border-box;
     }
     .ss-search {
       width: 100%;
@@ -156,7 +162,6 @@ import { LookupRow } from '../core/models';
       margin: 0;
     }
     .ss-list {
-      max-height: min(14rem, 40vh);
       overflow: auto;
       display: grid;
       gap: 0.1rem;
@@ -201,12 +206,15 @@ export class SearchSelectComponent implements ControlValueAccessor, OnInit, OnDe
 
   readonly open = signal(false);
   readonly filteredOptions = signal<LookupRow[]>([]);
+  readonly panelStyle = signal<Record<string, string>>({});
+  readonly listMaxHeight = signal('14rem');
   query = '';
   value: number | null = null;
 
   private onChange: (v: number | null) => void = () => undefined;
   private onTouched: () => void = () => undefined;
   private readonly onDocPointer = (event: Event) => this.handleOutside(event);
+  private readonly onScroll = () => this.positionPanel();
 
   constructor(private readonly host: ElementRef<HTMLElement>) {}
 
@@ -217,6 +225,7 @@ export class SearchSelectComponent implements ControlValueAccessor, OnInit, OnDe
 
   ngOnDestroy(): void {
     document.removeEventListener('pointerdown', this.onDocPointer, true);
+    this.detachScrollListeners();
   }
 
   selectedLabel(): string {
@@ -244,13 +253,22 @@ export class SearchSelectComponent implements ControlValueAccessor, OnInit, OnDe
       this.refreshFilter();
       this.open.set(true);
       this.opened.emit();
-      if (this.searchable) {
-        queueMicrotask(() => {
-          const input = this.host.nativeElement.querySelector('.ss-search') as HTMLInputElement | null;
-          input?.focus();
-        });
-      }
+      this.attachScrollListeners();
+      // Wait for panel to render before measuring / focusing search.
+      setTimeout(() => {
+        this.positionPanel();
+        this.focusSearch();
+      });
     }
+  }
+
+  private focusSearch(): void {
+    if (!this.searchable || !this.open()) {
+      return;
+    }
+    const input = this.host.nativeElement.querySelector('.ss-search') as HTMLInputElement | null;
+    input?.focus();
+    input?.select();
   }
 
   closePanel(): void {
@@ -258,6 +276,7 @@ export class SearchSelectComponent implements ControlValueAccessor, OnInit, OnDe
       return;
     }
     this.open.set(false);
+    this.detachScrollListeners();
     this.onTouched();
   }
 
@@ -317,8 +336,61 @@ export class SearchSelectComponent implements ControlValueAccessor, OnInit, OnDe
     this.closePanel();
   }
 
+  private positionPanel(): void {
+    if (!this.open()) {
+      return;
+    }
+    const trigger = this.host.nativeElement.querySelector('.ss-trigger') as HTMLElement | null;
+    if (!trigger) {
+      return;
+    }
+    const rect = trigger.getBoundingClientRect();
+    const margin = 8;
+    const spaceBelow = window.innerHeight - rect.bottom - margin;
+    const spaceAbove = rect.top - margin;
+    const preferred = Math.min(14 * 16, window.innerHeight * 0.4);
+    const openUp = spaceBelow < Math.min(preferred, 160) && spaceAbove > spaceBelow;
+    const available = Math.max(120, openUp ? spaceAbove : spaceBelow);
+    const listMax = Math.min(preferred, available - (this.searchable ? 52 : 16));
+    this.listMaxHeight.set(`${Math.max(80, listMax)}px`);
+
+    const width = Math.min(Math.max(rect.width, 120), window.innerWidth - margin * 2);
+    const left = Math.min(Math.max(margin, rect.left), window.innerWidth - width - margin);
+
+    if (openUp) {
+      this.panelStyle.set({
+        top: 'auto',
+        bottom: `${window.innerHeight - rect.top + 4}px`,
+        left: `${left}px`,
+        width: `${width}px`,
+        minWidth: `${width}px`,
+      });
+    } else {
+      this.panelStyle.set({
+        top: `${rect.bottom + 4}px`,
+        bottom: 'auto',
+        left: `${left}px`,
+        width: `${width}px`,
+        minWidth: `${width}px`,
+      });
+    }
+  }
+
+  private attachScrollListeners(): void {
+    window.addEventListener('scroll', this.onScroll, true);
+  }
+
+  private detachScrollListeners(): void {
+    window.removeEventListener('scroll', this.onScroll, true);
+  }
+
   @HostListener('window:keydown.escape')
   onEscape(): void {
     this.closePanel();
+  }
+
+  @HostListener('window:resize')
+  onViewportChange(): void {
+    this.positionPanel();
   }
 }

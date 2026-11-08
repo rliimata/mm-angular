@@ -55,6 +55,12 @@
   min-width: 0;
 }
 
+.labeled-field > app-search-select,
+.labeled-field > app-search-select.stretch {
+  width: 100%;
+  max-width: none;
+}
+
 .field-head {
   display: flex;
   flex-wrap: wrap;
@@ -414,6 +420,7 @@ button:disabled {
 .modal-head h2 {
   margin: 0;
   font-size: 1rem;
+  font-weight: 700;
 }
 
 .modal-body {

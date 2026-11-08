@@ -65,6 +65,10 @@ export class AuthService {
   async signIn(email: string, password: string): Promise<{ error: string | null }> {
     const { error } = await getSupabase().auth.signInWithPassword({ email, password });
     if (error) {
+      const msg = (error.message ?? '').toLowerCase();
+      if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
+        return { error: 'Kirjautuminen epäonnistui. Tarkista tunnus ja salasana.' };
+      }
       return { error: error.message };
     }
     const { data } = await getSupabase().auth.getSession();

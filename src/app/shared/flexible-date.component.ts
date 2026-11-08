@@ -72,30 +72,42 @@ export interface FlexibleDateValue {
   `,
   styles: [
     `
+      :host {
+        display: inline-block;
+        width: fit-content;
+        max-width: 100%;
+        vertical-align: middle;
+      }
       .fd {
         display: inline-flex;
         align-items: center;
-        gap: 0.2rem;
-        padding: 0;
-        border: 0;
-        background: transparent;
+        gap: 0.15rem;
+        padding: 0.35rem 0.45rem;
+        border: 1px solid #c5d0dc;
+        border-radius: 6px;
+        background: #fff;
         width: fit-content;
         max-width: 100%;
-        box-shadow: none;
+        box-sizing: border-box;
+        min-height: 2.5rem;
       }
       .fd.disabled {
         opacity: 0.6;
+        background: #f3f5f8;
       }
       .fd-part {
         border: 0 !important;
         background: transparent !important;
-        padding: 0.2rem 0.1rem !important;
+        padding: 0.15rem 0.1rem !important;
+        margin: 0;
         font: inherit;
         font-variant-numeric: tabular-nums;
         text-align: center;
         box-sizing: border-box;
         box-shadow: none !important;
-        border-radius: 4px;
+        border-radius: 3px;
+        min-height: 0;
+        height: auto;
       }
       .fd-part:hover,
       .fd-part:focus {
@@ -116,8 +128,9 @@ export interface FlexibleDateValue {
         max-width: 4.4ch !important;
       }
       .fd-sep {
-        color: #888;
+        color: #66788c;
         user-select: none;
+        line-height: 1;
       }
       .fd-clear {
         width: 1.5rem;
@@ -133,6 +146,7 @@ export interface FlexibleDateValue {
         cursor: pointer;
         display: grid;
         place-items: center;
+        flex: 0 0 auto;
       }
       .fd-clear:hover:not(:disabled) {
         background: rgba(0, 0, 0, 0.06);

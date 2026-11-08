@@ -1,6 +1,6 @@
 import { Component, ElementRef, Input, OnChanges, SimpleChanges, viewChild, inject, signal } from '@angular/core';
 import { AuthService } from '../core/auth.service';
-import { movieImageUrl, personImageUrl } from '../core/media.util';
+import { getMediaCacheBust, movieImageUrl, personImageUrl, setMediaCacheBust } from '../core/media.util';
 import { MediaService } from '../data/media.service';
 
 @Component({
@@ -46,21 +46,11 @@ import { MediaService } from '../data/media.service';
         }
       </button>
 
-      @if (canEdit()) {
+      @if (canEdit() && imageSearchHref()) {
         <div class="media-toolbar">
-          <button
-            type="button"
-            class="change-link"
-            [disabled]="uploading()"
-            (click)="openPicker()"
-          >
-            {{ hasImage() ? 'Vaihda kuva' : 'Lisää kuva' }}
-          </button>
-          @if (imageSearchHref()) {
-            <a class="find-link" [href]="imageSearchHref()!" target="_blank" rel="noopener noreferrer">
-              Etsi kuva
-            </a>
-          }
+          <a class="find-link" [href]="imageSearchHref()!" target="_blank" rel="noopener noreferrer">
+            Etsi kuva
+          </a>
         </div>
       }
     </div>
@@ -186,7 +176,6 @@ import { MediaService } from '../data/media.service';
       gap: 0.45rem 0.85rem;
     }
 
-    .change-link,
     .find-link {
       margin: 0;
       padding: 0;
@@ -200,15 +189,9 @@ import { MediaService } from '../data/media.service';
       cursor: pointer;
     }
 
-    .change-link:hover:not(:disabled),
     .find-link:hover {
       color: #163a5f;
       text-decoration: none;
-    }
-
-    .change-link:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
     }
 
     .media-error {
@@ -290,9 +273,10 @@ export class MediaImageComponent implements OnChanges {
   }
 
   displayUrl(): string {
-    const base = this.kind === 'movie' ? movieImageUrl(this.entityId) : personImageUrl(this.entityId);
-    const t = this.cacheBust();
-    return t ? `${base}?t=${t}` : base;
+    const bust = this.cacheBust() || undefined;
+    return this.kind === 'movie'
+      ? movieImageUrl(this.entityId, bust)
+      : personImageUrl(this.entityId, bust);
   }
 
   imageSearchHref(): string | null {
@@ -318,7 +302,8 @@ export class MediaImageComponent implements OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['entityId'] || changes['kind']) {
       this.error.set(null);
-      this.cacheBust.set(0);
+      const storageKind = this.kind === 'movie' ? 'movies' : 'persons';
+      this.cacheBust.set(this.entityId > 0 ? getMediaCacheBust(storageKind, this.entityId) : 0);
       this.hasImage.set(this.entityId > 0);
     }
   }
@@ -381,8 +366,10 @@ export class MediaImageComponent implements OnChanges {
     this.uploading.set(true);
     this.error.set(null);
     try {
-      await this.media.uploadImage(this.kind, this.entityId, file);
-      this.cacheBust.set(Date.now());
+      const { t } = await this.media.uploadImage(this.kind, this.entityId, file);
+      const storageKind = this.kind === 'movie' ? 'movies' : 'persons';
+      const bust = setMediaCacheBust(storageKind, this.entityId, t);
+      this.cacheBust.set(bust);
       this.hasImage.set(true);
     } catch (e: unknown) {
       this.error.set(e instanceof Error ? e.message : 'Kuvan lataus epäonnistui.');

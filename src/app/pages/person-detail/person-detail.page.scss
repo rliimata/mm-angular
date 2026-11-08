@@ -163,9 +163,15 @@ td {
   font-size: 1rem;
 }
 
+.ownership-mark {
+  margin-left: 0.4rem;
+}
+
 .roles-col {
   vertical-align: top;
   white-space: nowrap;
+  text-align: right;
+  width: 1%;
 }
 
 .roles-col div + div {

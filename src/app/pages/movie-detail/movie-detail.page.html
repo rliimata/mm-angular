@@ -43,8 +43,8 @@
                 @if (details()!.version) {
                   - <span class="version-name">{{ details()!.version }}</span>
                 }
-                @if (details()!.movie.Year) {
-                  ({{ details()!.movie.Year }})
+                @if (titleYearLabel(); as yearLabel) {
+                  ({{ yearLabel }})
                 }
               </span>
               <span class="title-badges">
@@ -77,11 +77,11 @@
                 </span>
               }
               <div class="meta-chips">
-                @if (details()!.countries.length) {
-                  <span class="chip chip-country">{{ details()!.countries.join(', ') }}</span>
-                }
                 @if (details()!.categories.length) {
                   <span class="chip chip-category">{{ details()!.categories.join(', ') }}</span>
+                }
+                @if (details()!.countries.length) {
+                  <span class="chip chip-country">{{ details()!.countries.join(', ') }}</span>
                 }
                 @if (details()!.ratio) {
                   <span class="chip chip-ratio">{{ details()!.ratio }}</span>
@@ -220,11 +220,23 @@
         <div class="read-body">
           @if (auth.profile()) {
             <p class="list-links">
-              <button type="button" class="text-link" (click)="toggleWatchlist()">
-                {{ onWatchlist() ? 'Poista katselulistalta' : 'Lisää katselulistalle' }}
+              <button
+                type="button"
+                class="list-action"
+                [class.active]="onWatchlist()"
+                (click)="toggleWatchlist()"
+              >
+                <span class="list-action-icon list-action-watch" aria-hidden="true"></span>
+                {{ onWatchlist() ? 'Katselulistalla' : 'Lisää katselulistalle' }}
               </button>
-              <button type="button" class="text-link" (click)="toggleMemolist()">
-                {{ onMemolist() ? 'Poista muistilistalta' : 'Lisää muistilistalle' }}
+              <button
+                type="button"
+                class="list-action"
+                [class.active]="onMemolist()"
+                (click)="toggleMemolist()"
+              >
+                <span class="list-action-icon list-action-memo" aria-hidden="true"></span>
+                {{ onMemolist() ? 'Muistilistalla' : 'Lisää muistilistalle' }}
               </button>
             </p>
           }
@@ -234,7 +246,7 @@
               <h2>Elokuva tunnetaan myös nimillä</h2>
               <ul class="aka-list">
                 @for (a of details()!.aka; track a.Title + a.Language) {
-                  <li>{{ a.Title }} <span class="soft">({{ a.Language }})</span></li>
+                  <li>{{ a.Title }} <span class="soft">({{ a.Language | lowercase }})</span></li>
                 }
               </ul>
             </section>
@@ -259,7 +271,7 @@
           }
 
           @for (roleName of roleNames(); track roleName; let firstRole = $first) {
-            <section>
+            <section class="role-section">
               <div class="list-heading">
                 <h2>{{ roleName }}</h2>
                 @if (firstRole && allPeoplePreviewItems().length) {
@@ -318,8 +330,12 @@
                 @for (r of reviews(); track r.UserId) {
                   <li class="review-item">
                     <div class="review-head">
-                      <span class="review-name">{{ r.Name }}</span>
-                      <span class="review-formats">{{ r.Formats }}</span>
+                      <div class="review-who">
+                        <span class="review-name">{{ r.Name }}</span>
+                        @if (r.Formats) {
+                          <span class="review-formats">{{ r.Formats }}</span>
+                        }
+                      </div>
                       <span class="review-score">
                         @if (reviewScoreDisplay(r.ScoreId); as score) {
                           <span class="score-star" [attr.title]="'Arvosana ' + score">
@@ -379,9 +395,8 @@
               </button>
             }
           </div>
-          <p class="star-hint">Napauta tähteä (vasen = ½, oikea = kokonainen)</p>
         </div>
-        <label class="block">
+        <label class="block comment-label">
           Kommentti
           <textarea rows="5" [(ngModel)]="reviewText" name="reviewText"></textarea>
         </label>

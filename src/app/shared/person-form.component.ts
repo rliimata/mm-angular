@@ -65,141 +65,137 @@ interface SalaryDraft {
         </div>
       </div>
 
-      <section class="life-block">
+      <section class="life-grid">
         <h3>Syntynyt</h3>
-        <div class="life-row">
-          <app-flexible-date [(ngModel)]="birthDate" name="pfBirthDate" />
-          <div class="country-inline">
-            <div class="field-icons">
-              <button
-                type="button"
-                class="icon-btn icon-clear"
-                (click)="birthCountryId = null"
-                [disabled]="!birthCountryId"
-                aria-label="Tyhjennä"
-                title="Tyhjennä"
-              ></button>
-              <button
-                type="button"
-                class="icon-btn icon-add"
-                (click)="openCatalogAdd('Country', 'birth')"
-                aria-label="Lisää maa"
-                title="Lisää"
-              >
-                +
-              </button>
-              <button
-                type="button"
-                class="icon-btn icon-edit"
-                (click)="openCatalogEdit('Country', birthCountryId, 'birth')"
-                [disabled]="!birthCountryId"
-                aria-label="Muokkaa maata"
-                title="Muokkaa"
-              >
-                ✎
-              </button>
-            </div>
-            <app-search-select
-              [options]="countries"
-              [(ngModel)]="birthCountryId"
-              name="pfBirthCountryId"
-              placeholder="Maa…"
-            />
-          </div>
+        <div class="field-icons">
+          <button
+            type="button"
+            class="icon-btn icon-clear"
+            (click)="birthCountryId = null"
+            [disabled]="!birthCountryId"
+            aria-label="Tyhjennä"
+            title="Tyhjennä"
+          ></button>
+          <button
+            type="button"
+            class="icon-btn icon-add"
+            (click)="openCatalogAdd('Country', 'birth')"
+            aria-label="Lisää maa"
+            title="Lisää"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            class="icon-btn icon-edit"
+            (click)="openCatalogEdit('Country', birthCountryId, 'birth')"
+            [disabled]="!birthCountryId"
+            aria-label="Muokkaa maata"
+            title="Muokkaa"
+          >
+            ✎
+          </button>
         </div>
+        <app-flexible-date [(ngModel)]="birthDate" name="pfBirthDate" />
+        <app-search-select
+          class="stretch"
+          [options]="countries"
+          [(ngModel)]="birthCountryId"
+          name="pfBirthCountryId"
+          placeholder="Maa…"
+        />
       </section>
 
-      <section class="life-block">
+      <section class="life-grid">
         <h3>Kuollut</h3>
-        <div class="life-row">
-          <app-flexible-date [(ngModel)]="deathDate" name="pfDeathDate" />
-          <div class="country-inline">
-            <div class="field-icons">
-              <button
-                type="button"
-                class="icon-btn icon-clear"
-                (click)="deathCountryId = null"
-                [disabled]="!deathCountryId"
-                aria-label="Tyhjennä"
-                title="Tyhjennä"
-              ></button>
-              <button
-                type="button"
-                class="icon-btn icon-add"
-                (click)="openCatalogAdd('Country', 'death')"
-                aria-label="Lisää maa"
-                title="Lisää"
-              >
-                +
-              </button>
-              <button
-                type="button"
-                class="icon-btn icon-edit"
-                (click)="openCatalogEdit('Country', deathCountryId, 'death')"
-                [disabled]="!deathCountryId"
-                aria-label="Muokkaa maata"
-                title="Muokkaa"
-              >
-                ✎
-              </button>
-            </div>
-            <app-search-select
-              [options]="countries"
-              [(ngModel)]="deathCountryId"
-              name="pfDeathCountryId"
-              placeholder="Maa…"
-            />
-          </div>
+        <div class="field-icons">
+          <button
+            type="button"
+            class="icon-btn icon-clear"
+            (click)="deathCountryId = null"
+            [disabled]="!deathCountryId"
+            aria-label="Tyhjennä"
+            title="Tyhjennä"
+          ></button>
+          <button
+            type="button"
+            class="icon-btn icon-add"
+            (click)="openCatalogAdd('Country', 'death')"
+            aria-label="Lisää maa"
+            title="Lisää"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            class="icon-btn icon-edit"
+            (click)="openCatalogEdit('Country', deathCountryId, 'death')"
+            [disabled]="!deathCountryId"
+            aria-label="Muokkaa maata"
+            title="Muokkaa"
+          >
+            ✎
+          </button>
         </div>
-        <div class="labeled-field reason-field">
-          <div class="field-head">
-            <span class="field-caption">Kuolinsyy</span>
-            <button
-              type="button"
-              class="icon-btn icon-clear"
-              (click)="deathReasonId = null"
-              [disabled]="!deathReasonId"
-              aria-label="Tyhjennä"
-              title="Tyhjennä"
-            ></button>
-            <button
-              type="button"
-              class="icon-btn icon-add"
-              (click)="openCatalogAdd('DeathReason')"
-              aria-label="Lisää kuolinsyy"
-              title="Lisää"
-            >
-              +
-            </button>
-            <button
-              type="button"
-              class="icon-btn icon-edit"
-              (click)="openCatalogEdit('DeathReason', deathReasonId)"
-              [disabled]="!deathReasonId"
-              aria-label="Muokkaa kuolinsyytä"
-              title="Muokkaa"
-            >
-              ✎
-            </button>
-            <button
-              type="button"
-              class="icon-btn icon-del"
-              (click)="deleteSelectedCatalog('DeathReason')"
-              [disabled]="!deathReasonId"
-              aria-label="Poista"
-              title="Poista"
-            >
-              ×
-            </button>
-          </div>
-          <app-search-select
-            [options]="deathReasons"
-            [(ngModel)]="deathReasonId"
-            name="pfDeathReasonId"
-            placeholder="Valitse syy…"
-          />
-        </div>
+        <app-flexible-date [(ngModel)]="deathDate" name="pfDeathDate" />
+        <app-search-select
+          class="stretch"
+          [options]="countries"
+          [(ngModel)]="deathCountryId"
+          name="pfDeathCountryId"
+          placeholder="Maa…"
+        />
       </section>
+
+      <div class="labeled-field stretch">
+        <div class="field-head">
+          <span class="field-caption">Kuolinsyy</span>
+          <button
+            type="button"
+            class="icon-btn icon-clear"
+            (click)="deathReasonId = null"
+            [disabled]="!deathReasonId"
+            aria-label="Tyhjennä"
+            title="Tyhjennä"
+          ></button>
+          <button
+            type="button"
+            class="icon-btn icon-add"
+            (click)="openCatalogAdd('DeathReason')"
+            aria-label="Lisää kuolinsyy"
+            title="Lisää"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            class="icon-btn icon-edit"
+            (click)="openCatalogEdit('DeathReason', deathReasonId)"
+            [disabled]="!deathReasonId"
+            aria-label="Muokkaa kuolinsyytä"
+            title="Muokkaa"
+          >
+            ✎
+          </button>
+          <button
+            type="button"
+            class="icon-btn icon-del"
+            (click)="deleteSelectedCatalog('DeathReason')"
+            [disabled]="!deathReasonId"
+            aria-label="Poista"
+            title="Poista"
+          >
+            ×
+          </button>
+        </div>
+        <app-search-select
+          class="stretch"
+          [options]="deathReasons"
+          [(ngModel)]="deathReasonId"
+          name="pfDeathReasonId"
+          placeholder="Valitse syy…"
+        />
+      </div>
 
       <label>
         Kuvaus
@@ -259,6 +255,7 @@ interface SalaryDraft {
         </ul>
         <div class="link-add">
           <app-search-select
+            class="stretch"
             [options]="personRelations"
             [(ngModel)]="linkRelationId"
             name="pfLinkRelationId"
@@ -324,6 +321,7 @@ interface SalaryDraft {
             maxlength="12"
           />
           <app-search-select
+            class="stretch"
             [options]="currencies"
             [(ngModel)]="salaryCurrencyId"
             name="pfSalaryCurrencyId"
@@ -382,14 +380,36 @@ interface SalaryDraft {
   styles: [
     `
       .person-form {
+        --pf-section-gap: 0.75rem;
+        --pf-field-gap: 0.35rem;
         display: grid;
-        gap: 0.75rem;
+        gap: var(--pf-section-gap);
       }
-      .life-block {
+      .life-grid {
         display: grid;
-        gap: 0.45rem;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-rows: auto auto;
+        column-gap: 0.55rem;
+        row-gap: var(--pf-field-gap);
+        align-items: center;
+        width: 100%;
       }
-      .life-block > h3,
+      .life-grid > h3 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: normal;
+        color: #111;
+        line-height: 1.7rem;
+      }
+      .life-grid > .field-icons {
+        min-height: 0;
+        height: 1.7rem;
+      }
+      .life-grid > app-search-select {
+        width: 100%;
+        min-width: 0;
+      }
       .plain-block > h3 {
         margin: 0;
         font-size: 1rem;
@@ -399,7 +419,7 @@ interface SalaryDraft {
       }
       .gender-block {
         display: grid;
-        gap: 0.35rem;
+        gap: var(--pf-field-gap);
       }
       .gender-toggle {
         display: inline-flex;
@@ -419,26 +439,16 @@ interface SalaryDraft {
         margin: 0;
         accent-color: #1f4b7a;
       }
-      .life-row {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.45rem 0.65rem;
-      }
-      .country-inline {
-        display: grid;
-        gap: 0.2rem;
-        justify-items: start;
-        min-width: 0;
-      }
-      .reason-field {
-        max-width: 28rem;
-      }
       .labeled-field {
         display: grid;
-        gap: 0.35rem;
+        gap: var(--pf-field-gap);
         min-width: 0;
         justify-items: start;
+      }
+      .labeled-field.stretch {
+        width: 100%;
+        max-width: none;
+        justify-items: stretch;
       }
       .field-head {
         display: flex;
@@ -446,6 +456,7 @@ interface SalaryDraft {
         align-items: center;
         gap: 0.15rem 0.25rem;
         width: 100%;
+        min-height: 1.7rem;
       }
       .field-head .field-caption {
         margin-right: 0.15rem;
@@ -455,11 +466,11 @@ interface SalaryDraft {
         flex-wrap: wrap;
         align-items: center;
         gap: 0.15rem 0.25rem;
-        min-height: 1.7rem;
+        min-height: 0;
       }
       .plain-block {
         display: grid;
-        gap: 0.4rem;
+        gap: var(--pf-field-gap);
         font-size: 1rem;
         color: #111;
       }
@@ -495,18 +506,29 @@ interface SalaryDraft {
       .add-row,
       .link-add {
         display: grid;
-        gap: 0.35rem;
+        gap: var(--pf-field-gap);
       }
       .link-add {
-        grid-template-columns: 8.5rem minmax(0, 1fr);
+        grid-template-columns: minmax(8rem, 1fr) minmax(0, 1.4fr);
+        gap: 0.55rem;
       }
       .salary-add {
-        grid-template-columns: 6.5rem 7rem minmax(0, 1fr);
+        grid-template-columns: 9.5rem minmax(6rem, 8rem) minmax(0, 1fr);
+        gap: 0.55rem;
+      }
+      .link-add > app-search-select,
+      .salary-add > app-search-select {
+        width: 100%;
+        min-width: 0;
       }
       @media (max-width: 560px) {
+        .life-grid,
         .link-add,
         .salary-add {
           grid-template-columns: 1fr;
+        }
+        .life-grid > .field-icons {
+          grid-column: 1;
         }
       }
       .icon-btn {
@@ -612,6 +634,7 @@ interface SalaryDraft {
       .modal-head h2 {
         margin: 0;
         font-size: 1rem;
+        font-weight: 700;
       }
       .modal-body {
         padding: 0.85rem;

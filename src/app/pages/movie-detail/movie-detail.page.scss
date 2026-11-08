@@ -36,6 +36,10 @@
   margin: 0;
 }
 
+.read-body section.role-section > .list-heading {
+  margin-left: -4px;
+}
+
 @media (max-width: 900px) {
   .detail-layout {
     grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
@@ -128,24 +132,69 @@ h2 {
 .list-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem 1.25rem;
+  gap: 0.45rem 0.55rem;
   margin: 0;
 }
 
-button.text-link {
+button.list-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid #c5d0dc;
+  border-radius: 6px;
+  background: #f4f7fa;
   color: #1f4b7a;
   font: inherit;
-  font-weight: 400;
-  text-decoration: none;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.2;
   cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
-button.text-link:hover {
+button.list-action:hover {
+  background: #e8eef4;
+  border-color: #aeb9c5;
   color: #163a5f;
+}
+
+button.list-action.active {
+  background: #1f4b7a;
+  border-color: #1f4b7a;
+  color: #fff;
+}
+
+button.list-action.active:hover {
+  background: #163a5f;
+  border-color: #163a5f;
+  color: #fff;
+}
+
+.list-action-icon {
+  display: block;
+  width: 0.95rem;
+  height: 0.95rem;
+  flex: 0 0 auto;
+  background: currentColor;
+}
+
+.list-action-watch {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6zm2 0v12h12V6H6zm2 2h8v2H8V8zm0 4h8v2H8v-2zm0 4h5v2H8v-2z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6zm2 0v12h12V6H6zm2 2h8v2H8V8zm0 4h8v2H8v-2zm0 4h5v2H8v-2z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.list-action-memo {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm8 1.5V8h4.5L14 3.5zM8 11h8v1.5H8V11zm0 3.5h8V16H8v-1.5zm0 3.5h5V19H8v-1.5z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm8 1.5V8h4.5L14 3.5zM8 11h8v1.5H8V11zm0 3.5h8V16H8v-1.5zm0 3.5h5V19H8v-1.5z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
 }
 
 .title-row {
@@ -191,7 +240,7 @@ button.text-link:hover {
 .score-star-value {
   position: relative;
   z-index: 1;
-  font-size: 0.8rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #1a1a1a;
   margin-top: 0.14rem;
@@ -319,17 +368,18 @@ ul {
   padding-left: 1.1rem;
 }
 
-.aka-list,
-.aka-list .soft {
-  font-size: 1rem;
-}
-
 .aka-list {
   list-style: none;
   padding: 0;
   display: grid;
   gap: 0.2rem;
   color: #333;
+  font-size: 1rem;
+}
+
+.aka-list .soft {
+  font-size: inherit;
+  color: #8a5a2b;
 }
 
 .trivia-read {
@@ -426,12 +476,6 @@ label.block,
   line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-}
-
-.star-hint {
-  margin: 0;
-  font-size: 0.75rem;
-  color: #777;
 }
 
 .star-bg,
@@ -970,7 +1014,7 @@ button.danger,
 .modal-head h2 {
   margin: 0;
   font-size: 1rem;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .modal-body {
@@ -1024,6 +1068,10 @@ button.danger,
   box-sizing: border-box;
 }
 
+.reviews-section > h2 {
+  margin-left: -4px;
+}
+
 .reviews-list {
   list-style: none;
   margin: 0;
@@ -1044,19 +1092,26 @@ button.danger,
 }
 
 .review-head {
-  display: grid;
-  grid-template-columns: minmax(0, 8.5rem) minmax(0, 3.5rem) 2.5rem;
-  column-gap: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 0.35rem 0.65rem;
   min-width: 0;
+}
+
+.review-who {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+  margin-left: -12px;
 }
 
 .review-name {
   font-weight: 400;
   color: #111;
   line-height: 1.15;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -1065,9 +1120,6 @@ button.danger,
   font-size: 0.88em;
   font-weight: 700;
   line-height: 1.15;
-  min-height: 1.15em;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -1133,9 +1185,14 @@ button.danger,
   min-width: 0;
   margin: 0;
   font-size: 1rem;
+  font-weight: 400;
   line-height: 1.4;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.review-text :is(b, strong, p, div, span) {
+  font-weight: 400;
 }
 
 .review-text p {
@@ -1144,4 +1201,8 @@ button.danger,
 
 .review-text p:last-child {
   margin-bottom: 0;
+}
+
+.modal label.block.comment-label {
+  font-weight: 400;
 }

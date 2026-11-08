@@ -357,17 +357,19 @@ export function distributionPrefix(distributionId: number | null | undefined): s
 }
 
 
-/** Title with optional year in parentheses, e.g. "Alien (1979)". */
+/** Title with optional year in parentheses, e.g. "Alien (1979)" or "Alien (TV/2014)". */
 export function titleWithYear(
   title: string | null | undefined,
   titleLanguageId: number | null | undefined,
-  year: number | null | undefined
+  year: number | null | undefined,
+  distributionId?: number | null
 ): string {
   const main = swapTitle(title, titleLanguageId);
+  const yearPart = year ? `${distributionPrefix(distributionId)}${year}` : '';
   if (!main) {
-    return year ? `(${year})` : '';
+    return yearPart ? `(${yearPart})` : '';
   }
-  return year ? `${main} (${year})` : main;
+  return yearPart ? `${main} (${yearPart})` : main;
 }
 
 /** Display label for a movie version, e.g. "Director's Cut-versio". */

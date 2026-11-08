@@ -1,3 +1,4 @@
+import { LowerCasePipe } from '@angular/common';
 import {
   AfterViewInit,
   Component,
@@ -66,6 +67,7 @@ interface MovieLinkPick {
   standalone: true,
   imports: [
     FormsModule,
+    LowerCasePipe,
     DigitsOnlyDirective,
     MultiCheckSelectComponent,
     PersonFormComponent,

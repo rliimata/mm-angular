@@ -4,27 +4,10 @@
       <span class="logo" aria-hidden="true">mm</span>
       <span class="brand-name">Movie Manager</span>
     </a>
-    <div class="top-center">
-      @if (auth.isLoggedIn() && auth.isSuperUser()) {
-        <nav class="top-actions desktop-only">
-          <a routerLink="/movie/new" class="top-btn">Uusi elokuva</a>
-        </nav>
-      }
-    </div>
     <div class="top-right">
       @if (auth.isLoggedIn()) {
         <div class="user">
           <span>{{ auth.displayName() }}</span>
-          @if (auth.isSuperUser()) {
-            <span class="badge">admin</span>
-          }
-          <button
-            type="button"
-            class="pwd-btn"
-            (click)="openPasswordChange()"
-            title="Vaihda salasana"
-            aria-label="Vaihda salasana"
-          ></button>
           <button
             type="button"
             class="logout-btn"
@@ -32,6 +15,22 @@
             title="Kirjaudu ulos"
             aria-label="Kirjaudu ulos"
           ></button>
+          <button
+            type="button"
+            class="pwd-btn"
+            (click)="openPasswordChange()"
+            title="Vaihda salasana"
+            aria-label="Vaihda salasana"
+          ></button>
+          @if (auth.isSuperUser()) {
+            <a
+              routerLink="/movie/new"
+              class="top-add desktop-only"
+              title="Uusi elokuva"
+              aria-label="Uusi elokuva"
+              >+</a
+            >
+          }
         </div>
       }
     </div>
@@ -45,36 +44,40 @@
 @if (passwordOpen()) {
   <div class="pwd-backdrop" (click)="closePasswordChange()"></div>
   <div class="pwd-modal" role="dialog" aria-modal="true" aria-labelledby="pwdTitle">
-    <h2 id="pwdTitle">Vaihda salasana</h2>
-    @if (passwordError()) {
-      <p class="pwd-error">{{ passwordError() }}</p>
-    }
-    <label>
-      Uusi salasana
-      <input
-        #passwordNewInput
-        type="password"
-        [(ngModel)]="passwordNew"
-        name="passwordNew"
-        autocomplete="new-password"
-        (keydown.enter)="$event.preventDefault(); savePassword()"
-      />
-    </label>
-    <label>
-      Vahvista salasana
-      <input
-        type="password"
-        [(ngModel)]="passwordConfirm"
-        name="passwordConfirm"
-        autocomplete="new-password"
-        (keydown.enter)="$event.preventDefault(); savePassword()"
-      />
-    </label>
-    <div class="pwd-actions">
+    <header class="pwd-head">
+      <h2 id="pwdTitle">Vaihda salasana</h2>
+    </header>
+    <div class="pwd-body">
+      @if (passwordError()) {
+        <p class="pwd-error">{{ passwordError() }}</p>
+      }
+      <label>
+        Uusi salasana
+        <input
+          #passwordNewInput
+          type="password"
+          [(ngModel)]="passwordNew"
+          name="passwordNew"
+          autocomplete="new-password"
+          (keydown.enter)="$event.preventDefault(); savePassword()"
+        />
+      </label>
+      <label>
+        Vahvista salasana
+        <input
+          type="password"
+          [(ngModel)]="passwordConfirm"
+          name="passwordConfirm"
+          autocomplete="new-password"
+          (keydown.enter)="$event.preventDefault(); savePassword()"
+        />
+      </label>
+    </div>
+    <footer class="pwd-foot">
       <button type="button" class="primary" [disabled]="passwordSaving()" (click)="savePassword()">
         Tallenna
       </button>
       <button type="button" class="ghost" (click)="closePasswordChange()">Peruuta</button>
-    </div>
+    </footer>
   </div>
 }

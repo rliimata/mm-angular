@@ -124,6 +124,7 @@
                       @if (editingAkaIndex === $index) {
                         <input [(ngModel)]="akaTitle" [name]="'akaEditTitle' + $index" />
                         <app-search-select
+                          class="stretch"
                           [options]="languages"
                           [(ngModel)]="akaLangId"
                           [name]="'akaEditLang' + $index"
@@ -134,7 +135,9 @@
                       } @else {
                         <button type="button" class="aka-edit" (click)="editAka($index)">
                           {{ a.title }}
-                          <span class="soft">({{ labelOf(languages, a.titleLanguageId) }})</span>
+                          <span class="soft"
+                            >({{ labelOf(languages, a.titleLanguageId) | lowercase }})</span
+                          >
                         </button>
                         <button
                           type="button"
@@ -158,6 +161,7 @@
                       (keydown.enter)="$event.preventDefault(); addAka()"
                     />
                     <app-search-select
+                      class="stretch"
                       [options]="languages"
                       [(ngModel)]="akaLangId"
                       name="akaLangId"
@@ -209,6 +213,7 @@
                   </button>
                 </div>
                 <app-search-select
+                  class="stretch"
                   [options]="versions"
                   [(ngModel)]="versionId"
                   name="versionId"

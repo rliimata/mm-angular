@@ -3,6 +3,12 @@
   gap: 0.9rem;
 }
 
+.catalog-counts {
+  margin: 0;
+  color: #4a5d73;
+  font-size: 0.95rem;
+}
+
 .search {
   display: block;
   width: 100%;
@@ -117,9 +123,6 @@ th {
   margin-left: 0.5rem;
 }
 
-.tag {
-  color: #6a4a16;
-}
 
 .icon-edit {
   display: inline-grid;

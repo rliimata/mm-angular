@@ -7,7 +7,11 @@ import { getSupabase } from '../core/supabase.client';
 export class MediaService {
   constructor(private readonly auth: AuthService) {}
 
-  async uploadImage(kind: 'movie' | 'person', entityId: number, file: File): Promise<string> {
+  async uploadImage(
+    kind: 'movie' | 'person',
+    entityId: number,
+    file: File
+  ): Promise<{ url: string; t: number }> {
     if (!this.auth.isSuperUser()) {
       throw new Error('Vain ylläpitäjä voi vaihtaa kuvia.');
     }
@@ -36,15 +40,15 @@ export class MediaService {
     });
 
     const text = await res.text();
-    let json: { error?: string; url?: string } = {};
+    let json: { error?: string; url?: string; t?: number } = {};
     try {
-      json = JSON.parse(text) as { error?: string; url?: string };
+      json = JSON.parse(text) as { error?: string; url?: string; t?: number };
     } catch {
       /* plain text */
     }
     if (!res.ok) {
       throw new Error(json.error || text || `Upload failed (${res.status})`);
     }
-    return json.url || '';
+    return { url: json.url || '', t: json.t || Date.now() };
   }
 }

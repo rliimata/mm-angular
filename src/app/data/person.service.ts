@@ -32,6 +32,16 @@ export interface PersonDetails {
 
 @Injectable({ providedIn: 'root' })
 export class PersonService {
+  async countAll(): Promise<number> {
+    const { count, error } = await getSupabase()
+      .from('Person')
+      .select('Id', { count: 'exact', head: true });
+    if (error) {
+      throw error;
+    }
+    return count ?? 0;
+  }
+
   async search(query: string, page: number, pageSize: number): Promise<PersonSearchResult> {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;

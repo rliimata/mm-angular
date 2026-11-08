@@ -43,6 +43,7 @@ export class HomePage implements OnInit, AfterViewInit {
   readonly ownerships = signal<OwnershipSummary[]>([]);
   readonly total = signal(0);
   readonly ownershipTotal = signal(0);
+  readonly catalogCounts = signal<{ movies: number; people: number } | null>(null);
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
 
@@ -107,8 +108,21 @@ export class HomePage implements OnInit, AfterViewInit {
   async ngOnInit(): Promise<void> {
     this.pageTitle.set('Haku');
     this.scores = await this.lookups.get('Score');
-    await this.runSearch();
+    void this.loadCatalogCounts();
+    // Empty text search: show counts only, do not fetch movies from DB.
     this.focusSearchInput();
+  }
+
+  private async loadCatalogCounts(): Promise<void> {
+    try {
+      const [movies, people] = await Promise.all([
+        this.moviesApi.countAll(),
+        this.peopleApi.countAll(),
+      ]);
+      this.catalogCounts.set({ movies, people });
+    } catch {
+      // Counts are informational; keep the page usable if they fail.
+    }
   }
 
   ngAfterViewInit(): void {
@@ -197,6 +211,13 @@ export class HomePage implements OnInit, AfterViewInit {
 
       this.ownerships.set([]);
       this.ownershipTotal.set(0);
+
+      if (this.mode === 'text' && !this.query.trim()) {
+        this.movies.set([]);
+        this.people.set([]);
+        this.total.set(0);
+        return;
+      }
 
       const moviePromise = this.moviesApi.search({
         query: this.mode === 'text' ? this.query : '',

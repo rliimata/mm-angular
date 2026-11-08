@@ -54,6 +54,7 @@
                 </button>
               </div>
               <app-search-select
+                class="stretch"
                 [options]="releasePublishers"
                 [(ngModel)]="draft.releasePublisherId"
                 name="releasePublisherId"
@@ -93,6 +94,7 @@
                 </button>
               </div>
               <app-search-select
+                class="stretch"
                 [options]="releaseRegions"
                 [(ngModel)]="draft.releaseRegionId"
                 (ngModelChange)="onReleaseRegionChange()"
@@ -133,6 +135,7 @@
                 </button>
               </div>
               <app-search-select
+                class="stretch"
                 [options]="releaseConditions"
                 [(ngModel)]="draft.releaseConditionId"
                 (ngModelChange)="onReleaseConditionChange()"
@@ -173,6 +176,7 @@
                 </button>
               </div>
               <app-search-select
+                class="stretch"
                 [options]="ownershipTypes"
                 [(ngModel)]="draft.ownershipTypeId"
                 name="ownershipTypeId"
@@ -487,18 +491,20 @@
             autofocus
           />
         </label>
-        <ul class="picker">
-          @for (m of movieSearchResults; track m.Id) {
-            <li>
-              <button type="button" class="linkish" (click)="addMovieToDraft(m)">
-                {{ movieTitleBase(m) }}
-                @if (movieVersionLabel(m); as ver) {
-                  - <span class="version-name">{{ ver }}</span>
-                }
-              </button>
-            </li>
-          }
-        </ul>
+        @if (movieSearchResults.length) {
+          <ul class="picker">
+            @for (m of movieSearchResults; track m.Id) {
+              <li>
+                <button type="button" class="linkish" (click)="addMovieToDraft(m)">
+                  {{ movieTitleBase(m) }}
+                  @if (movieVersionLabel(m); as ver) {
+                    - <span class="version-name">{{ ver }}</span>
+                  }
+                </button>
+              </li>
+            }
+          </ul>
+        }
       </div>
       <footer class="modal-foot">
         <button type="button" class="ghost" (click)="closeMovieSearch()">Peruuta</button>

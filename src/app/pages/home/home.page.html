@@ -23,6 +23,12 @@
     </form>
   }
 
+  @if (catalogCounts(); as counts) {
+    <p class="catalog-counts">
+      {{ counts.movies }} elokuvaa · {{ counts.people }} henkilöä
+    </p>
+  }
+
   @if (error()) {
     <p class="error">{{ error() }}</p>
   }
@@ -192,6 +198,9 @@
                       }
                     }
                   </a>
+                  @if (m.FormatLabels && m.FormatLabels.length) {
+                    <span class="ownership-mark">{{ m.FormatLabels.join(', ') }}</span>
+                  }
                 </td>
                 <td class="extra">
                   @if (m.AvgScore != null) {
@@ -199,9 +208,6 @@
                   }
                   @if (scoreLabel(m.MyScoreId)) {
                     <span>{{ scoreLabel(m.MyScoreId) }}★</span>
-                  }
-                  @if (m.FormatLabels && m.FormatLabels.length) {
-                    <span class="tag">{{ m.FormatLabels.join(', ') }}</span>
                   }
                   @if (auth.isSuperUser()) {
                     <a
