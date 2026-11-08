@@ -158,6 +158,7 @@
                       [(ngModel)]="akaTitle"
                       name="akaTitle"
                       placeholder="Nimi"
+                      enterkeyhint="done"
                       (keydown.enter)="$event.preventDefault(); addAka()"
                     />
                     <app-search-select
@@ -167,6 +168,15 @@
                       name="akaLangId"
                       placeholder="Kieli…"
                     />
+                    <button
+                      type="button"
+                      class="icon-btn icon-add"
+                      (click)="addAka()"
+                      aria-label="Lisää aka"
+                      title="Lisää"
+                    >
+                      +
+                    </button>
                   </div>
                 }
               </section>
@@ -249,10 +259,20 @@
                     type="text"
                     [(ngModel)]="triviaDraft"
                     name="triviaDraft"
-                    placeholder="Uusi trivia… (Enter)"
+                    placeholder="Uusi trivia…"
                     autocomplete="off"
+                    enterkeyhint="done"
                     (keydown.enter)="$event.preventDefault(); addTrivia()"
                   />
+                  <button
+                    type="button"
+                    class="icon-btn icon-add"
+                    (click)="addTrivia()"
+                    aria-label="Lisää trivia"
+                    title="Lisää"
+                  >
+                    +
+                  </button>
                 </div>
               </section>
             </div>

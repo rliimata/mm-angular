@@ -225,10 +225,20 @@ interface SalaryDraft {
             type="text"
             [(ngModel)]="triviaDraft"
             name="pfTriviaDraft"
-            placeholder="Uusi trivia… (Enter)"
+            placeholder="Uusi trivia…"
             autocomplete="off"
+            enterkeyhint="done"
             (keydown.enter)="$event.preventDefault(); addTrivia()"
           />
+          <button
+            type="button"
+            class="icon-btn icon-add"
+            (click)="addTrivia()"
+            aria-label="Lisää trivia"
+            title="Lisää"
+          >
+            +
+          </button>
         </div>
       </section>
 
@@ -508,6 +518,10 @@ interface SalaryDraft {
         display: grid;
         gap: var(--pf-field-gap);
       }
+      .add-row {
+        grid-template-columns: minmax(0, 1fr) 1.7rem;
+        align-items: center;
+      }
       .link-add {
         grid-template-columns: minmax(8rem, 1fr) minmax(0, 1.4fr);
         gap: 0.55rem;
@@ -612,13 +626,17 @@ interface SalaryDraft {
       }
       .modal.modal-small {
         width: min(22rem, 100%);
+        max-height: calc(100svh - 1.5rem);
         background: #fff;
         border-radius: 10px;
         box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
-        overflow: visible;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
       }
       .modal-head,
       .modal-foot {
+        flex: 0 0 auto;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -637,6 +655,9 @@ interface SalaryDraft {
         font-weight: 700;
       }
       .modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
         padding: 0.85rem;
         display: grid;
         gap: 0.55rem;

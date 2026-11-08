@@ -118,7 +118,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const bust = Date.now();
   await env.MEDIA.put(key, file.stream(), {
     httpMetadata: {
-      contentType: file.type || 'image/jpeg',
+      contentType: 'image/jpeg',
       // Same key is overwritten — avoid long-lived browser/CDN stale copies.
       cacheControl: 'public, max-age=0, must-revalidate',
     },

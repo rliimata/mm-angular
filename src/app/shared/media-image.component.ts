@@ -1,5 +1,6 @@
 import { Component, ElementRef, Input, OnChanges, SimpleChanges, viewChild, inject, signal } from '@angular/core';
 import { AuthService } from '../core/auth.service';
+import { prepareUploadImage } from '../core/image-prepare.util';
 import { getMediaCacheBust, movieImageUrl, personImageUrl, setMediaCacheBust } from '../core/media.util';
 import { MediaService } from '../data/media.service';
 
@@ -366,7 +367,8 @@ export class MediaImageComponent implements OnChanges {
     this.uploading.set(true);
     this.error.set(null);
     try {
-      const { t } = await this.media.uploadImage(this.kind, this.entityId, file);
+      const prepared = await prepareUploadImage(file, 300);
+      const { t } = await this.media.uploadImage(this.kind, this.entityId, prepared);
       const storageKind = this.kind === 'movie' ? 'movies' : 'persons';
       const bust = setMediaCacheBust(storageKind, this.entityId, t);
       this.cacheBust.set(bust);

@@ -222,6 +222,13 @@ export class MovieDetailPage implements OnInit, OnDestroy {
     return row ? Number(row.Value) : 0;
   }
 
+  formatScoreDisplay(value: number): string {
+    if (!value) {
+      return '-';
+    }
+    return (Math.round(value * 10) / 10).toFixed(1);
+  }
+
   starFill(star: number): number {
     const value = this.displayScoreValue();
     if (value >= star) {

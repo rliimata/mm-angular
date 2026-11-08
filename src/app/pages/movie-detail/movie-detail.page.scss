@@ -880,6 +880,7 @@ button.danger,
   width: min(32rem, 100%);
   max-width: 100%;
   max-height: calc(100dvh - 1.5rem);
+  max-height: calc(100svh - 1.5rem);
   border-radius: 10px;
   background: #fff;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);

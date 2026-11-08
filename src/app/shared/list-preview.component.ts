@@ -264,6 +264,7 @@ type PreviewReview = {
     .lp-panel {
       width: min(44rem, 100%);
       max-height: calc(100vh - 2rem);
+      max-height: calc(100svh - 2rem);
       display: grid;
       grid-template-rows: auto minmax(0, 1fr) auto;
       gap: 0.55rem;
@@ -272,6 +273,7 @@ type PreviewReview = {
       background: #f7f9fc;
       box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
       box-sizing: border-box;
+      overflow: hidden;
     }
 
     .lp-toolbar {
@@ -450,7 +452,7 @@ type PreviewReview = {
     .lp-reviews-list {
       list-style: none;
       margin: 0;
-      padding: 0 0 0 0.85rem;
+      padding: 0 0 0 4px;
       display: grid;
       gap: 0;
       width: 100%;
@@ -622,13 +624,13 @@ type PreviewReview = {
 
     .lp-role-label {
       margin: 0;
-      margin-left: -4px;
       font-weight: 700;
       color: #111;
     }
 
     .lp-people {
       margin: 0;
+      padding-left: 4px;
       line-height: 1.4;
       color: #111;
     }
@@ -652,7 +654,8 @@ type PreviewReview = {
       align-items: center;
       justify-content: center;
       gap: 1rem;
-      padding-bottom: 0.15rem;
+      flex: 0 0 auto;
+      padding-bottom: max(0.15rem, env(safe-area-inset-bottom, 0px));
     }
 
     .lp-arrow {
@@ -686,7 +689,7 @@ type PreviewReview = {
     .lp-filmography ul {
       list-style: none;
       margin: 0;
-      padding: 0;
+      padding: 0 0 0 4px;
       display: grid;
       gap: 0.2rem;
     }
@@ -724,9 +727,18 @@ type PreviewReview = {
     }
 
     @media (max-width: 640px) {
+      .lp-backdrop {
+        padding: 0.5rem;
+        padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+        align-items: stretch;
+      }
+
       .lp-panel {
         width: 100%;
+        height: calc(100svh - 1rem);
+        max-height: calc(100svh - 1rem);
         padding: 0.65rem 0.75rem 0.65rem;
+        border-radius: 10px;
       }
 
       .lp-layout {

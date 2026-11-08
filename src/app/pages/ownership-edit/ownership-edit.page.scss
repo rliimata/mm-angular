@@ -394,6 +394,7 @@ button:disabled {
 .modal {
   width: min(24rem, 100%);
   max-height: calc(100vh - 2rem);
+  max-height: calc(100svh - 2rem);
   border-radius: 10px;
   background: #fff;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
