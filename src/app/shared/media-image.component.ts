@@ -367,7 +367,7 @@ export class MediaImageComponent implements OnChanges {
     this.uploading.set(true);
     this.error.set(null);
     try {
-      const prepared = await prepareUploadImage(file, 300);
+      const prepared = await prepareUploadImage(file, 600);
       const { t } = await this.media.uploadImage(this.kind, this.entityId, prepared);
       const storageKind = this.kind === 'movie' ? 'movies' : 'persons';
       const bust = setMediaCacheBust(storageKind, this.entityId, t);

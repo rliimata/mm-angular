@@ -65,8 +65,8 @@ export function accentInsensitiveNamePatterns(token: string): string[] {
 }
 
 /**
- * Case-insensitive regex for PostgREST `imatch`: vowels become `.`
- * so "yugi" → ".*y.g.i.*" matches "Yûgi" / "Yūgi".
+ * Case-insensitive regex for PostgREST `imatch`: vowels become optional `.?`
+ * so "yugi" → ".*y.?g.?i.*" matches both "yugi" and precomposed "Yûgi".
  */
 export function accentInsensitiveNameRegex(token: string): string {
   const folded = foldSearchText(token).replace(/[^a-z0-9]/g, '');
@@ -74,7 +74,7 @@ export function accentInsensitiveNameRegex(token: string): string {
     return '';
   }
   const body = [...folded]
-    .map((ch) => ('aeiou'.includes(ch) ? '.' : ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+    .map((ch) => ('aeiou'.includes(ch) ? '.?' : ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
     .join('');
   return `.*${body}.*`;
 }

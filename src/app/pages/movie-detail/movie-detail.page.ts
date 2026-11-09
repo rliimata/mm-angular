@@ -12,7 +12,6 @@ import {
   ageRatingLabel,
   distributionPrefix,
   formatRuntimeMinutes,
-  palMinutesFromNtsc,
   resolveNtscMinutes,
   roleSingularLabel,
   swapNames,
@@ -448,7 +447,7 @@ export class MovieDetailPage implements OnInit, OnDestroy {
     if (ntsc == null) {
       return '';
     }
-    return formatRuntimeMinutes(palMinutesFromNtsc(ntsc));
+    return formatRuntimeMinutes(ntsc);
   }
 
   async toggleWatchlist(): Promise<void> {

@@ -1,5 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import {
+  accentInsensitiveNamePatterns,
+  accentInsensitiveNameRegex,
   decodeEntities,
   foldSearchText,
   searchTokens,
@@ -285,30 +287,102 @@ export class MovieService {
     }
     if (mode === 'text' && term) {
       // Title + Aka; ignore apostrophes/punctuation differences (e.g. God's Pocket).
+      // Folded "yugi" must still hit precomposed "yûgi" — plain ILIKE %yugi% does not.
       const tokens = searchTokens(term);
       if (!tokens.length) {
         return { rows: [], count: 0 };
       }
 
-      let titleQuery = getSupabase()
-        .from('Movie')
-        .select('Id, Title, Year, DistributionId, TitleLanguageId, VersionId');
-      let akaQuery = getSupabase().from('Aka').select('MovieId, Title, TitleLanguageId');
-      for (const tok of tokens) {
-        titleQuery = titleQuery.ilike('Title', `%${tok}%`);
-        akaQuery = akaQuery.ilike('Title', `%${tok}%`);
+      const primary = [...tokens].sort((a, b) => {
+        const fa = a.replace(/[^a-z0-9]/gi, '');
+        const fb = b.replace(/[^a-z0-9]/gi, '');
+        const ca = [...fa.toLowerCase()].filter((c) => !'aeiou'.includes(c)).length;
+        const cb = [...fb.toLowerCase()].filter((c) => !'aeiou'.includes(c)).length;
+        return cb - ca || fb.length - fa.length;
+      })[0];
+      const patterns = accentInsensitiveNamePatterns(primary);
+      const regex = accentInsensitiveNameRegex(primary);
+      const movieSelect = 'Id, Title, Year, DistributionId, TitleLanguageId, VersionId';
+      const fetchLimit = 500;
+
+      const titleProbes: Array<Promise<Movie[]>> = [];
+      const akaProbes: Array<
+        Promise<{ MovieId: number; Title: string; TitleLanguageId: number | null }[]>
+      > = [];
+      if (regex) {
+        titleProbes.push(
+          (async () => {
+            const { data, error } = await getSupabase()
+              .from('Movie')
+              .select(movieSelect)
+              .filter('Title', 'imatch', regex)
+              .limit(fetchLimit);
+            if (error) {
+              return [];
+            }
+            return (data as Movie[]) ?? [];
+          })()
+        );
+        akaProbes.push(
+          (async () => {
+            const { data, error } = await getSupabase()
+              .from('Aka')
+              .select('MovieId, Title, TitleLanguageId')
+              .filter('Title', 'imatch', regex)
+              .limit(fetchLimit);
+            if (error) {
+              return [];
+            }
+            return (data as { MovieId: number; Title: string; TitleLanguageId: number | null }[]) ?? [];
+          })()
+        );
+      }
+      for (const pattern of patterns) {
+        titleProbes.push(
+          (async () => {
+            const { data, error } = await getSupabase()
+              .from('Movie')
+              .select(movieSelect)
+              .ilike('Title', pattern)
+              .limit(fetchLimit);
+            if (error) {
+              throw error;
+            }
+            return (data as Movie[]) ?? [];
+          })()
+        );
+        akaProbes.push(
+          (async () => {
+            const { data, error } = await getSupabase()
+              .from('Aka')
+              .select('MovieId, Title, TitleLanguageId')
+              .ilike('Title', pattern)
+              .limit(fetchLimit);
+            if (error) {
+              throw error;
+            }
+            return (data as { MovieId: number; Title: string; TitleLanguageId: number | null }[]) ?? [];
+          })()
+        );
       }
 
-      const [{ data: akaHits }, { data: titleHits }] = await Promise.all([akaQuery, titleQuery]);
-      const titleMovies = (titleHits as Movie[]) ?? [];
-      const akaRows =
-        (akaHits as { MovieId: number; Title: string; TitleLanguageId: number | null }[]) ?? [];
-      const byId = new Map<number, Movie>(titleMovies.map((m) => [m.Id, m]));
+      const [titleBatches, akaBatches] = await Promise.all([
+        Promise.all(titleProbes),
+        Promise.all(akaProbes),
+      ]);
+      const titleMovies = titleBatches.flat();
+      const akaRows = akaBatches.flat();
+      const byId = new Map<number, Movie>();
+      for (const m of titleMovies) {
+        if (m?.Id != null) {
+          byId.set(m.Id, m);
+        }
+      }
       const missingIds = [...new Set(akaRows.map((a) => a.MovieId))].filter((id) => !byId.has(id));
       if (missingIds.length) {
         const { data: akaMovies, error: akaMovieErr } = await getSupabase()
           .from('Movie')
-          .select('Id, Title, Year, DistributionId, TitleLanguageId, VersionId')
+          .select(movieSelect)
           .in('Id', missingIds);
         if (akaMovieErr) {
           throw akaMovieErr;

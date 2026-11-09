@@ -1,5 +1,5 @@
-/** Resize/re-encode upload images so posters stay light (max width 300px, JPEG). */
-export async function prepareUploadImage(file: File, maxWidth = 300): Promise<File> {
+/** Resize/re-encode upload images so posters stay light (max width 600px, JPEG). */
+export async function prepareUploadImage(file: File, maxWidth = 600): Promise<File> {
   if (!file.type.startsWith('image/')) {
     throw new Error('Valitse kuvatiedosto.');
   }

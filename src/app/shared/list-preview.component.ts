@@ -8,7 +8,6 @@ import {
   ageRatingImageSrc,
   ageRatingLabel,
   formatRuntimeMinutes,
-  palMinutesFromNtsc,
   resolveNtscMinutes,
   roleSingularLabel,
   swapNames,
@@ -955,7 +954,7 @@ export class ListPreviewComponent implements OnDestroy {
     }
     const ntsc = resolveNtscMinutes(d.movie.Ntsc, d.movie.Pal);
     if (ntsc != null) {
-      const runtime = formatRuntimeMinutes(palMinutesFromNtsc(ntsc));
+      const runtime = formatRuntimeMinutes(ntsc);
       if (runtime) {
         chips.push(runtime);
       }
