@@ -3,6 +3,7 @@ import { AppDateTime, Person } from '../core/models';
 import { parseAppDateTime } from '../core/datetime.util';
 import {
   accentInsensitiveNamePatterns,
+  accentInsensitiveNameRegex,
   decodeEntities,
   nameMatchesSearchTokens,
   roleSingularLabel,
@@ -101,19 +102,16 @@ export class PersonService {
   }
 
   /**
-   * Fetch Name candidates with accent-blind ILIKE probes, then rely on
-   * nameMatchesSearchTokens for precise AND across all tokens.
+   * Fetch Name candidates, then filter with nameMatchesSearchTokens.
    *
-   * IMPORTANT: never put patterns like `%y%g%` into `.or("Name.ilike.%y%g%")`.
-   * PostgREST splits or()-values on `.`, so those probes break silently and
-   * "yugi" never matches "Yûgi". Always use `.ilike('Name', pattern)` per probe.
+   * Never put dotted ILIKE patterns into `.or(...)` strings (PostgREST splits on `.`).
+   * Primary probe: imatch regex with vowels as dots. Fallbacks: ilike with underscore vowels.
    */
   private async fetchPersonsByNameTokens(
     tokens: string[],
     select: string,
     limit: number
   ): Promise<Person[]> {
-    // One selective token for DB; client AND-filters all tokens afterward.
     const primary = [...tokens].sort((a, b) => {
       const fa = a.replace(/[^a-z0-9]/gi, '');
       const fb = b.replace(/[^a-z0-9]/gi, '');
@@ -121,26 +119,48 @@ export class PersonService {
       const cb = [...fb.toLowerCase()].filter((c) => !'aeiou'.includes(c)).length;
       return cb - ca || fb.length - fa.length;
     })[0];
+
     const patterns = accentInsensitiveNamePatterns(primary);
-    if (!patterns.length) {
+    const regex = accentInsensitiveNameRegex(primary);
+    const probes: Array<Promise<Person[]>> = [];
+
+    if (regex) {
+      probes.push(
+        (async () => {
+          const { data, error } = await getSupabase()
+            .from('Person')
+            .select(select)
+            .filter('Name', 'imatch', regex)
+            .order('Name')
+            .limit(limit);
+          if (error) {
+            return [];
+          }
+          return (data as unknown as Person[]) ?? [];
+        })()
+      );
+    }
+    for (const pattern of patterns) {
+      probes.push(
+        (async () => {
+          const { data, error } = await getSupabase()
+            .from('Person')
+            .select(select)
+            .ilike('Name', pattern)
+            .order('Name')
+            .limit(limit);
+          if (error) {
+            throw error;
+          }
+          return (data as unknown as Person[]) ?? [];
+        })()
+      );
+    }
+    if (!probes.length) {
       return [];
     }
 
-    const settled = await Promise.all(
-      patterns.map(async (pattern) => {
-        const { data, error } = await getSupabase()
-          .from('Person')
-          .select(select)
-          .ilike('Name', pattern)
-          .order('Name')
-          .limit(limit);
-        if (error) {
-          throw error;
-        }
-        return (data as unknown as Person[]) ?? [];
-      })
-    );
-
+    const settled = await Promise.all(probes);
     const byId = new Map<number, Person>();
     for (const rows of settled) {
       for (const row of rows) {

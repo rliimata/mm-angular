@@ -1,8 +1,9 @@
 /** Lowercase + strip accents/apostrophes/punctuation so "Joffé"≈"joffe", "chan-wook"≈"chan wook". */
 export function foldSearchText(value: string): string {
   return decodeEntities(value)
+    // NFKC folds fullwidth letters; NFKD + mark strip drops û/é → u/e.
+    .normalize('NFKC')
     .normalize('NFKD')
-    // All combining marks (not only BMP block) so macron/circumflex accents always drop.
     .replace(/\p{M}/gu, '')
     .toLowerCase()
     .replace(/[''`´′’ʻʼ]/g, '')
@@ -19,15 +20,8 @@ export function searchTokens(term: string): string[] {
 }
 
 /**
- * Postgres ILIKE probes that ignore accents (no unaccent extension).
- *
- * Precomposed û/é are single characters, so "%yugi%" / "%y%u%g%i%" miss "Yûgi".
- * Use `_` for vowels via `.ilike()` (NOT inside `.or()` strings — dots break those):
- *   "yugi"  → "%y_g_%"   matches Yûgi, only ~tens of rows (not 800+)
- *   "joffe" → "%j_ff_%"  matches Joffé
- *
- * Avoid bare consonant gaps like "%y%g%" as a sole probe — they match hundreds of
- * names and PostgREST's row limit drops later alphabet hits (e.g. "Shokei, …").
+ * Postgres ILIKE probes (use only with `.ilike()`, never inside `.or()` strings).
+ * Vowels → `_` so "yugi" → "%y_g_%" matches precomposed "Yûgi".
  */
 export function accentInsensitiveNamePatterns(token: string): string[] {
   const folded = foldSearchText(token).replace(/[%_]/g, '');
@@ -41,14 +35,16 @@ export function accentInsensitiveNamePatterns(token: string): string[] {
     }
   };
   if (folded) {
-    // Vowels → single-char wildcard; keep y as literal (not a vowel here).
     const flex = [...folded]
       .map((ch) => ('aeiou'.includes(ch) ? '_' : ch))
       .join('');
     if ([...flex].some((c) => c !== '_')) {
       add(`%${flex}%`);
+      // "Last, First" storage: match given name after comma (Shokei, Yûgi).
+      add(`%, ${flex}%`);
+      add(`%,${flex}%`);
     }
-    // Consonants + final letter: "yugi" → "%y%g%i%" (selective; not bare "%y%g%").
+    // "yugi" → "%y%g%i%" (Unicode + HTML-entity spellings)
     const consonants = [...folded].filter((c) => !'aeiou'.includes(c));
     const last = folded[folded.length - 1] ?? '';
     if (consonants.length >= 2) {
@@ -63,8 +59,24 @@ export function accentInsensitiveNamePatterns(token: string): string[] {
   }
   if (raw && raw.toLowerCase() !== folded) {
     add(`%${raw}%`);
+    add(`%, ${raw}%`);
   }
   return patterns;
+}
+
+/**
+ * Case-insensitive regex for PostgREST `imatch`: vowels become `.`
+ * so "yugi" → ".*y.g.i.*" matches "Yûgi" / "Yūgi".
+ */
+export function accentInsensitiveNameRegex(token: string): string {
+  const folded = foldSearchText(token).replace(/[^a-z0-9]/g, '');
+  if (!folded) {
+    return '';
+  }
+  const body = [...folded]
+    .map((ch) => ('aeiou'.includes(ch) ? '.' : ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+    .join('');
+  return `.*${body}.*`;
 }
 
 /** True when every query token is a prefix of some folded word in the name. */
