@@ -1,5 +1,11 @@
 import { Injectable, inject } from '@angular/core';
-import { decodeEntities, swapNames, swapTitle } from '../core/format.util';
+import {
+  decodeEntities,
+  foldSearchText,
+  searchTokens,
+  swapNames,
+  swapTitle,
+} from '../core/format.util';
 import { reverseMovieRelationLabel } from '../core/movie-relation.util';
 import { Movie, LookupRow } from '../core/models';
 import { getSupabase } from '../core/supabase.client';
@@ -858,7 +864,7 @@ export class MovieService {
       aka?: { title: string; titleLanguageId: number }[];
       trivia?: string[];
       awards?: { awardId: number; personId: number | null }[];
-      movieLinks?: { destinationId: number; relationId: number }[];
+      movieLinks?: { destinationId: number; relationId: number; reverse?: boolean }[];
     }
   ): Promise<number> {
     let id: number;
@@ -893,7 +899,7 @@ export class MovieService {
       aka?: { title: string; titleLanguageId: number }[];
       trivia?: string[];
       awards?: { awardId: number; personId: number | null }[];
-      movieLinks?: { destinationId: number; relationId: number }[];
+      movieLinks?: { destinationId: number; relationId: number; reverse?: boolean }[];
     }
   ): Promise<void> {
     if (links.categoryIds) {
@@ -974,13 +980,38 @@ export class MovieService {
       }
     }
     if (links.movieLinks) {
+      const outgoing = links.movieLinks.filter((l) => !l.reverse);
+      const reverseSequels = links.movieLinks.filter(
+        (l) => l.reverse && l.relationId === 1
+      );
+
+      // Outgoing links from this movie (Jatkoa → sequel, remake, cuts, …).
       await getSupabase().from('MovieLink').delete().eq('SourceId', movieId);
-      if (links.movieLinks.length) {
+      if (outgoing.length) {
         const { error } = await getSupabase().from('MovieLink').insert(
-          links.movieLinks.map((l) => ({
+          outgoing.map((l) => ({
             SourceId: movieId,
             DestinationId: l.destinationId,
             RelationId: l.relationId,
+          }))
+        );
+        if (error) {
+          throw error;
+        }
+      }
+
+      // "Jatkoa elokuvalle": other film → this film as sequel (RelationId 1).
+      await getSupabase()
+        .from('MovieLink')
+        .delete()
+        .eq('DestinationId', movieId)
+        .eq('RelationId', 1);
+      if (reverseSequels.length) {
+        const { error } = await getSupabase().from('MovieLink').insert(
+          reverseSequels.map((l) => ({
+            SourceId: l.destinationId,
+            DestinationId: movieId,
+            RelationId: 1,
           }))
         );
         if (error) {
@@ -1051,21 +1082,3 @@ export class MovieService {
   }
 }
 
-/** Lowercase + strip apostrophes/punctuation so "God's" ≈ "Gods". */
-function foldSearchText(value: string): string {
-  return decodeEntities(value)
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[''`´′’ʻʼ]/g, '')
-    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function searchTokens(term: string): string[] {
-  return foldSearchText(term)
-    .split(/\s+/)
-    .map((t) => t.replace(/[%_]/g, ''))
-    .filter((t) => t.length > 0);
-}

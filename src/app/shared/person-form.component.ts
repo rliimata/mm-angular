@@ -37,7 +37,7 @@ interface SalaryDraft {
     DigitsOnlyDirective,
   ],
   template: `
-    <form id="personEditForm" class="person-form" (ngSubmit)="save()">
+    <form id="personEditForm" class="person-form" (ngSubmit)="$event.preventDefault()">
       @if (error()) {
         <p class="error">{{ error() }}</p>
       }
@@ -70,7 +70,7 @@ interface SalaryDraft {
         <div class="field-icons">
           <button
             type="button"
-            class="icon-btn icon-clear"
+            class="icon-btn icon-clear" tabindex="-1"
             (click)="birthCountryId = null"
             [disabled]="!birthCountryId"
             aria-label="Tyhjennä"
@@ -78,7 +78,7 @@ interface SalaryDraft {
           ></button>
           <button
             type="button"
-            class="icon-btn icon-add"
+            class="icon-btn icon-add" tabindex="-1"
             (click)="openCatalogAdd('Country', 'birth')"
             aria-label="Lisää maa"
             title="Lisää"
@@ -87,7 +87,7 @@ interface SalaryDraft {
           </button>
           <button
             type="button"
-            class="icon-btn icon-edit"
+            class="icon-btn icon-edit" tabindex="-1"
             (click)="openCatalogEdit('Country', birthCountryId, 'birth')"
             [disabled]="!birthCountryId"
             aria-label="Muokkaa maata"
@@ -111,7 +111,7 @@ interface SalaryDraft {
         <div class="field-icons">
           <button
             type="button"
-            class="icon-btn icon-clear"
+            class="icon-btn icon-clear" tabindex="-1"
             (click)="deathCountryId = null"
             [disabled]="!deathCountryId"
             aria-label="Tyhjennä"
@@ -119,7 +119,7 @@ interface SalaryDraft {
           ></button>
           <button
             type="button"
-            class="icon-btn icon-add"
+            class="icon-btn icon-add" tabindex="-1"
             (click)="openCatalogAdd('Country', 'death')"
             aria-label="Lisää maa"
             title="Lisää"
@@ -128,7 +128,7 @@ interface SalaryDraft {
           </button>
           <button
             type="button"
-            class="icon-btn icon-edit"
+            class="icon-btn icon-edit" tabindex="-1"
             (click)="openCatalogEdit('Country', deathCountryId, 'death')"
             [disabled]="!deathCountryId"
             aria-label="Muokkaa maata"
@@ -152,7 +152,7 @@ interface SalaryDraft {
           <span class="field-caption">Kuolinsyy</span>
           <button
             type="button"
-            class="icon-btn icon-clear"
+            class="icon-btn icon-clear" tabindex="-1"
             (click)="deathReasonId = null"
             [disabled]="!deathReasonId"
             aria-label="Tyhjennä"
@@ -160,7 +160,7 @@ interface SalaryDraft {
           ></button>
           <button
             type="button"
-            class="icon-btn icon-add"
+            class="icon-btn icon-add" tabindex="-1"
             (click)="openCatalogAdd('DeathReason')"
             aria-label="Lisää kuolinsyy"
             title="Lisää"
@@ -169,7 +169,7 @@ interface SalaryDraft {
           </button>
           <button
             type="button"
-            class="icon-btn icon-edit"
+            class="icon-btn icon-edit" tabindex="-1"
             (click)="openCatalogEdit('DeathReason', deathReasonId)"
             [disabled]="!deathReasonId"
             aria-label="Muokkaa kuolinsyytä"
@@ -179,7 +179,7 @@ interface SalaryDraft {
           </button>
           <button
             type="button"
-            class="icon-btn icon-del"
+            class="icon-btn icon-del" tabindex="-1"
             (click)="deleteSelectedCatalog('DeathReason')"
             [disabled]="!deathReasonId"
             aria-label="Poista"
@@ -210,7 +210,7 @@ interface SalaryDraft {
               <p>{{ t }}</p>
               <button
                 type="button"
-                class="icon-btn icon-del"
+                class="icon-btn icon-del" tabindex="-1"
                 (click)="removeTrivia($index)"
                 aria-label="Poista"
                 title="Poista"
@@ -232,7 +232,7 @@ interface SalaryDraft {
           />
           <button
             type="button"
-            class="icon-btn icon-add"
+            class="icon-btn icon-add" tabindex="-1"
             (click)="addTrivia()"
             aria-label="Lisää trivia"
             title="Lisää"
@@ -253,7 +253,7 @@ interface SalaryDraft {
               >
               <button
                 type="button"
-                class="icon-btn icon-del"
+                class="icon-btn icon-del" tabindex="-1"
                 (click)="removeLink($index)"
                 aria-label="Poista"
                 title="Poista"
@@ -286,7 +286,7 @@ interface SalaryDraft {
                 <span>{{ swapNames(p.Name) }}</span>
                 <button
                   type="button"
-                  class="icon-btn icon-add"
+                  class="icon-btn icon-add" tabindex="-1"
                   (click)="addLink(p)"
                   aria-label="Lisää"
                   title="Lisää"
@@ -310,7 +310,7 @@ interface SalaryDraft {
               >
               <button
                 type="button"
-                class="icon-btn icon-del"
+                class="icon-btn icon-del" tabindex="-1"
                 (click)="removeSalary($index)"
                 aria-label="Poista"
                 title="Poista"
@@ -357,7 +357,7 @@ interface SalaryDraft {
                 >
                 <button
                   type="button"
-                  class="icon-btn icon-add"
+                  class="icon-btn icon-add" tabindex="-1"
                   (click)="addSalary(m)"
                   aria-label="Lisää"
                   title="Lisää"
@@ -372,7 +372,7 @@ interface SalaryDraft {
 
       @if (showFooter) {
         <div class="actions">
-          <button type="submit" class="primary" [disabled]="saving() || !canSave()">Tallenna</button>
+          <button type="button" class="primary" (click)="save()" [disabled]="saving() || !canSave()">Tallenna</button>
         </div>
       }
     </form>

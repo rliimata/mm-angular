@@ -106,10 +106,15 @@ export interface OwnershipFormatDraft {
   /** ReleaseSubtitle ids — FI/EN checkboxes. */
   subtitleIds: number[];
   /**
-   * Other movie versions that share this same physical medium
-   * (e.g. theatrical + director's cut on one disc).
+   * Other movies that share this same physical medium
+   * (cuts of the same film, or different titles on one disc).
    */
   linkedMovieIds?: number[];
+  /**
+   * Stable id for one physical medium across linked movies.
+   * Persisted as OwnershipFormat.Sequence so reload can re-merge.
+   */
+  mediaGroupId?: number;
 }
 
 export interface OwnershipMovieDraft {

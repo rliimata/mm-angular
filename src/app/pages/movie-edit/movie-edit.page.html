@@ -12,7 +12,7 @@
       <header class="edit-head">
         <h1>{{ id ? 'Muokkaa elokuvaa' : 'Uusi elokuva' }}</h1>
         <div class="head-actions">
-          <button type="submit" form="movieEditForm" class="primary" [disabled]="saving() || !canSave()">
+          <button type="button" class="primary" (click)="save()" [disabled]="saving() || !canSave()">
             Tallenna
           </button>
           <button type="button" class="ghost cancel-btn" (click)="close()">Peruuta</button>
@@ -57,7 +57,7 @@
           </button>
         </nav>
 
-        <form id="movieEditForm" (ngSubmit)="save()">
+        <form id="movieEditForm" (ngSubmit)="$event.preventDefault()">
           @if (editTab === 'basic') {
             <div class="tab-panel" role="tabpanel">
               <div class="title-row">
@@ -76,7 +76,7 @@
                     <span class="field-caption">Otsikon kieli <span class="req">*</span></span>
                     <button
                       type="button"
-                      class="icon-btn icon-add"
+                      class="icon-btn icon-add" tabindex="-1"
                       (click)="openCatalogAdd('TitleLanguage')"
                       aria-label="Lisää kieli"
                       title="Lisää"
@@ -85,7 +85,7 @@
                     </button>
                     <button
                       type="button"
-                      class="icon-btn icon-edit"
+                      class="icon-btn icon-edit" tabindex="-1"
                       (click)="openCatalogEdit('TitleLanguage', titleLanguageId)"
                       [disabled]="!titleLanguageId"
                       aria-label="Muokkaa kieltä"
@@ -141,7 +141,7 @@
                         </button>
                         <button
                           type="button"
-                          class="icon-btn icon-del"
+                          class="icon-btn icon-del" tabindex="-1"
                           (click)="removeAka($index)"
                           aria-label="Poista"
                           title="Poista"
@@ -170,7 +170,7 @@
                     />
                     <button
                       type="button"
-                      class="icon-btn icon-add"
+                      class="icon-btn icon-add" tabindex="-1"
                       (click)="addAka()"
                       aria-label="Lisää aka"
                       title="Lisää"
@@ -186,7 +186,7 @@
                   <span class="field-caption">Versio</span>
                   <button
                     type="button"
-                    class="icon-btn icon-clear"
+                    class="icon-btn icon-clear" tabindex="-1"
                     (click)="clearSelect('versionId')"
                     [disabled]="!versionId"
                     aria-label="Tyhjennä"
@@ -194,7 +194,7 @@
                   ></button>
                   <button
                     type="button"
-                    class="icon-btn icon-add"
+                    class="icon-btn icon-add" tabindex="-1"
                     (click)="openCatalogAdd('Version')"
                     aria-label="Lisää versio"
                     title="Lisää"
@@ -203,7 +203,7 @@
                   </button>
                   <button
                     type="button"
-                    class="icon-btn icon-edit"
+                    class="icon-btn icon-edit" tabindex="-1"
                     (click)="openCatalogEdit('Version', versionId)"
                     [disabled]="!versionId"
                     aria-label="Muokkaa versiota"
@@ -213,7 +213,7 @@
                   </button>
                   <button
                     type="button"
-                    class="icon-btn icon-del"
+                    class="icon-btn icon-del" tabindex="-1"
                     (click)="deleteSelectedCatalog('Version')"
                     [disabled]="!versionId"
                     aria-label="Poista"
@@ -244,7 +244,7 @@
                       <p>{{ t }}</p>
                       <button
                         type="button"
-                        class="icon-btn icon-del"
+                        class="icon-btn icon-del" tabindex="-1"
                         (click)="removeTrivia($index)"
                         aria-label="Poista"
                         title="Poista"
@@ -266,7 +266,7 @@
                   />
                   <button
                     type="button"
-                    class="icon-btn icon-add"
+                    class="icon-btn icon-add" tabindex="-1"
                     (click)="addTrivia()"
                     aria-label="Lisää trivia"
                     title="Lisää"
@@ -285,7 +285,7 @@
                   <span class="field-caption">Genret</span>
                   <button
                     type="button"
-                    class="icon-btn icon-add"
+                    class="icon-btn icon-add" tabindex="-1"
                     (click)="openCatalogAdd('Category')"
                     aria-label="Lisää genre"
                     title="Lisää"
@@ -308,7 +308,7 @@
                   <span class="field-caption">Maat</span>
                   <button
                     type="button"
-                    class="icon-btn icon-add"
+                    class="icon-btn icon-add" tabindex="-1"
                     (click)="openCatalogAdd('Country')"
                     aria-label="Lisää maa"
                     title="Lisää"
@@ -331,7 +331,7 @@
                   <span class="field-caption">Ääni</span>
                   <button
                     type="button"
-                    class="icon-btn icon-add"
+                    class="icon-btn icon-add" tabindex="-1"
                     (click)="openCatalogAdd('Sound')"
                     aria-label="Lisää ääni"
                     title="Lisää"
@@ -353,10 +353,10 @@
                 <div class="labeled-field">
                   <div class="field-head">
                     <span class="field-caption">Kuvasuhde</span>
-                    <button type="button" class="icon-btn icon-clear" (click)="clearSelect('ratioId')" [disabled]="!ratioId" aria-label="Tyhjennä" title="Tyhjennä"></button>
-                    <button type="button" class="icon-btn icon-add" (click)="openCatalogAdd('Ratio')" aria-label="Lisää kuvasuhde" title="Lisää">+</button>
-                    <button type="button" class="icon-btn icon-edit" (click)="openCatalogEdit('Ratio', ratioId)" [disabled]="!ratioId" aria-label="Muokkaa kuvasuhdetta" title="Muokkaa">✎</button>
-                    <button type="button" class="icon-btn icon-del" (click)="deleteSelectedCatalog('Ratio')" [disabled]="!ratioId" aria-label="Poista" title="Poista">×</button>
+                    <button type="button" class="icon-btn icon-clear" tabindex="-1" (click)="clearSelect('ratioId')" [disabled]="!ratioId" aria-label="Tyhjennä" title="Tyhjennä"></button>
+                    <button type="button" class="icon-btn icon-add" tabindex="-1" (click)="openCatalogAdd('Ratio')" aria-label="Lisää kuvasuhde" title="Lisää">+</button>
+                    <button type="button" class="icon-btn icon-edit" tabindex="-1" (click)="openCatalogEdit('Ratio', ratioId)" [disabled]="!ratioId" aria-label="Muokkaa kuvasuhdetta" title="Muokkaa">✎</button>
+                    <button type="button" class="icon-btn icon-del" tabindex="-1" (click)="deleteSelectedCatalog('Ratio')" [disabled]="!ratioId" aria-label="Poista" title="Poista">×</button>
                   </div>
                   <app-search-select
                     class="stretch"
@@ -372,7 +372,7 @@
                     <span class="field-caption">Levitys</span>
                     <button
                       type="button"
-                      class="icon-btn icon-add"
+                      class="icon-btn icon-add" tabindex="-1"
                       (click)="openCatalogAdd('Distribution')"
                       aria-label="Lisää levitys"
                       title="Lisää"
@@ -381,7 +381,7 @@
                     </button>
                     <button
                       type="button"
-                      class="icon-btn icon-edit"
+                      class="icon-btn icon-edit" tabindex="-1"
                       (click)="openCatalogEdit('Distribution', distributionId)"
                       [disabled]="distributionId == null"
                       aria-label="Muokkaa levitystä"
@@ -403,11 +403,11 @@
                 <div class="labeled-field">
                   <div class="field-head">
                     <span class="field-caption">Ikäraja</span>
-                    <button type="button" class="icon-btn icon-clear" (click)="clearSelect('age')" [disabled]="age == null" aria-label="Tyhjennä" title="Tyhjennä"></button>
-                    <button type="button" class="icon-btn icon-add" (click)="openCatalogAdd('AgeRating')" aria-label="Lisää ikäraja" title="Lisää">+</button>
+                    <button type="button" class="icon-btn icon-clear" tabindex="-1" (click)="clearSelect('age')" [disabled]="age == null" aria-label="Tyhjennä" title="Tyhjennä"></button>
+                    <button type="button" class="icon-btn icon-add" tabindex="-1" (click)="openCatalogAdd('AgeRating')" aria-label="Lisää ikäraja" title="Lisää">+</button>
                     <button
                       type="button"
-                      class="icon-btn icon-edit"
+                      class="icon-btn icon-edit" tabindex="-1"
                       (click)="openCatalogEdit('AgeRating', selectedAgeRatingId())"
                       [disabled]="age == null"
                       aria-label="Muokkaa ikärajaa"
@@ -415,7 +415,7 @@
                     >
                       ✎
                     </button>
-                    <button type="button" class="icon-btn icon-del" (click)="deleteSelectedCatalog('AgeRating')" [disabled]="age == null" aria-label="Poista" title="Poista">×</button>
+                    <button type="button" class="icon-btn icon-del" tabindex="-1" (click)="deleteSelectedCatalog('AgeRating')" [disabled]="age == null" aria-label="Poista" title="Poista">×</button>
                   </div>
                   <app-search-select
                     class="stretch"
@@ -470,7 +470,7 @@
                   <span class="field-caption">Palkinnot</span>
                   <button
                     type="button"
-                    class="icon-btn icon-add"
+                    class="icon-btn icon-add" tabindex="-1"
                     (click)="openCatalogAdd('Award')"
                     aria-label="Lisää palkinto katalogiin"
                     title="Lisää palkinto"
@@ -485,7 +485,7 @@
                         <p>{{ awardItemLabel(a) }}</p>
                         <button
                           type="button"
-                          class="icon-btn icon-del"
+                          class="icon-btn icon-del" tabindex="-1"
                           (click)="removeAward($index)"
                           aria-label="Poista"
                           title="Poista"
@@ -521,7 +521,7 @@
                             <span>{{ swapNames(p.Name) }}</span>
                             <button
                               type="button"
-                              class="icon-btn icon-add"
+                              class="icon-btn icon-add" tabindex="-1"
                               (click)="addAward(p)"
                               aria-label="Lisää"
                               title="Lisää"
@@ -541,7 +541,7 @@
                   <span class="field-caption">Elokuvalinkit</span>
                   <button
                     type="button"
-                    class="icon-btn icon-add"
+                    class="icon-btn icon-add" tabindex="-1"
                     (click)="openCatalogAdd('MovieRelation')"
                     aria-label="Lisää suhde katalogiin"
                     title="Lisää suhde"
@@ -556,7 +556,7 @@
                         <p>{{ movieLinkItemLabel(l) }}</p>
                         <button
                           type="button"
-                          class="icon-btn icon-del"
+                          class="icon-btn icon-del" tabindex="-1"
                           (click)="removeMovieLink($index)"
                           aria-label="Poista"
                           title="Poista"
@@ -574,7 +574,7 @@
                     [(ngModel)]="movieLinkRelationId"
                     (ngModelChange)="onMovieLinkRelationSelected()"
                     name="movieLinkRelationId"
-                    placeholder="Suhde…"
+                    placeholder="Suhde (Jatkoa / Jatkoa elokuvalle)…"
                   />
                   <div class="link-search-col">
                     <input
@@ -596,7 +596,7 @@
                             >
                             <button
                               type="button"
-                              class="icon-btn icon-add"
+                              class="icon-btn icon-add" tabindex="-1"
                               (click)="addMovieLink(m)"
                               aria-label="Lisää"
                               title="Lisää"
@@ -621,7 +621,7 @@
                     <h3>{{ roleLabel(rt.Value) }}</h3>
                     <button
                       type="button"
-                      class="icon-btn icon-add"
+                      class="icon-btn icon-add" tabindex="-1"
                       (click)="openNewPerson(rt.Id)"
                       aria-label="Uusi henkilö"
                       title="Uusi henkilö"
@@ -656,7 +656,7 @@
                             </button>
                             <button
                               type="button"
-                              class="icon-btn icon-add"
+                              class="icon-btn icon-add" tabindex="-1"
                               (click)="addPerson(p, rt.Id)"
                               aria-label="Lisää"
                               title="Lisää"
@@ -684,7 +684,7 @@
                           <span class="chip-label">{{ swapNames(r.name) }}</span>
                           <button
                             type="button"
-                            class="icon-btn icon-del"
+                            class="icon-btn icon-del" tabindex="-1"
                             (click)="removeRole(r.personId, r.roleId)"
                             aria-label="Poista"
                             title="Poista"
@@ -785,7 +785,7 @@
         />
       </div>
       <footer class="modal-foot">
-        <button type="submit" form="personEditForm" class="primary" [disabled]="newPf.saving() || !newPf.canSave()">
+        <button type="button" class="primary" (click)="newPf.save()" [disabled]="newPf.saving() || !newPf.canSave()">
           Tallenna
         </button>
         <button type="button" class="ghost" (click)="closeNewPerson()">Peruuta</button>

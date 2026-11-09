@@ -1,3 +1,87 @@
+/** Lowercase + strip accents/apostrophes/punctuation so "Joffé"≈"joffe", "chan-wook"≈"chan wook". */
+export function foldSearchText(value: string): string {
+  return decodeEntities(value)
+    .normalize('NFKD')
+    // All combining marks (not only BMP block) so macron/circumflex accents always drop.
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[''`´′’ʻʼ]/g, '')
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function searchTokens(term: string): string[] {
+  return foldSearchText(term)
+    .split(/\s+/)
+    .map((t) => t.replace(/[%_]/g, ''))
+    .filter((t) => t.length > 0);
+}
+
+/**
+ * Postgres ILIKE probes that ignore accents (no unaccent extension).
+ *
+ * Precomposed û/é are single characters, so "%yugi%" / "%y%u%g%i%" miss "Yûgi".
+ * Use `_` for vowels via `.ilike()` (NOT inside `.or()` strings — dots break those):
+ *   "yugi"  → "%y_g_%"   matches Yûgi, only ~tens of rows (not 800+)
+ *   "joffe" → "%j_ff_%"  matches Joffé
+ *
+ * Avoid bare consonant gaps like "%y%g%" as a sole probe — they match hundreds of
+ * names and PostgREST's row limit drops later alphabet hits (e.g. "Shokei, …").
+ */
+export function accentInsensitiveNamePatterns(token: string): string[] {
+  const folded = foldSearchText(token).replace(/[%_]/g, '');
+  const raw = decodeEntities(token)
+    .trim()
+    .replace(/[%_]/g, '');
+  const patterns: string[] = [];
+  const add = (p: string) => {
+    if (p && p !== '%%' && p !== '%' && !patterns.includes(p)) {
+      patterns.push(p);
+    }
+  };
+  if (folded) {
+    // Vowels → single-char wildcard; keep y as literal (not a vowel here).
+    const flex = [...folded]
+      .map((ch) => ('aeiou'.includes(ch) ? '_' : ch))
+      .join('');
+    if ([...flex].some((c) => c !== '_')) {
+      add(`%${flex}%`);
+    }
+    // Consonants + final letter: "yugi" → "%y%g%i%" (selective; not bare "%y%g%").
+    const consonants = [...folded].filter((c) => !'aeiou'.includes(c));
+    const last = folded[folded.length - 1] ?? '';
+    if (consonants.length >= 2) {
+      const gap = consonants.join('%');
+      if (last && !gap.endsWith(last)) {
+        add(`%${gap}%${last}%`);
+      } else {
+        add(`%${gap}%`);
+      }
+    }
+    add(`%${folded}%`);
+  }
+  if (raw && raw.toLowerCase() !== folded) {
+    add(`%${raw}%`);
+  }
+  return patterns;
+}
+
+/** True when every query token is a prefix of some folded word in the name. */
+export function nameMatchesSearchTokens(
+  name: string | null | undefined,
+  tokens: string[]
+): boolean {
+  if (!name || !tokens.length) {
+    return false;
+  }
+  const parts = foldSearchText(name).split(/\s+/).filter(Boolean);
+  return tokens.every((token) => {
+    const needle = foldSearchText(token);
+    return needle.length > 0 && parts.some((p) => p.startsWith(needle));
+  });
+}
+
 /** NTSC ↔ PAL: same film, 24 fps vs 25 fps (≈4 %). */
 export function palMinutesFromNtsc(ntsc: number): number {
   return Math.round((ntsc * 24) / 25);
@@ -57,6 +141,18 @@ export function decodeEntities(value: string | null | undefined): string {
     '&Eacute;': 'É',
     '&uuml;': 'ü',
     '&Uuml;': 'Ü',
+    '&ucirc;': 'û',
+    '&Ucirc;': 'Û',
+    '&ocirc;': 'ô',
+    '&Ocirc;': 'Ô',
+    '&acirc;': 'â',
+    '&icirc;': 'î',
+    '&ecirc;': 'ê',
+    '&agrave;': 'à',
+    '&egrave;': 'è',
+    '&igrave;': 'ì',
+    '&ograve;': 'ò',
+    '&ugrave;': 'ù',
   };
   let s = value;
   for (const [k, v] of Object.entries(named)) {

@@ -15,7 +15,7 @@
       <header class="edit-head">
         <h1>{{ id ? 'Muokkaa henkilöä' : 'Uusi henkilö' }}</h1>
         <div class="head-actions">
-          <button type="submit" form="personEditForm" class="primary" [disabled]="pf.saving() || !pf.canSave()">
+          <button type="button" class="primary" (click)="pf.save()" [disabled]="pf.saving() || !pf.canSave()">
             Tallenna
           </button>
           <button type="button" class="ghost cancel-btn" (click)="close()">Peruuta</button>

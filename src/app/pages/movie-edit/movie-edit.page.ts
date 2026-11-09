@@ -55,12 +55,23 @@ interface AwardPick {
 }
 
 interface MovieLinkPick {
+  /** Other movie id (sequel target, or predecessor when reverse). */
   destinationId: number;
   relationId: number;
   title: string;
   year: number | null;
   relationLabel: string;
+  /**
+   * When true, DB row is Source=destinationId → Dest=this movie (e.g. "Jatkoa elokuvalle").
+   * When false, Source=this movie → Dest=destinationId (e.g. "Jatkoa").
+   */
+  reverse?: boolean;
 }
+
+/** MovieRelation Id for sequel ("Jatkoa"). */
+const SEQUEL_RELATION_ID = 1;
+/** UI-only id for reverse sequel ("Jatkoa elokuvalle") — not a DB MovieRelation row. */
+const SEQUEL_REVERSE_UI_ID = -1;
 
 @Component({
   selector: 'app-movie-edit',
@@ -220,15 +231,29 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
         personId: a.PersonId,
         personName: a.PersonName,
       }));
-      this.movieLinkItems = details.related
-        .filter((r) => !r.Incoming)
-        .map((r) => ({
-          destinationId: r.MovieId,
-          relationId: r.RelationId,
-          title: r.Title,
-          year: r.Year,
-          relationLabel: r.Relation,
-        }));
+      this.movieLinkItems = [
+        ...details.related
+          .filter((r) => !r.Incoming)
+          .map((r) => ({
+            destinationId: r.MovieId,
+            relationId: r.RelationId,
+            title: r.Title,
+            year: r.Year,
+            relationLabel: r.Relation,
+            reverse: false,
+          })),
+        // Incoming sequel: this film is the continuation of the linked title.
+        ...details.related
+          .filter((r) => r.Incoming && r.RelationId === SEQUEL_RELATION_ID)
+          .map((r) => ({
+            destinationId: r.MovieId,
+            relationId: SEQUEL_RELATION_ID,
+            title: r.Title,
+            year: r.Year,
+            relationLabel: 'Jatkoa elokuvalle',
+            reverse: true,
+          })),
+      ];
       this.pageTitle.set(swapTitle(this.title, this.titleLanguageId) || 'Muokkaa elokuvaa');
     } else {
       this.pageTitle.set('Uusi elokuva');
@@ -360,23 +385,33 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
 
   addMovieLink(m: { Id: number; Title: string; Year: number | null; TitleLanguageId: number | null }): void {
     if (!this.movieLinkRelationId) {
+      this.error.set('Valitse ensin elokuvalinkin suhde (esim. Jatkoa / Jatkoa elokuvalle).');
       return;
     }
     const relation = this.movieRelations.find((r) => r.Id === this.movieLinkRelationId);
     if (!relation) {
+      this.error.set('Valitse ensin elokuvalinkin suhde (esim. Jatkoa / Jatkoa elokuvalle).');
       return;
     }
-    if (this.movieLinkItems.some((l) => l.destinationId === m.Id && l.relationId === relation.Id)) {
+    this.error.set(null);
+    const reverse = relation.Id === SEQUEL_REVERSE_UI_ID;
+    const relationId = reverse ? SEQUEL_RELATION_ID : relation.Id;
+    if (
+      this.movieLinkItems.some(
+        (l) => l.destinationId === m.Id && l.relationId === relationId && !!l.reverse === reverse
+      )
+    ) {
       return;
     }
     this.movieLinkItems = [
       ...this.movieLinkItems,
       {
         destinationId: m.Id,
-        relationId: relation.Id,
+        relationId,
         title: swapTitle(m.Title, m.TitleLanguageId),
         year: m.Year,
         relationLabel: String(relation.Value),
+        reverse,
       },
     ];
     this.movieLinkRelationId = null;
@@ -426,7 +461,12 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
     this.sounds = this.sortAlpha(sounds.filter((c) => c.Id !== 0));
     this.roleTypes = roles;
     this.awards = this.sortAlpha(awards.filter((r) => r.Id !== 0));
-    this.movieRelations = this.sortAlpha(movieRelations.filter((r) => r.Id !== 0));
+    const rels = movieRelations.filter((r) => r.Id !== 0);
+    // Offer both directions for sequels: Jatkoa (next) and Jatkoa elokuvalle (previous).
+    this.movieRelations = this.sortAlpha([
+      ...rels,
+      { Id: SEQUEL_REVERSE_UI_ID, Value: 'Jatkoa elokuvalle' },
+    ]);
     this.ageRatings = [...ages].sort((a, b) =>
       this.ageLabel(Number(a.Value)).localeCompare(this.ageLabel(Number(b.Value)), 'fi', {
         sensitivity: 'base',
@@ -1077,6 +1117,7 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
         movieLinks: this.movieLinkItems.map((l) => ({
           destinationId: l.destinationId,
           relationId: l.relationId,
+          reverse: !!l.reverse,
         })),
       });
       this.navigateAfterEdit(id, true);

@@ -27,7 +27,7 @@
                 <span class="field-caption">Julkaisija</span>
                 <button
                   type="button"
-                  class="icon-btn icon-clear"
+                  class="icon-btn icon-clear" tabindex="-1"
                   (click)="draft.releasePublisherId = null"
                   [disabled]="!draft.releasePublisherId"
                   aria-label="Tyhjennä"
@@ -35,7 +35,7 @@
                 ></button>
                 <button
                   type="button"
-                  class="icon-btn icon-add"
+                  class="icon-btn icon-add" tabindex="-1"
                   (click)="openCatalogAdd('ReleasePublisher')"
                   aria-label="Lisää julkaisija"
                   title="Lisää"
@@ -44,7 +44,7 @@
                 </button>
                 <button
                   type="button"
-                  class="icon-btn icon-edit"
+                  class="icon-btn icon-edit" tabindex="-1"
                   (click)="openCatalogEdit('ReleasePublisher', draft.releasePublisherId)"
                   [disabled]="!draft.releasePublisherId"
                   aria-label="Muokkaa julkaisijaa"
@@ -67,7 +67,7 @@
                 <span class="field-caption">Versio</span>
                 <button
                   type="button"
-                  class="icon-btn icon-clear"
+                  class="icon-btn icon-clear" tabindex="-1"
                   (click)="draft.releaseRegionId = null"
                   [disabled]="!draft.releaseRegionId"
                   aria-label="Tyhjennä"
@@ -75,7 +75,7 @@
                 ></button>
                 <button
                   type="button"
-                  class="icon-btn icon-add"
+                  class="icon-btn icon-add" tabindex="-1"
                   (click)="openCatalogAdd('ReleaseRegion')"
                   aria-label="Lisää versio"
                   title="Lisää"
@@ -84,7 +84,7 @@
                 </button>
                 <button
                   type="button"
-                  class="icon-btn icon-edit"
+                  class="icon-btn icon-edit" tabindex="-1"
                   (click)="openCatalogEdit('ReleaseRegion', draft.releaseRegionId)"
                   [disabled]="!draft.releaseRegionId"
                   aria-label="Muokkaa versiota"
@@ -108,7 +108,7 @@
                 <span class="field-caption">Kotelon kunto</span>
                 <button
                   type="button"
-                  class="icon-btn icon-clear"
+                  class="icon-btn icon-clear" tabindex="-1"
                   (click)="draft.releaseConditionId = null"
                   [disabled]="!draft.releaseConditionId"
                   aria-label="Tyhjennä"
@@ -116,7 +116,7 @@
                 ></button>
                 <button
                   type="button"
-                  class="icon-btn icon-add"
+                  class="icon-btn icon-add" tabindex="-1"
                   (click)="openCatalogAdd('ReleaseCondition')"
                   aria-label="Lisää kotelon kunto"
                   title="Lisää"
@@ -125,7 +125,7 @@
                 </button>
                 <button
                   type="button"
-                  class="icon-btn icon-edit"
+                  class="icon-btn icon-edit" tabindex="-1"
                   (click)="openCatalogEdit('ReleaseCondition', draft.releaseConditionId)"
                   [disabled]="!draft.releaseConditionId"
                   aria-label="Muokkaa kotelon kuntoa"
@@ -149,7 +149,7 @@
                 <span class="field-caption">Tyyppi</span>
                 <button
                   type="button"
-                  class="icon-btn icon-clear"
+                  class="icon-btn icon-clear" tabindex="-1"
                   (click)="draft.ownershipTypeId = null"
                   [disabled]="!draft.ownershipTypeId"
                   aria-label="Tyhjennä"
@@ -157,7 +157,7 @@
                 ></button>
                 <button
                   type="button"
-                  class="icon-btn icon-add"
+                  class="icon-btn icon-add" tabindex="-1"
                   (click)="openCatalogAdd('OwnershipType')"
                   aria-label="Lisää omistuksen tyyppi"
                   title="Lisää"
@@ -166,7 +166,7 @@
                 </button>
                 <button
                   type="button"
-                  class="icon-btn icon-edit"
+                  class="icon-btn icon-edit" tabindex="-1"
                   (click)="openCatalogEdit('OwnershipType', draft.ownershipTypeId)"
                   [disabled]="!draft.ownershipTypeId"
                   aria-label="Muokkaa tyyppiä"
@@ -277,15 +277,22 @@
                       <button
                         type="button"
                         class="icon-btn icon-add"
+                        tabindex="-1"
                         (click)="openVersionSearchForFormat(m, f)"
-                        aria-label="Lisää versio medialle"
-                        title="Lisää versio"
+                        aria-label="Lisää elokuva tai versio medialle"
+                        title="Lisää elokuva / versio"
                       >
                         +
                       </button>
                     </div>
-                    <label class="check version-check version-host">
-                      <input type="checkbox" [checked]="true" disabled />
+                    <label class="check version-check">
+                      <input
+                        type="checkbox"
+                        [checked]="true"
+                        (click)="$event.preventDefault()"
+                        aria-readonly="true"
+                        title="Isäntäelokuvaa ei voi poistaa tältä medialta"
+                      />
                       {{ movieTitleBase(m) }}
                       @if (movieVersionLabel(m); as ver) {
                         - <span class="version-name">{{ ver }}</span>
@@ -314,7 +321,7 @@
                         <span class="field-caption">Sisältö <span class="req">*</span></span>
                         <button
                           type="button"
-                          class="icon-btn icon-add"
+                          class="icon-btn icon-add" tabindex="-1"
                           (click)="duplicateMediaBlock(m, f); $event.stopPropagation()"
                           aria-label="Lisää uusi media"
                           title="Lisää media"
@@ -323,7 +330,7 @@
                         </button>
                         <button
                           type="button"
-                          class="icon-btn icon-edit"
+                          class="icon-btn icon-edit" tabindex="-1"
                           (click)="openCatalogEdit('MediaContent', f.contentType, mi, fi)"
                           [disabled]="!f.contentType"
                           aria-label="Muokkaa sisältöä"
@@ -376,7 +383,7 @@
                           }}</span>
                           <button
                             type="button"
-                            class="icon-btn icon-clear"
+                            class="icon-btn icon-clear" tabindex="-1"
                             (click)="f.mediaConditionId = null"
                             [disabled]="isCaseConditionNew() || !f.mediaConditionId"
                             aria-label="Tyhjennä"
@@ -384,7 +391,7 @@
                           ></button>
                           <button
                             type="button"
-                            class="icon-btn icon-add"
+                            class="icon-btn icon-add" tabindex="-1"
                             (click)="openCatalogAdd('MediaCondition', mi, fi)"
                             [disabled]="isCaseConditionNew()"
                             aria-label="Lisää kunto"
@@ -394,7 +401,7 @@
                           </button>
                           <button
                             type="button"
-                            class="icon-btn icon-edit"
+                            class="icon-btn icon-edit" tabindex="-1"
                             (click)="openCatalogEdit('MediaCondition', f.mediaConditionId, mi, fi)"
                             [disabled]="isCaseConditionNew() || !f.mediaConditionId"
                             aria-label="Muokkaa kuntoa"
@@ -419,7 +426,7 @@
                         <span class="field-caption">Kuvasuhde</span>
                         <button
                           type="button"
-                          class="icon-btn icon-clear"
+                          class="icon-btn icon-clear" tabindex="-1"
                           (click)="f.ratioId = null"
                           [disabled]="isFixedOriginalRatioFormat(f.mediaFormatId) || !f.ratioId"
                           aria-label="Tyhjennä"
@@ -427,7 +434,7 @@
                         ></button>
                         <button
                           type="button"
-                          class="icon-btn icon-add"
+                          class="icon-btn icon-add" tabindex="-1"
                           (click)="openCatalogAdd('MediaRatio', mi, fi)"
                           [disabled]="isFixedOriginalRatioFormat(f.mediaFormatId)"
                           aria-label="Lisää kuvasuhde"
@@ -437,7 +444,7 @@
                         </button>
                         <button
                           type="button"
-                          class="icon-btn icon-edit"
+                          class="icon-btn icon-edit" tabindex="-1"
                           (click)="openCatalogEdit('MediaRatio', f.ratioId, mi, fi)"
                           [disabled]="isFixedOriginalRatioFormat(f.mediaFormatId) || !f.ratioId"
                           aria-label="Muokkaa kuvasuhdetta"
@@ -518,7 +525,7 @@
   <div class="modal-backdrop nested" (click)="closeMovieSearch()">
     <div class="modal modal-small" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
       <header class="modal-head">
-        <h2>{{ linkFormatTarget ? 'Lisää versio medialle' : 'Lisää elokuva' }}</h2>
+        <h2>{{ linkFormatTarget ? 'Lisää elokuva medialle' : 'Lisää elokuva' }}</h2>
       </header>
       <div class="modal-body">
         <label class="block">

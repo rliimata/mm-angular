@@ -212,8 +212,9 @@
 }
 
 .media-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  /* One card → full width; two+ → side by side when space allows. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
   gap: 0.75rem;
   align-items: stretch;
 }
@@ -226,7 +227,6 @@
   background: #f8fafc;
   display: grid;
   gap: 0.55rem;
-  flex: 1 1 15.5rem;
   min-width: 0;
 }
 
@@ -262,10 +262,6 @@
 
 .version-check {
   font-size: 0.95rem;
-}
-
-.version-host {
-  opacity: 0.85;
 }
 
 .media-fields-stack {

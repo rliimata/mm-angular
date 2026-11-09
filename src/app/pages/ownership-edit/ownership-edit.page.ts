@@ -12,7 +12,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { confirmAction } from '../../core/confirm.util';
 import { DetailRefreshService } from '../../core/detail-refresh.service';
 import { errorMessage } from '../../core/error.util';
-import { titleWithYear } from '../../core/format.util';
+import { decodeEntities, titleWithYear } from '../../core/format.util';
 import {
   LookupRow,
   OWNERSHIP_CONTENT_BONUS,
@@ -107,6 +107,10 @@ export class OwnershipEditPage implements OnInit, OnDestroy {
   linkFormatTarget: { hostMovieId: number; formatKey: string } | null = null;
   /** Catalog alternate cuts offered as checkboxes per host movie. */
   readonly versionOptionsByMovieId = new Map<number, OwnershipSeedMovie[]>();
+  /** MovieIds already fetched from MovieLink catalog (may be empty). */
+  private readonly versionOptionsLoaded = new Set<number>();
+  /** Bumps when catalog version options change so checkboxes re-render. */
+  readonly versionOptionsTick = signal(0);
   /** Movies that exist only as another cut on a disc — no own card in the collection. */
   private readonly satelliteMovieIds = new Set<number>();
   private movieSearchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -181,6 +185,9 @@ export class OwnershipEditPage implements OnInit, OnDestroy {
     const token = ++this.loadToken;
     this.booting.set(true);
     this.message.set(null);
+    this.versionOptionsByMovieId.clear();
+    this.versionOptionsLoaded.clear();
+    this.versionOptionsTick.set(0);
     try {
       const [
         formats,
@@ -327,7 +334,7 @@ export class OwnershipEditPage implements OnInit, OnDestroy {
         .select('Value')
         .eq('Id', row.VersionId)
         .maybeSingle();
-      const raw = ver ? String((ver as { Value: string }).Value) : '';
+      const raw = ver ? decodeEntities(String((ver as { Value: string }).Value)) : '';
       versionLabel = raw && raw !== '-' ? raw : null;
     }
     return {
@@ -371,7 +378,7 @@ export class OwnershipEditPage implements OnInit, OnDestroy {
   }
 
   movieVersionLabel(m: { versionLabel?: string | null; VersionLabel?: string | null }): string {
-    const version = (m.versionLabel ?? m.VersionLabel)?.trim() ?? '';
+    const version = decodeEntities((m.versionLabel ?? m.VersionLabel)?.trim() ?? '');
     return !version || version === '-' ? '' : version;
   }
 
@@ -748,36 +755,45 @@ export class OwnershipEditPage implements OnInit, OnDestroy {
 
   addMovieToDraft(m: OwnershipSeedMovie): void {
     const linkTarget = this.linkFormatTarget;
-    const existing = this.draft.movies.find((x) => x.movieId === m.Id);
+    const seed: OwnershipSeedMovie = {
+      ...m,
+      VersionLabel: m.VersionLabel ? decodeEntities(m.VersionLabel) : m.VersionLabel,
+    };
+    const existing = this.draft.movies.find((x) => x.movieId === seed.Id);
     if (!existing) {
       const row: OwnershipMovieDraft = {
-        movieId: m.Id,
-        title: m.Title,
-        titleLanguageId: m.TitleLanguageId,
-        year: m.Year ?? null,
-        ratioId: m.RatioId != null && m.RatioId > 0 ? m.RatioId : null,
-        versionLabel: m.VersionLabel ?? null,
+        movieId: seed.Id,
+        title: seed.Title,
+        titleLanguageId: seed.TitleLanguageId,
+        year: seed.Year ?? null,
+        ratioId: seed.RatioId != null && seed.RatioId > 0 ? seed.RatioId : null,
+        versionLabel: seed.VersionLabel ?? null,
         formats: [],
       };
       if (linkTarget) {
-        // Same-film cut on a disc: checkbox only, no collection card.
+        // Extra title on this disc: checkbox only (cut or different film).
         this.draft.movies.push(row);
-        this.satelliteMovieIds.add(m.Id);
-        this.addVersionOption(linkTarget.hostMovieId, m);
+        this.satelliteMovieIds.add(seed.Id);
+        this.addVersionOption(linkTarget.hostMovieId, seed);
       } else {
-        // Separate title in a multi-movie collection/box.
-        this.satelliteMovieIds.delete(m.Id);
+        // Separate title with its own media card(s).
+        this.satelliteMovieIds.delete(seed.Id);
         this.draft.movies.unshift(row);
         this.selectedMovieIndex = 0;
       }
     } else if (linkTarget) {
-      this.satelliteMovieIds.add(m.Id);
-      this.addVersionOption(linkTarget.hostMovieId, m);
+      this.satelliteMovieIds.add(seed.Id);
+      this.addVersionOption(linkTarget.hostMovieId, seed);
     } else {
-      this.satelliteMovieIds.delete(m.Id);
+      this.satelliteMovieIds.delete(seed.Id);
     }
 
     if (linkTarget) {
+      const host = this.draft.movies.find((x) => x.movieId === linkTarget.hostMovieId);
+      const format = host?.formats.find((f) => f.key === linkTarget.formatKey);
+      if (host && format) {
+        this.toggleFormatLinkedMovie(host, format, seed, true);
+      }
       this.selectedMovieIndex = Math.max(
         0,
         this.draft.movies.findIndex((x) => x.movieId === linkTarget.hostMovieId)
@@ -811,11 +827,18 @@ export class OwnershipEditPage implements OnInit, OnDestroy {
     return (format.linkedMovieIds ?? []).includes(movieId);
   }
 
-  /** Only catalog / explicitly added cuts — not other collection titles. */
+  /**
+   * Ready checkboxes for this host only: MovieLink catalog cuts + titles added via +.
+   * Do NOT list every other collection movie — that flooded each card.
+   */
   versionChoicesFor(host: OwnershipMovieDraft): OwnershipSeedMovie[] {
-    const opts = [...(this.versionOptionsByMovieId.get(host.movieId) ?? [])];
-    return opts
+    void this.versionOptionsTick();
+    return (this.versionOptionsByMovieId.get(host.movieId) ?? [])
       .filter((o) => o.Id !== host.movieId)
+      .map((o) => ({
+        ...o,
+        VersionLabel: o.VersionLabel ? decodeEntities(o.VersionLabel) : o.VersionLabel,
+      }))
       .sort((a, b) =>
         this.movieTitleBase(a).localeCompare(this.movieTitleBase(b), 'fi', { sensitivity: 'base' })
       );
@@ -912,13 +935,16 @@ export class OwnershipEditPage implements OnInit, OnDestroy {
     if (!list.some((x) => x.Id === m.Id)) {
       list.push(m);
       this.versionOptionsByMovieId.set(hostMovieId, list);
+      this.versionOptionsTick.update((n) => n + 1);
     }
   }
 
   async loadVersionOptions(movieId: number): Promise<void> {
-    if (this.versionOptionsByMovieId.has(movieId)) {
+    // Always fetch catalog cuts once; do not skip just because + / satellites pre-seeded the map.
+    if (this.versionOptionsLoaded.has(movieId)) {
       return;
     }
+    this.versionOptionsLoaded.add(movieId);
     const rels = OwnershipEditPage.VERSION_RELATION_IDS;
     const [{ data: out }, { data: inn }] = await Promise.all([
       getSupabase()
@@ -941,8 +967,10 @@ export class OwnershipEditPage implements OnInit, OnDestroy {
         ...(((inn as { SourceId: number }[]) ?? []).map((r) => r.SourceId)),
       ]),
     ].filter((id) => id !== movieId);
+    const existing = this.versionOptionsByMovieId.get(movieId) ?? [];
     if (!ids.length) {
-      this.versionOptionsByMovieId.set(movieId, []);
+      this.versionOptionsByMovieId.set(movieId, existing);
+      this.versionOptionsTick.update((n) => n + 1);
       return;
     }
     const { data } = await getSupabase()
@@ -971,10 +999,13 @@ export class OwnershipEditPage implements OnInit, OnDestroy {
         .select('Id, Value')
         .in('Id', versionIds);
       versionMap = new Map(
-        ((versions as { Id: number; Value: string }[]) ?? []).map((v) => [v.Id, String(v.Value)])
+        ((versions as { Id: number; Value: string }[]) ?? []).map((v) => [
+          v.Id,
+          decodeEntities(String(v.Value)),
+        ])
       );
     }
-    const options: OwnershipSeedMovie[] = rows.map((r) => {
+    const catalog: OwnershipSeedMovie[] = rows.map((r) => {
       const raw =
         r.VersionId != null && r.VersionId > 0 ? versionMap.get(r.VersionId) ?? null : null;
       return {
@@ -986,7 +1017,17 @@ export class OwnershipEditPage implements OnInit, OnDestroy {
         VersionLabel: raw && raw !== '-' ? raw : null,
       };
     });
-    this.versionOptionsByMovieId.set(movieId, options);
+    const byId = new Map<number, OwnershipSeedMovie>();
+    for (const o of catalog) {
+      byId.set(o.Id, o);
+    }
+    for (const o of existing) {
+      if (!byId.has(o.Id)) {
+        byId.set(o.Id, o);
+      }
+    }
+    this.versionOptionsByMovieId.set(movieId, [...byId.values()]);
+    this.versionOptionsTick.update((n) => n + 1);
   }
 
   async removeMovieFromDraft(index: number): Promise<void> {

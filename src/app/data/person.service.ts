@@ -1,7 +1,14 @@
 import { Injectable } from '@angular/core';
 import { AppDateTime, Person } from '../core/models';
 import { parseAppDateTime } from '../core/datetime.util';
-import { decodeEntities, roleSingularLabel, swapTitle } from '../core/format.util';
+import {
+  accentInsensitiveNamePatterns,
+  decodeEntities,
+  nameMatchesSearchTokens,
+  roleSingularLabel,
+  searchTokens,
+  swapTitle,
+} from '../core/format.util';
 import { reverseRelationLabel, reverseRelationSortId } from '../core/person-relation.util';
 import { getSupabase } from '../core/supabase.client';
 
@@ -58,29 +65,19 @@ export class PersonService {
       return { rows: (data as Person[]) ?? [], count: count ?? 0 };
     }
 
-    const tokens = term
-      .toLowerCase()
-      .split(/\s+/)
-      .map((t) => t.replace(/^[,.]+|[,.]+$/g, ''))
-      .filter((t) => t.length > 0);
-    const primary = (tokens[0] ?? '').replace(/[%_,]/g, '');
-    if (!primary) {
+    const tokens = searchTokens(term);
+    if (!tokens.length) {
       return { rows: [], count: 0 };
     }
 
-    // Home search: Name field only (not RealName, text, or trivia).
-    const { data: nameHits, error } = await getSupabase()
-      .from('Person')
-      .select('Id, Name, RealName, BirthDate, DeathDate, Gender')
-      .ilike('Name', `%${primary}%`)
-      .order('Name')
-      .limit(500);
-    if (error) {
-      throw error;
-    }
-
-    const rows = ((nameHits as Person[]) ?? [])
-      .filter((p) => tokens.every((t) => nameHasTokenPrefix(p.Name, t)))
+    // Home search: Name only. DB probes are accent-blind; fold filter is authoritative.
+    const nameHits = await this.fetchPersonsByNameTokens(
+      tokens,
+      'Id, Name, RealName, BirthDate, DeathDate, Gender',
+      500
+    );
+    const rows = nameHits
+      .filter((p) => nameMatchesSearchTokens(p.Name, tokens))
       .sort((a, b) => a.Name.localeCompare(b.Name, 'fi', { sensitivity: 'base' }));
     return { rows: rows.slice(from, to + 1), count: rows.length };
   }
@@ -88,33 +85,71 @@ export class PersonService {
   /**
    * Name search: each query token must be a prefix of some word in Name
    * ("baldw" → Baldwin; "man" does not match Hoffman). RealName ignored.
+   * Accents optional: "yugi" finds "Yûgi", "joffe" finds "Joffé".
    */
   async searchNameExact(query: string, limit = 30): Promise<Person[]> {
-    const tokens = query
-      .trim()
-      .toLowerCase()
-      .split(/\s+/)
-      .map((t) => t.replace(/^[,.]+|[,.]+$/g, ''))
-      .filter((t) => t.length > 0);
+    const tokens = searchTokens(query);
     if (!tokens.length) {
       return [];
     }
-    const primary = tokens[0].replace(/[%_,]/g, '');
-    if (!primary) {
+    const rows = await this.fetchPersonsByNameTokens(
+      tokens,
+      'Id, Name, RealName, BirthDate, DeathDate, Gender, BirthCountryId',
+      Math.max(200, limit * 10)
+    );
+    return rows.filter((p) => nameMatchesSearchTokens(p.Name, tokens)).slice(0, limit);
+  }
+
+  /**
+   * Fetch Name candidates with accent-blind ILIKE probes, then rely on
+   * nameMatchesSearchTokens for precise AND across all tokens.
+   *
+   * IMPORTANT: never put patterns like `%y%g%` into `.or("Name.ilike.%y%g%")`.
+   * PostgREST splits or()-values on `.`, so those probes break silently and
+   * "yugi" never matches "Yûgi". Always use `.ilike('Name', pattern)` per probe.
+   */
+  private async fetchPersonsByNameTokens(
+    tokens: string[],
+    select: string,
+    limit: number
+  ): Promise<Person[]> {
+    // One selective token for DB; client AND-filters all tokens afterward.
+    const primary = [...tokens].sort((a, b) => {
+      const fa = a.replace(/[^a-z0-9]/gi, '');
+      const fb = b.replace(/[^a-z0-9]/gi, '');
+      const ca = [...fa.toLowerCase()].filter((c) => !'aeiou'.includes(c)).length;
+      const cb = [...fb.toLowerCase()].filter((c) => !'aeiou'.includes(c)).length;
+      return cb - ca || fb.length - fa.length;
+    })[0];
+    const patterns = accentInsensitiveNamePatterns(primary);
+    if (!patterns.length) {
       return [];
     }
-    const { data, error } = await getSupabase()
-      .from('Person')
-      .select('Id, Name, RealName, BirthDate, DeathDate, Gender, BirthCountryId')
-      .ilike('Name', `%${primary}%`)
-      .order('Name')
-      .limit(200);
-    if (error) {
-      throw error;
+
+    const settled = await Promise.all(
+      patterns.map(async (pattern) => {
+        const { data, error } = await getSupabase()
+          .from('Person')
+          .select(select)
+          .ilike('Name', pattern)
+          .order('Name')
+          .limit(limit);
+        if (error) {
+          throw error;
+        }
+        return (data as unknown as Person[]) ?? [];
+      })
+    );
+
+    const byId = new Map<number, Person>();
+    for (const rows of settled) {
+      for (const row of rows) {
+        if (row?.Id != null && row.Name && !byId.has(row.Id)) {
+          byId.set(row.Id, row);
+        }
+      }
     }
-    return ((data as Person[]) ?? [])
-      .filter((p) => tokens.every((t) => nameHasTokenPrefix(p.Name, t)))
-      .slice(0, limit);
+    return [...byId.values()];
   }
 
   async getById(id: number): Promise<Person | null> {
@@ -536,14 +571,3 @@ export class PersonService {
   }
 }
 
-function nameHasTokenPrefix(name: string | null | undefined, token: string): boolean {
-  if (!name) {
-    return false;
-  }
-  const needle = token.toLowerCase();
-  const parts = name
-    .toLowerCase()
-    .split(/[^a-z0-9àáâäåæçèéêëìíîïñòóôöøùúûüýÿß]+/i)
-    .filter(Boolean);
-  return parts.some((p) => p.startsWith(needle));
-}

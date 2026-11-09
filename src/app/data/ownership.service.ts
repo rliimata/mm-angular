@@ -847,6 +847,7 @@ export class OwnershipService {
           audioIds: ((audios as { ReleaseAudioId: number }[]) ?? []).map((a) => a.ReleaseAudioId),
           subtitleIds: ((subs as { ReleaseSubtitleId: number }[]) ?? []).map((s) => s.ReleaseSubtitleId),
           linkedMovieIds: [],
+          mediaGroupId: f.Sequence > 0 ? f.Sequence : undefined,
         });
       }
       formatDrafts.sort(compareOwnershipFormats);
@@ -955,7 +956,7 @@ export class OwnershipService {
           .insert({
             OwnershipMovieId: omId,
             MediaFormatId: f.mediaFormatId,
-            Sequence: fi + 1,
+            Sequence: f.mediaGroupId != null && f.mediaGroupId > 0 ? f.mediaGroupId : fi + 1,
             RatioId: fk(f.ratioId),
             ContentType: f.contentType > 0 ? f.contentType : OWNERSHIP_CONTENT_FEATURE,
             MediaConditionId: fk(
@@ -1708,6 +1709,9 @@ export function isFixedOriginalRatioFormat(mediaFormatId: number): boolean {
   return mediaFormatId === 1 || mediaFormatId === 6 || mediaFormatId === 7;
 }
 
+/** OwnershipFormat.Sequence values >= this mark a shared physical medium group. */
+export const MEDIA_GROUP_ID_BASE = 1000;
+
 export function emptyOwnershipFormat(
   mediaFormatId: number,
   opts?: { ratioId?: number | null }
@@ -1741,7 +1745,7 @@ function ownershipFormatSignature(f: OwnershipFormatDraft): string {
 
 /**
  * Same title + year → likely theatrical / director's cut of one film.
- * Collection titles must NOT merge just because Blu-ray settings match.
+ * Used as fallback merge for older rows without shared mediaGroupId.
  */
 function isSameFilmCut(a: OwnershipMovieDraft, b: OwnershipMovieDraft): boolean {
   if (a.movieId === b.movieId) {
@@ -1749,7 +1753,6 @@ function isSameFilmCut(a: OwnershipMovieDraft, b: OwnershipMovieDraft): boolean 
   }
   const yearA = a.year ?? 0;
   const yearB = b.year ?? 0;
-  // Require matching years when known; never merge on title alone if years differ or missing.
   if (yearA <= 0 || yearB <= 0 || yearA !== yearB) {
     return false;
   }
@@ -1759,10 +1762,41 @@ function isSameFilmCut(a: OwnershipMovieDraft, b: OwnershipMovieDraft): boolean 
 }
 
 /**
- * Merge identical media only across cuts of the same film (not whole collections).
- * E.g. American Gangster + Extended Cut on one disc → one media block with version checks.
+ * Merge formats that share a physical medium:
+ * 1) same mediaGroupId (persisted Sequence) — cuts or different titles on one disc
+ * 2) fallback: identical signature + same-film cut (legacy data)
  */
 export function mergeSharedOwnershipFormats(movies: OwnershipMovieDraft[]): void {
+  // Pass 1: shared mediaGroupId (>= 1000) across any titles on one disc.
+  // Values below 1000 are legacy per-movie Sequence (1..n) and must not merge collections.
+  const byGroup = new Map<number, { host: OwnershipMovieDraft; format: OwnershipFormatDraft }>();
+  for (const movie of movies) {
+    for (let fi = movie.formats.length - 1; fi >= 0; fi--) {
+      const format = movie.formats[fi];
+      const groupId = format.mediaGroupId ?? 0;
+      if (groupId < MEDIA_GROUP_ID_BASE) {
+        continue;
+      }
+      const existing = byGroup.get(groupId);
+      if (!existing) {
+        format.linkedMovieIds = format.linkedMovieIds ?? [];
+        byGroup.set(groupId, { host: movie, format });
+        continue;
+      }
+      if (existing.host.movieId === movie.movieId) {
+        continue;
+      }
+      if (!existing.format.linkedMovieIds) {
+        existing.format.linkedMovieIds = [];
+      }
+      if (!existing.format.linkedMovieIds.includes(movie.movieId)) {
+        existing.format.linkedMovieIds.push(movie.movieId);
+      }
+      movie.formats.splice(fi, 1);
+    }
+  }
+
+  // Pass 2: legacy same-film cuts with matching signatures (no shared group yet).
   for (let i = 0; i < movies.length; i++) {
     const host = movies[i];
     for (const format of host.formats) {
@@ -1786,7 +1820,7 @@ export function mergeSharedOwnershipFormats(movies: OwnershipMovieDraft[]): void
   }
 }
 
-/** Before save: drop unused satellites, then copy shared media onto every linked movie. */
+/** Assign unique mediaGroupIds, expand links, drop empty satellites. */
 export function prepareOwnershipMoviesForSave(movies: OwnershipMovieDraft[]): OwnershipMovieDraft[] {
   const linkedIds = new Set<number>();
   for (const m of movies) {
@@ -1804,7 +1838,7 @@ export function prepareOwnershipMoviesForSave(movies: OwnershipMovieDraft[]): Ow
   return expandLinkedOwnershipFormats(kept).filter((m) => m.formats.length > 0);
 }
 
-/** Copy shared media onto every linked movie so each version gets OwnershipMovie + formats. */
+/** Copy shared media onto every linked movie; keep a shared mediaGroupId for reload. */
 export function expandLinkedOwnershipFormats(movies: OwnershipMovieDraft[]): OwnershipMovieDraft[] {
   const cloned: OwnershipMovieDraft[] = movies.map((m) => ({
     ...m,
@@ -1816,7 +1850,19 @@ export function expandLinkedOwnershipFormats(movies: OwnershipMovieDraft[]): Own
     })),
   }));
 
-  // Snapshot host formats first so copying onto satellites does not re-process them.
+  let nextGroup = Math.max(
+    MEDIA_GROUP_ID_BASE,
+    ...cloned.flatMap((m) => m.formats.map((f) => f.mediaGroupId ?? 0)),
+    MEDIA_GROUP_ID_BASE - 1
+  ) + 1;
+  for (const m of cloned) {
+    for (const f of m.formats) {
+      if (f.mediaGroupId == null || f.mediaGroupId < MEDIA_GROUP_ID_BASE) {
+        f.mediaGroupId = nextGroup++;
+      }
+    }
+  }
+
   const hostSnapshots = cloned.map((host) => ({
     movieId: host.movieId,
     formats: host.formats.map((f) => ({
@@ -1835,11 +1881,18 @@ export function expandLinkedOwnershipFormats(movies: OwnershipMovieDraft[]): Own
         const target = cloned.find((m) => m.movieId === movieId);
         if (!target) {
           throw new Error(
-            `Versiota (elokuva ${movieId}) ei löytynyt omistuksesta — rastita versio uudelleen ja tallenna.`
+            `Elokuvaa ${movieId} ei löytynyt omistuksesta — rastita elokuva medialle uudelleen ja tallenna.`
           );
         }
+        const groupId = format.mediaGroupId!;
+        const existing = target.formats.find((f) => f.mediaGroupId === groupId);
+        if (existing) {
+          continue;
+        }
         const sig = ownershipFormatSignature(format);
-        if (target.formats.some((f) => ownershipFormatSignature(f) === sig)) {
+        if (target.formats.some((f) => ownershipFormatSignature(f) === sig && !f.mediaGroupId)) {
+          const hit = target.formats.find((f) => ownershipFormatSignature(f) === sig)!;
+          hit.mediaGroupId = groupId;
           continue;
         }
         target.formats.push({
@@ -1852,6 +1905,7 @@ export function expandLinkedOwnershipFormats(movies: OwnershipMovieDraft[]): Own
           audioIds: [...(format.audioIds ?? [])],
           subtitleIds: [...(format.subtitleIds ?? [])],
           linkedMovieIds: [],
+          mediaGroupId: groupId,
         });
       }
     }

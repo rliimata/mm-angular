@@ -142,44 +142,6 @@
       <p class="meta">Ei tuloksia</p>
     }
   } @else {
-    @if (mode === 'text' && people().length) {
-      <section class="result-block">
-        <div class="list-heading">
-          <p class="meta">{{ people().length === 1 ? '1 henkilö' : people().length + ' henkilöä' }}</p>
-          <button
-            type="button"
-            class="list-preview-btn"
-            (click)="openPeoplePreview()"
-            title="Esikatsele"
-            aria-label="Esikatsele"
-          ></button>
-        </div>
-        <table>
-          <tbody>
-            @for (p of people(); track p.Id) {
-              <tr>
-                <td>
-                  <a [routerLink]="['/person', p.Id]">{{ personName(p) }}</a>
-                </td>
-                <td class="row-actions">
-                  @if (auth.isSuperUser()) {
-                    <a
-                      class="icon-edit desktop-only"
-                      [routerLink]="['/person', p.Id, 'edit']"
-                      [queryParams]="{ return: '/' }"
-                      title="Muokkaa"
-                      aria-label="Muokkaa"
-                      >✎</a
-                    >
-                  }
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </section>
-    }
-
     @if (total() > 0) {
       <section class="result-block">
         <div class="list-heading">
@@ -223,6 +185,44 @@
                     <a
                       class="icon-edit desktop-only"
                       [routerLink]="['/movie', m.Id, 'edit']"
+                      [queryParams]="{ return: '/' }"
+                      title="Muokkaa"
+                      aria-label="Muokkaa"
+                      >✎</a
+                    >
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    }
+
+    @if (mode === 'text' && people().length) {
+      <section class="result-block">
+        <div class="list-heading">
+          <p class="meta">{{ people().length === 1 ? '1 henkilö' : people().length + ' henkilöä' }}</p>
+          <button
+            type="button"
+            class="list-preview-btn"
+            (click)="openPeoplePreview()"
+            title="Esikatsele"
+            aria-label="Esikatsele"
+          ></button>
+        </div>
+        <table>
+          <tbody>
+            @for (p of people(); track p.Id) {
+              <tr>
+                <td>
+                  <a [routerLink]="['/person', p.Id]">{{ personName(p) }}</a>
+                </td>
+                <td class="row-actions">
+                  @if (auth.isSuperUser()) {
+                    <a
+                      class="icon-edit desktop-only"
+                      [routerLink]="['/person', p.Id, 'edit']"
                       [queryParams]="{ return: '/' }"
                       title="Muokkaa"
                       aria-label="Muokkaa"
