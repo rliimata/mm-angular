@@ -316,12 +316,8 @@ export class MultiCheckSelectComponent implements ControlValueAccessor, OnInit, 
     } else {
       this.query = '';
       this.open = true;
-      // Wait for panel to render before measuring / focusing search.
       setTimeout(() => {
         this.positionPanel();
-        const input = this.host.nativeElement.querySelector('.mcs-search') as HTMLInputElement | null;
-        input?.focus();
-        input?.select();
       });
     }
   }

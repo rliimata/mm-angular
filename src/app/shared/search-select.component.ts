@@ -257,18 +257,8 @@ export class SearchSelectComponent implements ControlValueAccessor, OnInit, OnDe
       // Wait for panel to render before measuring / focusing search.
       setTimeout(() => {
         this.positionPanel();
-        this.focusSearch();
       });
     }
-  }
-
-  private focusSearch(): void {
-    if (!this.searchable || !this.open()) {
-      return;
-    }
-    const input = this.host.nativeElement.querySelector('.ss-search') as HTMLInputElement | null;
-    input?.focus();
-    input?.select();
   }
 
   closePanel(): void {

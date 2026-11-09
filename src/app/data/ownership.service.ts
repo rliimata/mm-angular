@@ -10,7 +10,19 @@ import {
 } from '../core/models';
 import { getSupabase } from '../core/supabase.client';
 
-/** Physical discs first, Digital Copy last; Feature before Bonus Disc. */
+/** Best physical format first (UHD → BD → …); Digital Copy last; Feature before Bonus. */
+const MEDIA_FORMAT_RANK: Record<number, number> = {
+  6: 1, // UHD
+  1: 2, // BD
+  7: 3, // 3D-BD
+  3: 4, // HD-DVD
+  2: 5, // DVD
+  12: 6, // UMD
+  4: 7, // LD
+  5: 8, // VHS
+  11: 90, // Digital Copy
+};
+
 export function compareOwnershipFormats(
   a: { mediaFormatId: number; contentType: number },
   b: { mediaFormatId: number; contentType: number }
@@ -24,6 +36,11 @@ export function compareOwnershipFormats(
   const bonusB = b.contentType === OWNERSHIP_CONTENT_BONUS ? 1 : 0;
   if (bonusA !== bonusB) {
     return bonusA - bonusB;
+  }
+  const rankA = MEDIA_FORMAT_RANK[a.mediaFormatId] ?? 50 + a.mediaFormatId;
+  const rankB = MEDIA_FORMAT_RANK[b.mediaFormatId] ?? 50 + b.mediaFormatId;
+  if (rankA !== rankB) {
+    return rankA - rankB;
   }
   return a.mediaFormatId - b.mediaFormatId;
 }
@@ -91,7 +108,7 @@ export function ownershipSummarySortKey(o: OwnershipSummary): string {
   return titleSortKey(o.Name, 1);
 }
 
-/** List label with swapped articles; keeps type prefix when present. */
+/** Owned-list label: movie title (+ version) and formats only — no ownership type prefix. */
 export function ownershipListLabel(o: OwnershipSummary): string {
   const movies = o.movies
     .map((m) => {
@@ -103,9 +120,7 @@ export function ownershipListLabel(o: OwnershipSummary): string {
   if (!movies.length) {
     return o.Name?.trim() || `Omistus #${o.Id}`;
   }
-  const body = movies.join(', ');
-  const type = o.typeLabel?.trim();
-  return type ? `${type}: ${body}` : body;
+  return movies.join(', ');
 }
 
 export interface OwnershipSummary {
@@ -140,8 +155,9 @@ export class OwnershipService {
       return { rows: [], count: 0 };
     }
 
-    // Light sort index (titles only), then hydrate just the current page in one batch.
+    // One list row per owned movie (collections appear under each title alphabetically).
     const ownershipIds = ownerships.map((o) => o.Id);
+    const ownershipById = new Map(ownerships.map((o) => [o.Id, o]));
     const moviesByOwnership = await this.fetchOwnershipMovieSortIndex(ownershipIds);
     const movieIds = [
       ...new Set(
@@ -150,25 +166,66 @@ export class OwnershipService {
     ];
     const movieMeta = await this.fetchMovieSortMeta(movieIds);
 
-    const sortable = ownerships.map((o) => {
-      const linked = (moviesByOwnership.get(o.Id) ?? [])
-        .slice()
-        .sort((a, b) => a.Sequence - b.Sequence)
-        .map((r) => movieMeta.get(r.MovieId))
-        .filter((m): m is { Title: string; TitleLanguageId: number | null } => !!m);
-      const key = linked.length
-        ? linked.map((m) => titleSortKey(m.Title, m.TitleLanguageId)).join('\u0000')
-        : titleSortKey(o.Name, 1);
-      return { o, key };
-    });
-    sortable.sort(
-      (a, b) => a.key.localeCompare(b.key, 'fi', { sensitivity: 'base' }) || a.o.Id - b.o.Id
+    type ListEntry = { ownershipId: number; movieId: number; key: string };
+    const entries: ListEntry[] = [];
+    for (const o of ownerships) {
+      const linked = moviesByOwnership.get(o.Id) ?? [];
+      if (!linked.length) {
+        entries.push({
+          ownershipId: o.Id,
+          movieId: 0,
+          key: titleSortKey(o.Name, 1),
+        });
+        continue;
+      }
+      for (const r of linked) {
+        const meta = movieMeta.get(r.MovieId);
+        entries.push({
+          ownershipId: o.Id,
+          movieId: r.MovieId,
+          key: meta
+            ? titleSortKey(meta.Title, meta.TitleLanguageId)
+            : String(r.MovieId),
+        });
+      }
+    }
+    entries.sort(
+      (a, b) =>
+        a.key.localeCompare(b.key, 'fi', { sensitivity: 'base' }) ||
+        a.ownershipId - b.ownershipId ||
+        a.movieId - b.movieId
     );
 
     const from = (page - 1) * pageSize;
-    const pageOwnerships = sortable.slice(from, from + pageSize).map((x) => x.o);
+    const pageEntries = entries.slice(from, from + pageSize);
+    const pageOwnershipIds = [...new Set(pageEntries.map((e) => e.ownershipId))];
+    const pageOwnerships = pageOwnershipIds
+      .map((id) => ownershipById.get(id))
+      .filter((o): o is Ownership => !!o);
     const summaries = await this.buildListSummaries(pageOwnerships, moviesByOwnership);
-    return { rows: summaries, count: ownerships.length };
+    const summaryById = new Map(summaries.map((s) => [s.Id, s]));
+
+    const rows: OwnershipSummary[] = [];
+    for (const e of pageEntries) {
+      const full = summaryById.get(e.ownershipId);
+      if (!full) {
+        continue;
+      }
+      if (!e.movieId) {
+        rows.push(full);
+        continue;
+      }
+      const movie = full.movies.find((m) => m.Id === e.movieId);
+      if (!movie) {
+        continue;
+      }
+      rows.push({
+        ...full,
+        movies: [movie],
+        movieCount: 1,
+      });
+    }
+    return { rows, count: entries.length };
   }
 
   /**
@@ -243,7 +300,15 @@ export class OwnershipService {
     }
 
     for (const [movieId, set] of formatsByMovie) {
-      const labels = [...set].map((id) => mediaFormatShort(id)).filter(Boolean);
+      const labels = [...set]
+        .sort((a, b) =>
+          compareOwnershipFormats(
+            { mediaFormatId: a, contentType: OWNERSHIP_CONTENT_FEATURE },
+            { mediaFormatId: b, contentType: OWNERSHIP_CONTENT_FEATURE }
+          )
+        )
+        .map((id) => mediaFormatShort(id))
+        .filter(Boolean);
       if (labels.length) {
         result.set(movieId, labels);
       }
@@ -622,7 +687,15 @@ export class OwnershipService {
     }
 
     for (const [userId, formatIds] of userFormats) {
-      const labels = formatIds.map((id) => mediaFormatShort(id)).filter(Boolean);
+      const labels = [...formatIds]
+        .sort((a, b) =>
+          compareOwnershipFormats(
+            { mediaFormatId: a, contentType: OWNERSHIP_CONTENT_FEATURE },
+            { mediaFormatId: b, contentType: OWNERSHIP_CONTENT_FEATURE }
+          )
+        )
+        .map((id) => mediaFormatShort(id))
+        .filter(Boolean);
       if (labels.length) {
         result.set(userId, labels.join('+'));
       }
@@ -773,6 +846,7 @@ export class OwnershipService {
             : undefined,
           audioIds: ((audios as { ReleaseAudioId: number }[]) ?? []).map((a) => a.ReleaseAudioId),
           subtitleIds: ((subs as { ReleaseSubtitleId: number }[]) ?? []).map((s) => s.ReleaseSubtitleId),
+          linkedMovieIds: [],
         });
       }
       formatDrafts.sort(compareOwnershipFormats);
@@ -791,6 +865,8 @@ export class OwnershipService {
       });
     }
 
+    mergeSharedOwnershipFormats(draftMovies);
+
     const o = ownership as Ownership;
     const fk = (id: number | null | undefined) => (id != null && id > 0 ? id : null);
     return {
@@ -806,10 +882,11 @@ export class OwnershipService {
   }
 
   async save(userId: number, draft: OwnershipDraft): Promise<number> {
-    if (!draft.movies.length) {
+    const movies = prepareOwnershipMoviesForSave(draft.movies);
+    if (!movies.length) {
       throw new Error('Omistuksessa pitää olla vähintään yksi elokuva.');
     }
-    for (const m of draft.movies) {
+    for (const m of movies) {
       if (!m.formats.length) {
         throw new Error(`Elokuvalla "${m.title}" pitää olla vähintään yksi media.`);
       }
@@ -819,6 +896,7 @@ export class OwnershipService {
         }
       }
     }
+    draft = { ...draft, movies };
 
     const fk = (id: number | null | undefined) => (id != null && id > 0 ? id : null);
     let ownershipId = draft.id;
@@ -1643,7 +1721,142 @@ export function emptyOwnershipFormat(
     digitalHasDisc: isDigitalCopy(mediaFormatId) ? true : undefined,
     audioIds: [],
     subtitleIds: [],
+    linkedMovieIds: [],
   };
+}
+
+function ownershipFormatSignature(f: OwnershipFormatDraft): string {
+  const aud = [...(f.audioIds ?? [])].sort((a, b) => a - b).join(',');
+  const sub = [...(f.subtitleIds ?? [])].sort((a, b) => a - b).join(',');
+  return [
+    f.mediaFormatId,
+    f.contentType,
+    f.ratioId ?? 0,
+    f.mediaConditionId ?? 0,
+    f.digitalHasDisc === false ? 0 : 1,
+    aud,
+    sub,
+  ].join('|');
+}
+
+/**
+ * Same title + year → likely theatrical / director's cut of one film.
+ * Collection titles must NOT merge just because Blu-ray settings match.
+ */
+function isSameFilmCut(a: OwnershipMovieDraft, b: OwnershipMovieDraft): boolean {
+  if (a.movieId === b.movieId) {
+    return false;
+  }
+  const yearA = a.year ?? 0;
+  const yearB = b.year ?? 0;
+  // Require matching years when known; never merge on title alone if years differ or missing.
+  if (yearA <= 0 || yearB <= 0 || yearA !== yearB) {
+    return false;
+  }
+  const keyA = titleSortKey(a.title, a.titleLanguageId);
+  const keyB = titleSortKey(b.title, b.titleLanguageId);
+  return keyA.length > 0 && keyA === keyB;
+}
+
+/**
+ * Merge identical media only across cuts of the same film (not whole collections).
+ * E.g. American Gangster + Extended Cut on one disc → one media block with version checks.
+ */
+export function mergeSharedOwnershipFormats(movies: OwnershipMovieDraft[]): void {
+  for (let i = 0; i < movies.length; i++) {
+    const host = movies[i];
+    for (const format of host.formats) {
+      format.linkedMovieIds = format.linkedMovieIds ?? [];
+      const sig = ownershipFormatSignature(format);
+      for (let j = i + 1; j < movies.length; j++) {
+        const other = movies[j];
+        if (!isSameFilmCut(host, other)) {
+          continue;
+        }
+        const idx = other.formats.findIndex((f) => ownershipFormatSignature(f) === sig);
+        if (idx < 0) {
+          continue;
+        }
+        if (!format.linkedMovieIds.includes(other.movieId)) {
+          format.linkedMovieIds.push(other.movieId);
+        }
+        other.formats.splice(idx, 1);
+      }
+    }
+  }
+}
+
+/** Before save: drop unused satellites, then copy shared media onto every linked movie. */
+export function prepareOwnershipMoviesForSave(movies: OwnershipMovieDraft[]): OwnershipMovieDraft[] {
+  const linkedIds = new Set<number>();
+  for (const m of movies) {
+    for (const f of m.formats) {
+      for (const id of f.linkedMovieIds ?? []) {
+        if (id > 0) {
+          linkedIds.add(id);
+        }
+      }
+    }
+  }
+  const kept = movies.filter(
+    (m) => m.formats.length > 0 || linkedIds.has(m.movieId)
+  );
+  return expandLinkedOwnershipFormats(kept).filter((m) => m.formats.length > 0);
+}
+
+/** Copy shared media onto every linked movie so each version gets OwnershipMovie + formats. */
+export function expandLinkedOwnershipFormats(movies: OwnershipMovieDraft[]): OwnershipMovieDraft[] {
+  const cloned: OwnershipMovieDraft[] = movies.map((m) => ({
+    ...m,
+    formats: m.formats.map((f) => ({
+      ...f,
+      audioIds: [...(f.audioIds ?? [])],
+      subtitleIds: [...(f.subtitleIds ?? [])],
+      linkedMovieIds: [...(f.linkedMovieIds ?? [])],
+    })),
+  }));
+
+  // Snapshot host formats first so copying onto satellites does not re-process them.
+  const hostSnapshots = cloned.map((host) => ({
+    movieId: host.movieId,
+    formats: host.formats.map((f) => ({
+      format: f,
+      links: [...(f.linkedMovieIds ?? [])],
+    })),
+  }));
+
+  for (const host of hostSnapshots) {
+    for (const { format, links } of host.formats) {
+      format.linkedMovieIds = [];
+      for (const movieId of links) {
+        if (movieId === host.movieId) {
+          continue;
+        }
+        const target = cloned.find((m) => m.movieId === movieId);
+        if (!target) {
+          throw new Error(
+            `Versiota (elokuva ${movieId}) ei löytynyt omistuksesta — rastita versio uudelleen ja tallenna.`
+          );
+        }
+        const sig = ownershipFormatSignature(format);
+        if (target.formats.some((f) => ownershipFormatSignature(f) === sig)) {
+          continue;
+        }
+        target.formats.push({
+          key: newFormatKey(),
+          mediaFormatId: format.mediaFormatId,
+          ratioId: format.ratioId,
+          contentType: format.contentType,
+          mediaConditionId: format.mediaConditionId,
+          digitalHasDisc: format.digitalHasDisc,
+          audioIds: [...(format.audioIds ?? [])],
+          subtitleIds: [...(format.subtitleIds ?? [])],
+          linkedMovieIds: [],
+        });
+      }
+    }
+  }
+  return cloned;
 }
 
 /** Clear Finnish labels for release region codes (and already-migrated names). */

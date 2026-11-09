@@ -144,41 +144,43 @@
           </section>
         }
 
-        <section>
-          <div class="list-heading">
-            <h2>Elokuvatuotanto ({{ details()!.filmography.length }})</h2>
-            @if (allMoviesPreviewItems().length) {
-              <button
-                type="button"
-                class="list-preview-btn"
-                (click)="openMoviesPreview()"
-                title="Esikatsele elokuvia"
-                aria-label="Esikatsele elokuvia"
-              ></button>
-            }
-          </div>
-          <table>
-            <tbody>
-              @for (f of details()!.filmography; track f.MovieId) {
-                <tr>
-                  <td>
-                    <a [routerLink]="['/movie', f.MovieId]"
-                      >{{ f.Title }}{{ f.Year ? ' (' + f.Year + ')' : '' }}</a
-                    >
-                    @if (ownershipLabel(f.MovieId); as own) {
-                      <span class="ownership-mark">{{ own }}</span>
-                    }
-                  </td>
-                  <td class="roles-col">
-                    @for (role of f.Roles; track role) {
-                      <div>{{ role }}</div>
-                    }
-                  </td>
-                </tr>
+        @if (details()!.filmography.length) {
+          <section>
+            <div class="list-heading">
+              <h2>Elokuvatuotanto ({{ details()!.filmography.length }})</h2>
+              @if (allMoviesPreviewItems().length) {
+                <button
+                  type="button"
+                  class="list-preview-btn"
+                  (click)="openMoviesPreview()"
+                  title="Esikatsele elokuvia"
+                  aria-label="Esikatsele elokuvia"
+                ></button>
               }
-            </tbody>
-          </table>
-        </section>
+            </div>
+            <table>
+              <tbody>
+                @for (f of details()!.filmography; track f.MovieId) {
+                  <tr>
+                    <td>
+                      <a [routerLink]="['/movie', f.MovieId]"
+                        >{{ f.Title }}{{ f.Year ? ' (' + f.Year + ')' : '' }}</a
+                      >
+                      @if (ownershipLabel(f.MovieId); as own) {
+                        <span class="ownership-mark">{{ own }}</span>
+                      }
+                    </td>
+                    <td class="roles-col">
+                      @for (role of f.Roles; track role) {
+                        <div>{{ role }}</div>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </section>
+        }
       </div>
     </div>
   }

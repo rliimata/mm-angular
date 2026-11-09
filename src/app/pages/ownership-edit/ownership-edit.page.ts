@@ -66,6 +66,7 @@ type CatalogKind =
 })
 export class OwnershipEditPage implements OnInit, OnDestroy {
   @ViewChild('catalogValueInput') private catalogValueInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('movieSearchInput') private movieSearchInput?: ElementRef<HTMLInputElement>;
 
   movieId = 0;
   ownershipId: number | null = null;
@@ -102,7 +103,17 @@ export class OwnershipEditPage implements OnInit, OnDestroy {
   movieSearchOpen = false;
   movieSearchQuery = '';
   movieSearchResults: OwnershipSeedMovie[] = [];
+  /** When set, the next added movie is offered as a version checkbox for this medium. */
+  linkFormatTarget: { hostMovieId: number; formatKey: string } | null = null;
+  /** Catalog alternate cuts offered as checkboxes per host movie. */
+  readonly versionOptionsByMovieId = new Map<number, OwnershipSeedMovie[]>();
+  /** Movies that exist only as another cut on a disc — no own card in the collection. */
+  private readonly satelliteMovieIds = new Set<number>();
   private movieSearchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private static readonly VERSION_RELATION_IDS = [
+    3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+  ];
 
   catalogModalOpen = false;
   catalogModalMode: 'add' | 'edit' = 'add';
@@ -235,10 +246,17 @@ export class OwnershipEditPage implements OnInit, OnDestroy {
         this.applyForcedOwnershipRules();
         this.sortAllFormats();
         this.sortDraftMovies();
+        this.markSatellitesFromDraft();
       } else {
         this.draft = await this.emptyDraftWithSeed();
         this.applyForcedOwnershipRules();
+        this.satelliteMovieIds.clear();
       }
+      await Promise.all(
+        this.draft.movies
+          .filter((m) => this.isVisibleMovieBlock(m))
+          .map((m) => this.loadVersionOptions(m.movieId))
+      );
     } catch (e: unknown) {
       if (token === this.loadToken && !this.destroyed) {
         this.message.set(errorMessage(e));
@@ -625,6 +643,7 @@ export class OwnershipEditPage implements OnInit, OnDestroy {
     movie.formats.push(format);
     this.applyForcedOwnershipRules();
     this.sortMovieFormats(movie);
+    void this.loadVersionOptions(movie.movieId);
   }
 
   duplicateMediaBlock(movie: OwnershipMovieDraft, format: OwnershipFormatDraft): void {
@@ -656,15 +675,26 @@ export class OwnershipEditPage implements OnInit, OnDestroy {
   }
 
   openMovieSearch(): void {
+    this.linkFormatTarget = null;
     this.movieSearchQuery = '';
     this.movieSearchResults = [];
     this.movieSearchOpen = true;
+    setTimeout(() => this.movieSearchInput?.nativeElement.focus(), 0);
+  }
+
+  openVersionSearchForFormat(host: OwnershipMovieDraft, format: OwnershipFormatDraft): void {
+    this.linkFormatTarget = { hostMovieId: host.movieId, formatKey: format.key };
+    this.movieSearchQuery = '';
+    this.movieSearchResults = [];
+    this.movieSearchOpen = true;
+    setTimeout(() => this.movieSearchInput?.nativeElement.focus(), 0);
   }
 
   closeMovieSearch(): void {
     this.movieSearchOpen = false;
     this.movieSearchQuery = '';
     this.movieSearchResults = [];
+    this.linkFormatTarget = null;
     if (this.movieSearchTimer) {
       clearTimeout(this.movieSearchTimer);
       this.movieSearchTimer = null;
@@ -717,6 +747,106 @@ export class OwnershipEditPage implements OnInit, OnDestroy {
   }
 
   addMovieToDraft(m: OwnershipSeedMovie): void {
+    const linkTarget = this.linkFormatTarget;
+    const existing = this.draft.movies.find((x) => x.movieId === m.Id);
+    if (!existing) {
+      const row: OwnershipMovieDraft = {
+        movieId: m.Id,
+        title: m.Title,
+        titleLanguageId: m.TitleLanguageId,
+        year: m.Year ?? null,
+        ratioId: m.RatioId != null && m.RatioId > 0 ? m.RatioId : null,
+        versionLabel: m.VersionLabel ?? null,
+        formats: [],
+      };
+      if (linkTarget) {
+        // Same-film cut on a disc: checkbox only, no collection card.
+        this.draft.movies.push(row);
+        this.satelliteMovieIds.add(m.Id);
+        this.addVersionOption(linkTarget.hostMovieId, m);
+      } else {
+        // Separate title in a multi-movie collection/box.
+        this.satelliteMovieIds.delete(m.Id);
+        this.draft.movies.unshift(row);
+        this.selectedMovieIndex = 0;
+      }
+    } else if (linkTarget) {
+      this.satelliteMovieIds.add(m.Id);
+      this.addVersionOption(linkTarget.hostMovieId, m);
+    } else {
+      this.satelliteMovieIds.delete(m.Id);
+    }
+
+    if (linkTarget) {
+      this.selectedMovieIndex = Math.max(
+        0,
+        this.draft.movies.findIndex((x) => x.movieId === linkTarget.hostMovieId)
+      );
+      this.linkFormatTarget = null;
+      this.closeMovieSearch();
+      return;
+    }
+
+    if (existing) {
+      this.closeMovieSearch();
+      return;
+    }
+
+    this.closeMovieSearch();
+    setTimeout(() => {
+      document.querySelector('.movie-block')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 0);
+  }
+
+  /** Collection members show a card; same-disc cuts (satellites) do not. */
+  isVisibleMovieBlock(m: OwnershipMovieDraft): boolean {
+    return m.formats.length > 0 || !this.satelliteMovieIds.has(m.movieId);
+  }
+
+  visibleMovieCount(): number {
+    return this.draft.movies.filter((m) => this.isVisibleMovieBlock(m)).length;
+  }
+
+  isFormatLinkedToMovie(format: OwnershipFormatDraft, movieId: number): boolean {
+    return (format.linkedMovieIds ?? []).includes(movieId);
+  }
+
+  /** Only catalog / explicitly added cuts — not other collection titles. */
+  versionChoicesFor(host: OwnershipMovieDraft): OwnershipSeedMovie[] {
+    const opts = [...(this.versionOptionsByMovieId.get(host.movieId) ?? [])];
+    return opts
+      .filter((o) => o.Id !== host.movieId)
+      .sort((a, b) =>
+        this.movieTitleBase(a).localeCompare(this.movieTitleBase(b), 'fi', { sensitivity: 'base' })
+      );
+  }
+
+  toggleFormatLinkedMovie(
+    host: OwnershipMovieDraft,
+    format: OwnershipFormatDraft,
+    movie: OwnershipSeedMovie,
+    checked: boolean
+  ): void {
+    if (movie.Id === host.movieId) {
+      return;
+    }
+    // Resolve from draft by key so we mutate the live format row.
+    const liveHost = this.draft.movies.find((m) => m.movieId === host.movieId) ?? host;
+    const liveFormat =
+      liveHost.formats.find((f) => f.key === format.key) ?? format;
+    const set = new Set(liveFormat.linkedMovieIds ?? []);
+    if (checked) {
+      set.add(movie.Id);
+      this.ensureSatelliteMovie(movie);
+    } else {
+      set.delete(movie.Id);
+      this.pruneUnusedSatellite(movie.Id);
+    }
+    liveFormat.linkedMovieIds = [...set];
+  }
+
+  private ensureSatelliteMovie(m: OwnershipSeedMovie): void {
+    this.satelliteMovieIds.add(m.Id);
     if (this.draft.movies.some((x) => x.movieId === m.Id)) {
       return;
     }
@@ -729,16 +859,150 @@ export class OwnershipEditPage implements OnInit, OnDestroy {
       versionLabel: m.VersionLabel ?? null,
       formats: [],
     });
-    this.selectedMovieIndex = this.draft.movies.length - 1;
-    this.sortDraftMovies();
-    this.closeMovieSearch();
+  }
+
+  private pruneUnusedSatellite(movieId: number): void {
+    if (!this.satelliteMovieIds.has(movieId)) {
+      return;
+    }
+    const row = this.draft.movies.find((m) => m.movieId === movieId);
+    if (!row || row.formats.length > 0) {
+      return;
+    }
+    const stillLinked = this.draft.movies.some((m) =>
+      m.formats.some((f) => (f.linkedMovieIds ?? []).includes(movieId))
+    );
+    if (!stillLinked) {
+      this.draft.movies = this.draft.movies.filter((m) => m.movieId !== movieId);
+      this.satelliteMovieIds.delete(movieId);
+    }
+  }
+
+  private markSatellitesFromDraft(): void {
+    this.satelliteMovieIds.clear();
+    const linked = new Set<number>();
+    for (const m of this.draft.movies) {
+      for (const f of m.formats) {
+        for (const id of f.linkedMovieIds ?? []) {
+          linked.add(id);
+        }
+      }
+    }
+    for (const m of this.draft.movies) {
+      if (m.formats.length === 0 && linked.has(m.movieId)) {
+        this.satelliteMovieIds.add(m.movieId);
+        for (const host of this.draft.movies) {
+          if (host.formats.some((f) => (f.linkedMovieIds ?? []).includes(m.movieId))) {
+            this.addVersionOption(host.movieId, {
+              Id: m.movieId,
+              Title: m.title,
+              TitleLanguageId: m.titleLanguageId,
+              Year: m.year,
+              RatioId: m.ratioId,
+              VersionLabel: m.versionLabel ?? null,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  private addVersionOption(hostMovieId: number, m: OwnershipSeedMovie): void {
+    const list = this.versionOptionsByMovieId.get(hostMovieId) ?? [];
+    if (!list.some((x) => x.Id === m.Id)) {
+      list.push(m);
+      this.versionOptionsByMovieId.set(hostMovieId, list);
+    }
+  }
+
+  async loadVersionOptions(movieId: number): Promise<void> {
+    if (this.versionOptionsByMovieId.has(movieId)) {
+      return;
+    }
+    const rels = OwnershipEditPage.VERSION_RELATION_IDS;
+    const [{ data: out }, { data: inn }] = await Promise.all([
+      getSupabase()
+        .from('MovieLink')
+        .select('DestinationId')
+        .eq('SourceId', movieId)
+        .in('RelationId', rels),
+      getSupabase()
+        .from('MovieLink')
+        .select('SourceId')
+        .eq('DestinationId', movieId)
+        .in('RelationId', rels),
+    ]);
+    if (this.destroyed) {
+      return;
+    }
+    const ids = [
+      ...new Set([
+        ...(((out as { DestinationId: number }[]) ?? []).map((r) => r.DestinationId)),
+        ...(((inn as { SourceId: number }[]) ?? []).map((r) => r.SourceId)),
+      ]),
+    ].filter((id) => id !== movieId);
+    if (!ids.length) {
+      this.versionOptionsByMovieId.set(movieId, []);
+      return;
+    }
+    const { data } = await getSupabase()
+      .from('Movie')
+      .select('Id, Title, TitleLanguageId, Year, RatioId, VersionId')
+      .in('Id', ids);
+    if (this.destroyed) {
+      return;
+    }
+    const rows =
+      (data as {
+        Id: number;
+        Title: string;
+        TitleLanguageId: number | null;
+        Year: number | null;
+        RatioId: number | null;
+        VersionId: number | null;
+      }[]) ?? [];
+    const versionIds = [
+      ...new Set(rows.map((r) => r.VersionId).filter((id): id is number => id != null && id > 0)),
+    ];
+    let versionMap = new Map<number, string>();
+    if (versionIds.length) {
+      const { data: versions } = await getSupabase()
+        .from('Version')
+        .select('Id, Value')
+        .in('Id', versionIds);
+      versionMap = new Map(
+        ((versions as { Id: number; Value: string }[]) ?? []).map((v) => [v.Id, String(v.Value)])
+      );
+    }
+    const options: OwnershipSeedMovie[] = rows.map((r) => {
+      const raw =
+        r.VersionId != null && r.VersionId > 0 ? versionMap.get(r.VersionId) ?? null : null;
+      return {
+        Id: r.Id,
+        Title: r.Title,
+        TitleLanguageId: r.TitleLanguageId,
+        Year: r.Year,
+        RatioId: r.RatioId,
+        VersionLabel: raw && raw !== '-' ? raw : null,
+      };
+    });
+    this.versionOptionsByMovieId.set(movieId, options);
   }
 
   async removeMovieFromDraft(index: number): Promise<void> {
     if (!(await confirmAction('Poistetaanko elokuva tästä omistuksesta?'))) {
       return;
     }
+    const removed = this.draft.movies[index];
     this.draft.movies.splice(index, 1);
+    if (removed) {
+      this.satelliteMovieIds.delete(removed.movieId);
+      for (const m of this.draft.movies) {
+        for (const f of m.formats) {
+          f.linkedMovieIds = (f.linkedMovieIds ?? []).filter((id) => id !== removed.movieId);
+        }
+      }
+    }
     if (this.selectedMovieIndex >= this.draft.movies.length) {
       this.selectedMovieIndex = Math.max(0, this.draft.movies.length - 1);
     }
@@ -958,8 +1222,19 @@ export class OwnershipEditPage implements OnInit, OnDestroy {
       if (this.ownershipId) {
         this.draft.id = this.ownershipId;
       }
+      const movieIds = [
+        ...new Set([
+          this.movieId,
+          ...this.draft.movies.map((m) => m.movieId),
+          ...this.draft.movies.flatMap((m) =>
+            m.formats.flatMap((f) => f.linkedMovieIds ?? [])
+          ),
+        ]),
+      ].filter((id) => id > 0);
       await this.ownershipApi.save(userId, this.draft);
-      this.detailRefresh.movieSaved(this.movieId);
+      for (const id of movieIds) {
+        this.detailRefresh.movieSaved(id);
+      }
       await this.router.navigate(['/movie', this.movieId]);
     } catch (e: unknown) {
       this.message.set(errorMessage(e));

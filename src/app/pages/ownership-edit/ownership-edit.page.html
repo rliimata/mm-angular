@@ -192,9 +192,10 @@
 
           <div class="movies-grid">
           @for (m of draft.movies; track m.movieId; let mi = $index) {
+            @if (isVisibleMovieBlock(m)) {
             <div
               class="movie-block"
-              [class.media-target]="draft.movies.length > 1 && selectedMovieIndex === mi"
+              [class.media-target]="visibleMovieCount() > 1 && selectedMovieIndex === mi"
               (click)="selectMovieForMedia(mi)"
             >
               <div class="movie-block-head">
@@ -230,7 +231,7 @@
                       </ul>
                     }
                   </div>
-                  @if (draft.movies.length > 1) {
+                  @if (visibleMovieCount() > 1) {
                     <button type="button" class="danger-btn" (click)="removeMovieFromDraft(mi)">Poista</button>
                   }
                 </div>
@@ -268,6 +269,43 @@
                       <div class="media-art digital" aria-hidden="true" title="Digital Copy">DC</div>
                     }
                     <div class="media-section-title">{{ formatLabel(f.mediaFormatId) }}</div>
+                  </div>
+
+                  <div class="media-versions" (click)="$event.stopPropagation()">
+                    <div class="field-head">
+                      <span class="field-caption">Versiot tällä medialla</span>
+                      <button
+                        type="button"
+                        class="icon-btn icon-add"
+                        (click)="openVersionSearchForFormat(m, f)"
+                        aria-label="Lisää versio medialle"
+                        title="Lisää versio"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <label class="check version-check version-host">
+                      <input type="checkbox" [checked]="true" disabled />
+                      {{ movieTitleBase(m) }}
+                      @if (movieVersionLabel(m); as ver) {
+                        - <span class="version-name">{{ ver }}</span>
+                      }
+                    </label>
+                    @for (opt of versionChoicesFor(m); track opt.Id) {
+                      <label class="check version-check">
+                        <input
+                          type="checkbox"
+                          [checked]="isFormatLinkedToMovie(f, opt.Id)"
+                          (change)="
+                            toggleFormatLinkedMovie(m, f, opt, $any($event.target).checked)
+                          "
+                        />
+                        {{ movieTitleBase(opt) }}
+                        @if (movieVersionLabel(opt); as ver) {
+                          - <span class="version-name">{{ ver }}</span>
+                        }
+                      </label>
+                    }
                   </div>
 
                   <div class="media-fields-stack">
@@ -454,6 +492,7 @@
               }
               </div>
             </div>
+            }
           }
           </div>
         </div>
@@ -479,16 +518,16 @@
   <div class="modal-backdrop nested" (click)="closeMovieSearch()">
     <div class="modal modal-small" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
       <header class="modal-head">
-        <h2>Lisää elokuva</h2>
+        <h2>{{ linkFormatTarget ? 'Lisää versio medialle' : 'Lisää elokuva' }}</h2>
       </header>
       <div class="modal-body">
         <label class="block">
           Haku
           <input
+            #movieSearchInput
             [(ngModel)]="movieSearchQuery"
             name="movieSearchQuery"
             (ngModelChange)="onMovieSearchInput()"
-            autofocus
           />
         </label>
         @if (movieSearchResults.length) {

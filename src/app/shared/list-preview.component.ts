@@ -13,7 +13,6 @@ import {
   roleSingularLabel,
   swapNames,
   titleWithYear,
-  versionDisplayLabel,
 } from '../core/format.util';
 import { AppDateTime, LookupRow } from '../core/models';
 import { LookupService } from '../data/lookup.service';
@@ -79,7 +78,10 @@ type PreviewReview = {
                 <div class="lp-main">
                   <h2>
                     <a [routerLink]="['/movie', movie()!.movie.Id]" (click)="preview.close()">
-                      {{ movieHeading(movie()!) }}
+                      {{ movieHeadingTitle(movie()!) }}
+                      @if (movieHeadingVersion(movie()!); as ver) {
+                        – <span class="version-name">{{ ver }}</span>
+                      }
                     </a>
                     @if (ageLabel(movie()!.movie.Age)) {
                       @if (ageImageSrc(movie()!.movie.Age); as ageSrc) {
@@ -385,6 +387,11 @@ type PreviewReview = {
 
     h2 a:hover {
       color: #1f4b7a;
+    }
+
+    .version-name {
+      color: #8b4513;
+      font-weight: 700;
     }
 
     .lp-age-image {
@@ -904,14 +911,23 @@ export class ListPreviewComponent implements OnDestroy {
   }
 
   movieHeading(d: MovieDetails): string {
-    const withYear = titleWithYear(
+    const title = this.movieHeadingTitle(d);
+    const ver = this.movieHeadingVersion(d);
+    return ver ? `${title} – ${ver}` : title;
+  }
+
+  movieHeadingTitle(d: MovieDetails): string {
+    return titleWithYear(
       d.movie.Title,
       d.movie.TitleLanguageId,
       d.movie.Year,
       d.movie.DistributionId
     );
-    const ver = versionDisplayLabel(d.version);
-    return ver ? `${withYear} – ${ver}` : withYear;
+  }
+
+  movieHeadingVersion(d: MovieDetails): string {
+    const v = d.version?.trim() ?? '';
+    return !v || v === '-' ? '' : v;
   }
 
   readonly ageLabel = ageRatingLabel;

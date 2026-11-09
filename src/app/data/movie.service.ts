@@ -278,14 +278,22 @@ export class MovieService {
       return { rows: [], count: 0 };
     }
     if (mode === 'text' && term) {
-      // Title + Aka only; exact matches ranked first (handled below).
-      const [{ data: akaHits }, { data: titleHits }] = await Promise.all([
-        getSupabase().from('Aka').select('MovieId, Title, TitleLanguageId').ilike('Title', `%${term}%`),
-        getSupabase()
-          .from('Movie')
-          .select('Id, Title, Year, DistributionId, TitleLanguageId, VersionId')
-          .ilike('Title', `%${term}%`),
-      ]);
+      // Title + Aka; ignore apostrophes/punctuation differences (e.g. God's Pocket).
+      const tokens = searchTokens(term);
+      if (!tokens.length) {
+        return { rows: [], count: 0 };
+      }
+
+      let titleQuery = getSupabase()
+        .from('Movie')
+        .select('Id, Title, Year, DistributionId, TitleLanguageId, VersionId');
+      let akaQuery = getSupabase().from('Aka').select('MovieId, Title, TitleLanguageId');
+      for (const tok of tokens) {
+        titleQuery = titleQuery.ilike('Title', `%${tok}%`);
+        akaQuery = akaQuery.ilike('Title', `%${tok}%`);
+      }
+
+      const [{ data: akaHits }, { data: titleHits }] = await Promise.all([akaQuery, titleQuery]);
       const titleMovies = (titleHits as Movie[]) ?? [];
       const akaRows =
         (akaHits as { MovieId: number; Title: string; TitleLanguageId: number | null }[]) ?? [];
@@ -314,31 +322,43 @@ export class MovieService {
         akaByMovie.set(a.MovieId, list);
       }
 
-      const termLower = term.toLowerCase();
+      const termFolded = foldSearchText(term);
       const norm = (value: string, langId: number | null | undefined) => {
         const raw = decodeEntities(value).trim().toLowerCase();
         const swapped = swapTitle(value, langId).trim().toLowerCase();
-        return [...new Set([raw, swapped].filter(Boolean))];
+        return [...new Set([raw, swapped, foldSearchText(raw), foldSearchText(swapped)].filter(Boolean))];
+      };
+      const titleMatches = (m: Movie) => {
+        const titles = norm(m.Title, m.TitleLanguageId);
+        const akas = akaByMovie.get(m.Id) ?? [];
+        const akaTitles = akas.flatMap((a) => norm(a.Title, a.TitleLanguageId));
+        const all = [...titles, ...akaTitles];
+        return tokens.every((tok) => all.some((t) => t.includes(tok)));
       };
       const rankMovie = (m: Movie): number => {
         const titles = norm(m.Title, m.TitleLanguageId);
-        if (titles.includes(termLower)) {
+        if (titles.includes(termFolded) || titles.includes(term.toLowerCase())) {
           return 0; // exact title
         }
         const akas = akaByMovie.get(m.Id) ?? [];
-        if (akas.some((a) => norm(a.Title, a.TitleLanguageId).includes(termLower))) {
+        const akaTitles = akas.flatMap((a) => norm(a.Title, a.TitleLanguageId));
+        if (akaTitles.includes(termFolded) || akaTitles.includes(term.toLowerCase())) {
           return 1; // exact aka
         }
-        if (titles.some((t) => t.startsWith(termLower))) {
+        if (titles.some((t) => t.startsWith(termFolded) || t.startsWith(term.toLowerCase()))) {
           return 2;
         }
-        if (akas.some((a) => norm(a.Title, a.TitleLanguageId).some((t) => t.startsWith(termLower)))) {
+        if (
+          akaTitles.some((t) => t.startsWith(termFolded) || t.startsWith(term.toLowerCase()))
+        ) {
           return 3;
         }
         return 4; // partial title/aka
       };
 
-      let ranked = [...byId.values()].sort((a, b) => {
+      let ranked = [...byId.values()]
+        .filter(titleMatches)
+        .sort((a, b) => {
         const ra = rankMovie(a);
         const rb = rankMovie(b);
         if (ra !== rb) {
@@ -666,28 +686,46 @@ export class MovieService {
         const v = versionMap.get(m.VersionId) ?? '';
         return !v || v === '-' ? '' : v;
       };
+      const versionRelationIds = new Set([3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+      const relationLabelFor = (
+        relationId: number,
+        version: string,
+        incoming: boolean
+      ): string => {
+        // Prefer the related cut's version name: "Extended Cut: Title - Extended Cut (2007)".
+        if (versionRelationIds.has(relationId) && version) {
+          return version;
+        }
+        if (incoming) {
+          return reverseMovieRelationLabel(relationId);
+        }
+        return relMap.get(relationId) ?? String(relationId);
+      };
+
       // Incoming with reverse labels, then outgoing; sequel links (Jatkoa…) first.
       related = [
         ...inRows.map((r) => {
           const m = movieMap.get(r.SourceId);
+          const version = versionOf(m);
           return {
             MovieId: r.SourceId,
             Title: m ? swapTitle(m.Title, m.TitleLanguageId) : `#${r.SourceId}`,
             Year: m?.Year ?? null,
-            Version: versionOf(m),
-            Relation: reverseMovieRelationLabel(r.RelationId),
+            Version: version,
+            Relation: relationLabelFor(r.RelationId, version, true),
             RelationId: r.RelationId,
             Incoming: true,
           };
         }),
         ...outRows.map((r) => {
           const m = movieMap.get(r.DestinationId);
+          const version = versionOf(m);
           return {
             MovieId: r.DestinationId,
             Title: m ? swapTitle(m.Title, m.TitleLanguageId) : `#${r.DestinationId}`,
             Year: m?.Year ?? null,
-            Version: versionOf(m),
-            Relation: relMap.get(r.RelationId) ?? String(r.RelationId),
+            Version: version,
+            Relation: relationLabelFor(r.RelationId, version, false),
             RelationId: r.RelationId,
             Incoming: false,
           };
@@ -1011,4 +1049,23 @@ export class MovieService {
       throw error;
     }
   }
+}
+
+/** Lowercase + strip apostrophes/punctuation so "God's" ≈ "Gods". */
+function foldSearchText(value: string): string {
+  return decodeEntities(value)
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[''`´′’ʻʼ]/g, '')
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function searchTokens(term: string): string[] {
+  return foldSearchText(term)
+    .split(/\s+/)
+    .map((t) => t.replace(/[%_]/g, ''))
+    .filter((t) => t.length > 0);
 }

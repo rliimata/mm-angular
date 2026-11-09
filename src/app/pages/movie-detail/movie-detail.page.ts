@@ -18,7 +18,6 @@ import {
   swapNames,
   swapTitle,
   titleWithYear,
-  versionDisplayLabel,
 } from '../../core/format.util';
 import { PageTitleService } from '../../core/page-title.service';
 import { PHONE_MEDIA_QUERY } from '../../core/viewport.util';
@@ -73,7 +72,6 @@ export class MovieDetailPage implements OnInit, OnDestroy {
   readonly swapNames = swapNames;
   readonly swapTitle = swapTitle;
   readonly titleWithYear = titleWithYear;
-  readonly versionDisplayLabel = versionDisplayLabel;
   readonly isCassette = isCassette;
   readonly isDisc = isDisc;
   readonly mediaFormatDiscColor = mediaFormatDiscColor;

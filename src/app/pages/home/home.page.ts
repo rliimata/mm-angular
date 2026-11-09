@@ -1,6 +1,6 @@
 import { AfterViewInit, Component, ElementRef, OnInit, ViewChild, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { errorMessage } from '../../core/error.util';
 import { parseAppDateTime } from '../../core/datetime.util';
@@ -8,16 +8,13 @@ import {
   formatMovieListTitleParts,
   MovieListTitleParts,
   swapNames,
+  titleWithYear,
 } from '../../core/format.util';
 import { PageTitleService } from '../../core/page-title.service';
 import { LookupRow, Person } from '../../core/models';
 import { LookupService } from '../../data/lookup.service';
 import { MovieListItem, MovieSearchMode, MovieService } from '../../data/movie.service';
-import {
-  ownershipListLabel,
-  OwnershipService,
-  OwnershipSummary,
-} from '../../data/ownership.service';
+import { OwnershipService, OwnershipSummary } from '../../data/ownership.service';
 import { PersonService } from '../../data/person.service';
 import { ListPreviewService } from '../../shared/list-preview.service';
 
@@ -74,13 +71,29 @@ export class HomePage implements OnInit, AfterViewInit {
     return age >= 0 ? `, ${age}` : '';
   }
 
-  ownershipLabel(o: OwnershipSummary): string {
-    return ownershipListLabel(o);
+  ownershipRowTrack(o: OwnershipSummary): string {
+    return `${o.Id}-${o.movies[0]?.Id ?? 0}`;
+  }
+
+  ownershipRowParts(o: OwnershipSummary): {
+    title: string;
+    version: string;
+    formats: string;
+  } {
+    const m = o.movies[0];
+    if (!m) {
+      return { title: `Omistus #${o.Id}`, version: '', formats: '' };
+    }
+    const title = titleWithYear(m.Title, m.TitleLanguageId, m.Year);
+    const version = m.VersionLabel?.trim() && m.VersionLabel !== '-' ? m.VersionLabel.trim() : '';
+    const formats = (m.formatLabels ?? []).filter(Boolean).join('+');
+    return { title, version, formats };
   }
 
   constructor(
     readonly auth: AuthService,
     private readonly router: Router,
+    private readonly route: ActivatedRoute,
     private readonly moviesApi: MovieService,
     private readonly peopleApi: PersonService,
     private readonly ownershipApi: OwnershipService,
@@ -109,8 +122,40 @@ export class HomePage implements OnInit, AfterViewInit {
     this.pageTitle.set('Haku');
     this.scores = await this.lookups.get('Score');
     void this.loadCatalogCounts();
-    // Empty text search: show counts only, do not fetch movies from DB.
+    this.restoreFromQuery();
+    if (this.mode !== 'text' || this.query.trim()) {
+      await this.runSearch(false);
+    }
     this.focusSearchInput();
+  }
+
+  private restoreFromQuery(): void {
+    const qp = this.route.snapshot.queryParamMap;
+    const mode = qp.get('mode') as HomeMode | null;
+    if (mode) {
+      this.mode = mode;
+    }
+    const q = qp.get('q');
+    if (q != null) {
+      this.query = q;
+    }
+    const page = Number(qp.get('page') || '');
+    if (Number.isFinite(page) && page > 0) {
+      this.page = page;
+    }
+  }
+
+  private syncQueryToUrl(): void {
+    const queryParams: Record<string, string | null> = {
+      q: this.mode === 'text' && this.query.trim() ? this.query.trim() : null,
+      mode: this.mode !== 'text' ? this.mode : null,
+      page: this.page > 1 ? String(this.page) : null,
+    };
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams,
+      replaceUrl: true,
+    });
   }
 
   private async loadCatalogCounts(): Promise<void> {
@@ -182,6 +227,7 @@ export class HomePage implements OnInit, AfterViewInit {
         this.total.set(0);
         const rows = await this.peopleApi.listBirthdaysToday();
         this.people.set(rows);
+        this.syncQueryToUrl();
         return;
       }
 
@@ -191,6 +237,7 @@ export class HomePage implements OnInit, AfterViewInit {
         this.ownerships.set([]);
         this.ownershipTotal.set(0);
         this.total.set(0);
+        this.syncQueryToUrl();
         return;
       }
 
@@ -200,12 +247,14 @@ export class HomePage implements OnInit, AfterViewInit {
         if (!userId) {
           this.ownerships.set([]);
           this.ownershipTotal.set(0);
+          this.syncQueryToUrl();
           return;
         }
         const res = await this.ownershipApi.listForUser(userId, this.page, this.pageSize);
         this.ownerships.set(res.rows);
         this.ownershipTotal.set(res.count);
         this.total.set(0);
+        this.syncQueryToUrl();
         return;
       }
 
@@ -216,6 +265,7 @@ export class HomePage implements OnInit, AfterViewInit {
         this.movies.set([]);
         this.people.set([]);
         this.total.set(0);
+        this.syncQueryToUrl();
         return;
       }
 
@@ -236,6 +286,7 @@ export class HomePage implements OnInit, AfterViewInit {
       this.movies.set(movieRes.rows);
       this.total.set(movieRes.count);
       this.people.set(peopleRes.rows);
+      this.syncQueryToUrl();
     } catch (e: unknown) {
       this.error.set(errorMessage(e));
     } finally {

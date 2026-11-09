@@ -104,13 +104,23 @@
       </div>
       <table>
         <tbody>
-          @for (o of ownerships(); track o.Id) {
+          @for (o of ownerships(); track ownershipRowTrack(o)) {
             <tr>
               <td>
                 @if (o.movies.length) {
-                  <a [routerLink]="['/movie', o.movies[0].Id]">{{ ownershipLabel(o) }}</a>
+                  @if (ownershipRowParts(o); as p) {
+                    <a [routerLink]="['/movie', o.movies[0].Id]">
+                      {{ p.title }}
+                      @if (p.version) {
+                        – <span class="version-name">{{ p.version }}</span>
+                      }
+                    </a>
+                    @if (p.formats) {
+                      <span class="ownership-mark">{{ p.formats }}</span>
+                    }
+                  }
                 } @else {
-                  {{ ownershipLabel(o) }}
+                  Omistus #{{ o.Id }}
                 }
               </td>
               <td class="row-actions">

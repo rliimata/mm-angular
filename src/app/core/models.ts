@@ -105,6 +105,11 @@ export interface OwnershipFormatDraft {
   audioIds: number[];
   /** ReleaseSubtitle ids — FI/EN checkboxes. */
   subtitleIds: number[];
+  /**
+   * Other movie versions that share this same physical medium
+   * (e.g. theatrical + director's cut on one disc).
+   */
+  linkedMovieIds?: number[];
 }
 
 export interface OwnershipMovieDraft {
