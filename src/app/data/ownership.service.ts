@@ -1187,7 +1187,22 @@ export class OwnershipService {
     if (hit) {
       throw new Error(`Arvo "${hit.Value}" on jo olemassa.`);
     }
-    const { data, error } = await getSupabase().from(table).insert({ Value: trimmed }).select('Id').single();
+    // Many lookup tables have no identity — allocate like PHP MAX(Id)+1 (skip 65535).
+    const { data: maxRows, error: maxErr } = await getSupabase()
+      .from(table)
+      .select('Id')
+      .neq('Id', 65535)
+      .order('Id', { ascending: false })
+      .limit(1);
+    if (maxErr) {
+      throw maxErr;
+    }
+    const nextId = (((maxRows as { Id: number }[]) ?? [])[0]?.Id ?? 0) + 1;
+    const { data, error } = await getSupabase()
+      .from(table)
+      .insert({ Id: nextId, Value: trimmed })
+      .select('Id')
+      .single();
     if (error) {
       throw error;
     }

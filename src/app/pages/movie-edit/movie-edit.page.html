@@ -15,6 +15,17 @@
           <button type="button" class="primary" (click)="save()" [disabled]="saving() || !canSave()">
             Tallenna
           </button>
+          @if (id) {
+            <button
+              type="button"
+              class="ghost"
+              (click)="saveCopy()"
+              [disabled]="saving() || !canSave()"
+              title="Luo uusi elokuva näillä tiedoilla (esim. uusi versio)"
+            >
+              Tallenna kopio
+            </button>
+          }
           <button type="button" class="ghost cancel-btn" (click)="close()">Peruuta</button>
         </div>
       </header>
@@ -589,11 +600,7 @@
                       <ul class="hits">
                         @for (m of movieLinkHits; track m.Id) {
                           <li>
-                            <span
-                              >{{ swapTitle(m.Title, m.TitleLanguageId) }}@if (m.Year) {
-                                ({{ m.Year }})
-                              }</span
-                            >
+                            <span>{{ movieLinkHitLabel(m) }}</span>
                             <button
                               type="button"
                               class="icon-btn icon-add" tabindex="-1"

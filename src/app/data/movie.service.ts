@@ -766,16 +766,9 @@ export class MovieService {
         const v = versionMap.get(m.VersionId) ?? '';
         return !v || v === '-' ? '' : v;
       };
-      const versionRelationIds = new Set([3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
-      const relationLabelFor = (
-        relationId: number,
-        version: string,
-        incoming: boolean
-      ): string => {
-        // Prefer the related cut's version name: "Extended Cut: Title - Extended Cut (2007)".
-        if (versionRelationIds.has(relationId) && version) {
-          return version;
-        }
+      const relationLabelFor = (relationId: number, incoming: boolean): string => {
+        // Use MovieRelation type (e.g. "Extended Edition"), not the cut's Version name
+        // ("Extended Dance Edition") — that belongs in the linked title.
         if (incoming) {
           return reverseMovieRelationLabel(relationId);
         }
@@ -792,7 +785,7 @@ export class MovieService {
             Title: m ? swapTitle(m.Title, m.TitleLanguageId) : `#${r.SourceId}`,
             Year: m?.Year ?? null,
             Version: version,
-            Relation: relationLabelFor(r.RelationId, version, true),
+            Relation: relationLabelFor(r.RelationId, true),
             RelationId: r.RelationId,
             Incoming: true,
           };
@@ -805,7 +798,7 @@ export class MovieService {
             Title: m ? swapTitle(m.Title, m.TitleLanguageId) : `#${r.DestinationId}`,
             Year: m?.Year ?? null,
             Version: version,
-            Relation: relationLabelFor(r.RelationId, version, false),
+            Relation: relationLabelFor(r.RelationId, false),
             RelationId: r.RelationId,
             Incoming: false,
           };
@@ -1055,9 +1048,8 @@ export class MovieService {
     }
     if (links.movieLinks) {
       const outgoing = links.movieLinks.filter((l) => !l.reverse);
-      const reverseSequels = links.movieLinks.filter(
-        (l) => l.reverse && l.relationId === 1
-      );
+      const reverseByRelation = (relationId: number) =>
+        links.movieLinks!.filter((l) => l.reverse && l.relationId === relationId);
 
       // Outgoing links from this movie (Jatkoa → sequel, remake, cuts, …).
       await getSupabase().from('MovieLink').delete().eq('SourceId', movieId);
@@ -1074,22 +1066,25 @@ export class MovieService {
         }
       }
 
-      // "Jatkoa elokuvalle": other film → this film as sequel (RelationId 1).
-      await getSupabase()
-        .from('MovieLink')
-        .delete()
-        .eq('DestinationId', movieId)
-        .eq('RelationId', 1);
-      if (reverseSequels.length) {
-        const { error } = await getSupabase().from('MovieLink').insert(
-          reverseSequels.map((l) => ({
-            SourceId: l.destinationId,
-            DestinationId: movieId,
-            RelationId: 1,
-          }))
-        );
-        if (error) {
-          throw error;
+      // Reverse UI links: other film → this film (Jatkoa elokuvalle / Remake elokuvasta).
+      for (const relationId of [1, 2]) {
+        const reverseLinks = reverseByRelation(relationId);
+        await getSupabase()
+          .from('MovieLink')
+          .delete()
+          .eq('DestinationId', movieId)
+          .eq('RelationId', relationId);
+        if (reverseLinks.length) {
+          const { error } = await getSupabase().from('MovieLink').insert(
+            reverseLinks.map((l) => ({
+              SourceId: l.destinationId,
+              DestinationId: movieId,
+              RelationId: relationId,
+            }))
+          );
+          if (error) {
+            throw error;
+          }
         }
       }
     }

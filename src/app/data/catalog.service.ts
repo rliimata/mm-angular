@@ -16,6 +16,24 @@ export type CatalogTable =
 
 @Injectable({ providedIn: 'root' })
 export class CatalogService {
+  /**
+   * Lookup tables (Version, Ratio, …) have no identity — PHP used MAX(Id)+1 excluding 65535.
+   * AgeRating is the exception (identity column).
+   */
+  private async nextId(table: Exclude<CatalogTable, 'AgeRating'>): Promise<number> {
+    const { data, error } = await getSupabase()
+      .from(table)
+      .select('Id')
+      .neq('Id', 65535)
+      .order('Id', { ascending: false })
+      .limit(1);
+    if (error) {
+      throw error;
+    }
+    const max = ((data as { Id: number }[]) ?? [])[0]?.Id ?? 0;
+    return max + 1;
+  }
+
   async addValue(table: CatalogTable, value: string): Promise<number> {
     const trimmed = value.trim();
     if (!trimmed) {
@@ -52,7 +70,12 @@ export class CatalogService {
     if (hit) {
       throw new Error(`Arvo "${hit.Value}" on jo olemassa.`);
     }
-    const { data, error } = await getSupabase().from(table).insert({ Value: trimmed }).select('Id').single();
+    const id = await this.nextId(table);
+    const { data, error } = await getSupabase()
+      .from(table)
+      .insert({ Id: id, Value: trimmed })
+      .select('Id')
+      .single();
     if (error) {
       throw error;
     }

@@ -122,28 +122,23 @@
 
 .movies-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  /* 1 movie → full width; more movies share the row when space allows. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
   gap: 0.85rem;
   align-items: start;
-
-  @media (min-width: 720px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  @media (min-width: 1100px) {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
 .movie-block {
   display: grid;
   gap: 0.55rem;
+  width: 100%;
   min-width: 0;
   align-content: start;
   padding: 0.75rem;
   border: 1px solid #e2e7ec;
   border-radius: 8px;
   background: #fff;
+  box-sizing: border-box;
 }
 
 .movie-block.media-target {
@@ -213,21 +208,24 @@
 
 .media-grid {
   display: grid;
-  /* One card → full width; two+ → side by side when space allows. */
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  /* 1 media → fill movie card; 2+ sit side by side and share remaining width. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
   gap: 0.75rem;
   align-items: stretch;
+  width: 100%;
 }
 
 .media-section {
   position: relative;
+  width: 100%;
+  min-width: 0;
   padding: 0.75rem 2.25rem 0.75rem 0.75rem;
   border: 1px solid #e2e7ec;
   border-radius: 8px;
   background: #f8fafc;
   display: grid;
   gap: 0.55rem;
-  min-width: 0;
+  box-sizing: border-box;
 }
 
 .media-remove {
