@@ -20,7 +20,8 @@ export type MovieSearchMode =
   | 'rated'
   | 'owned'
   | 'watchlist'
-  | 'memolist';
+  | 'memolist'
+  | 'wishlist';
 
 export interface MovieListItem extends Movie {
   FinnishTitle?: string | null;
@@ -95,7 +96,13 @@ export class MovieService {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    if (mode === 'rated' || mode === 'owned' || mode === 'watchlist' || mode === 'memolist') {
+    if (
+      mode === 'rated' ||
+      mode === 'owned' ||
+      mode === 'watchlist' ||
+      mode === 'memolist' ||
+      mode === 'wishlist'
+    ) {
       if (!userId) {
         return { rows: [], count: 0 };
       }
@@ -131,8 +138,9 @@ export class MovieService {
         return { rows: pageRows, count: count ?? rows.length };
       }
 
-      if (mode === 'watchlist' || mode === 'memolist') {
-        const table = mode === 'watchlist' ? 'Watchlist' : 'Memolist';
+      if (mode === 'watchlist' || mode === 'memolist' || mode === 'wishlist') {
+        const table =
+          mode === 'watchlist' ? 'Watchlist' : mode === 'memolist' ? 'Memolist' : 'Wishlist';
         const { data: links, error, count } = await getSupabase()
           .from(table)
           .select('MovieId', { count: 'exact' })
@@ -1121,6 +1129,8 @@ export class MovieService {
       await getSupabase().from('OwnershipMovie').delete().eq('MovieId', id);
     }
     await getSupabase().from('Watchlist').delete().eq('MovieId', id);
+    await getSupabase().from('Memolist').delete().eq('MovieId', id);
+    await getSupabase().from('Wishlist').delete().eq('MovieId', id);
 
     const tables = [
       'Aka',

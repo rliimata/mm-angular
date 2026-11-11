@@ -187,7 +187,12 @@
 
           <label class="block">
             Tietoja
-            <textarea rows="2" [(ngModel)]="draft.notes" name="ownershipNotes"></textarea>
+            <textarea
+              rows="2"
+              [(ngModel)]="draft.notes"
+              name="ownershipNotes"
+              appSentenceCase
+            ></textarea>
           </label>
 
           <div class="movies-grid">

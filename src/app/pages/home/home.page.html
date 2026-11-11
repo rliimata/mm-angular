@@ -8,6 +8,7 @@
     <button type="button" [class.active]="mode === 'shelf'" (click)="setMode('shelf')">Arvonta</button>
     <button type="button" [class.active]="mode === 'watchlist'" (click)="setMode('watchlist')">Katselulista</button>
     <button type="button" [class.active]="mode === 'memolist'" (click)="setMode('memolist')">Muistilista</button>
+    <button type="button" [class.active]="mode === 'wishlist'" (click)="setMode('wishlist')">Toivelista</button>
     <button type="button" [class.active]="mode === 'birthdays'" (click)="setMode('birthdays')">Synttärit</button>
   </div>
 
@@ -19,7 +20,12 @@
         name="query"
         [(ngModel)]="query"
         placeholder="Hae elokuvia ja henkilöitä…"
+        autocapitalize="sentences"
+        autocomplete="off"
       />
+      <button type="submit" class="search-go" title="Hae" aria-label="Hae">
+        <span class="search-go-icon" aria-hidden="true"></span>
+      </button>
     </form>
   }
 

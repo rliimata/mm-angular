@@ -2,28 +2,31 @@
   <div class="edit-layout">
     <app-media-image
       kind="movie"
-      [entityId]="id"
+      [entityId]="id || sourceId"
       [alt]="title"
-      [editable]="true"
+      [editable]="!!id && !copyMode"
       [imageSearchQuery]="imageSearchQuery()"
     />
 
     <div class="edit-main">
       <header class="edit-head">
-        <h1>{{ id ? 'Muokkaa elokuvaa' : 'Uusi elokuva' }}</h1>
+        <h1>
+          {{ copyMode ? 'Kopioi elokuva' : id ? 'Muokkaa elokuvaa' : 'Uusi elokuva' }}
+        </h1>
         <div class="head-actions">
-          <button type="button" class="primary" (click)="save()" [disabled]="saving() || !canSave()">
-            Tallenna
-          </button>
-          @if (id) {
+          @if (copyMode) {
             <button
               type="button"
-              class="ghost"
-              (click)="saveCopy()"
+              class="primary"
+              (click)="save(true)"
               [disabled]="saving() || !canSave()"
-              title="Luo uusi elokuva näillä tiedoilla (esim. uusi versio)"
+              title="Tallenna uutena elokuvana"
             >
               Tallenna kopio
+            </button>
+          } @else {
+            <button type="button" class="primary" (click)="save()" [disabled]="saving() || !canSave()">
+              Tallenna
             </button>
           }
           <button type="button" class="ghost cancel-btn" (click)="close()">Peruuta</button>
@@ -79,6 +82,7 @@
                     [(ngModel)]="title"
                     name="title"
                     required
+                    appSentenceCase
                     (blur)="onTitleBlur()"
                   />
                 </label>
@@ -133,14 +137,24 @@
                   @for (a of aka; track $index) {
                     <li>
                       @if (editingAkaIndex === $index) {
-                        <input [(ngModel)]="akaTitle" [name]="'akaEditTitle' + $index" />
-                        <app-search-select
-                          class="stretch"
-                          [options]="languages"
-                          [(ngModel)]="akaLangId"
-                          [name]="'akaEditLang' + $index"
-                          placeholder="Kieli…"
+                        <input
+                          [(ngModel)]="akaTitle"
+                          [name]="'akaEditTitle' + $index"
+                          appSentenceCase
                         />
+                        <div class="radio-row" role="radiogroup" [attr.aria-label]="'Aka-kieli ' + $index">
+                          @for (lang of akaLanguages; track lang.Id) {
+                            <label class="radio">
+                              <input
+                                type="radio"
+                                [name]="'akaEditLang' + $index"
+                                [checked]="akaLangId === lang.Id"
+                                (change)="akaLangId = lang.Id"
+                              />
+                              {{ lang.Value }}
+                            </label>
+                          }
+                        </div>
                         <button type="button" class="ghost mini" (click)="addAka()">OK</button>
                         <button type="button" class="ghost mini" (click)="cancelAkaEdit()">Peru</button>
                       } @else {
@@ -164,30 +178,39 @@
                   }
                 </ul>
                 @if (editingAkaIndex == null) {
-                  <div class="inline-add">
+                  <div class="inline-add aka-add">
                     <input
                       [(ngModel)]="akaTitle"
                       name="akaTitle"
                       placeholder="Nimi"
+                      appSentenceCase
                       enterkeyhint="done"
                       (keydown.enter)="$event.preventDefault(); addAka()"
                     />
-                    <app-search-select
-                      class="stretch"
-                      [options]="languages"
-                      [(ngModel)]="akaLangId"
-                      name="akaLangId"
-                      placeholder="Kieli…"
-                    />
-                    <button
-                      type="button"
-                      class="icon-btn icon-add" tabindex="-1"
-                      (click)="addAka()"
-                      aria-label="Lisää aka"
-                      title="Lisää"
-                    >
-                      +
-                    </button>
+                    <div class="aka-add-end">
+                      <div class="radio-row" role="radiogroup" aria-label="Aka-kieli">
+                        @for (lang of akaLanguages; track lang.Id) {
+                          <label class="radio">
+                            <input
+                              type="radio"
+                              name="akaLangId"
+                              [checked]="akaLangId === lang.Id"
+                              (change)="akaLangId = lang.Id"
+                            />
+                            {{ lang.Value }}
+                          </label>
+                        }
+                      </div>
+                      <button
+                        type="button"
+                        class="icon-btn icon-add" tabindex="-1"
+                        (click)="addAka()"
+                        aria-label="Lisää aka"
+                        title="Lisää"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
                 }
               </section>
@@ -244,7 +267,13 @@
 
               <section class="plain-block">
                 <h2>Kuvaus</h2>
-                <textarea rows="4" [(ngModel)]="text" name="text" placeholder="Elokuvan kuvaus…"></textarea>
+                <textarea
+                  rows="4"
+                  [(ngModel)]="text"
+                  name="text"
+                  placeholder="Elokuvan kuvaus…"
+                  appSentenceCase
+                ></textarea>
               </section>
 
               <section class="plain-block">
@@ -272,6 +301,7 @@
                     name="triviaDraft"
                     placeholder="Uusi trivia…"
                     autocomplete="off"
+                    appSentenceCase
                     enterkeyhint="done"
                     (keydown.enter)="$event.preventDefault(); addTrivia()"
                   />
@@ -316,7 +346,7 @@
 
               <div class="labeled-field">
                 <div class="field-head">
-                  <span class="field-caption">Maat</span>
+                  <span class="field-caption">Valmistusmaat</span>
                   <button
                     type="button"
                     class="icon-btn icon-add" tabindex="-1"
@@ -331,7 +361,7 @@
                   [options]="countries"
                   [(ngModel)]="countryIds"
                   name="countryIds"
-                  placeholder="Valitse maat…"
+                  placeholder="Valitse valmistusmaat…"
                   [allowDelete]="true"
                   (deleteOption)="deleteCatalogOption('Country', $event)"
                 />
@@ -339,7 +369,7 @@
 
               <div class="labeled-field">
                 <div class="field-head">
-                  <span class="field-caption">Ääni</span>
+                  <span class="field-caption">Ääniformaatit</span>
                   <button
                     type="button"
                     class="icon-btn icon-add" tabindex="-1"
@@ -381,34 +411,20 @@
                 <div class="labeled-field">
                   <div class="field-head">
                     <span class="field-caption">Levitys</span>
-                    <button
-                      type="button"
-                      class="icon-btn icon-add" tabindex="-1"
-                      (click)="openCatalogAdd('Distribution')"
-                      aria-label="Lisää levitys"
-                      title="Lisää"
-                    >
-                      +
-                    </button>
-                    <button
-                      type="button"
-                      class="icon-btn icon-edit" tabindex="-1"
-                      (click)="openCatalogEdit('Distribution', distributionId)"
-                      [disabled]="distributionId == null"
-                      aria-label="Muokkaa levitystä"
-                      title="Muokkaa"
-                    >
-                      ✎
-                    </button>
                   </div>
-                  <app-search-select
-                    class="stretch"
-                    [options]="distributions"
-                    [(ngModel)]="distributionId"
-                    name="distributionId"
-                    placeholder="Valitse…"
-                    [searchable]="false"
-                  />
+                  <div class="radio-row distribution-radios" role="radiogroup" aria-label="Levitys">
+                    @for (d of distributionRadios; track d.Id) {
+                      <label class="radio">
+                        <input
+                          type="radio"
+                          name="distributionId"
+                          [checked]="distributionId === d.Id"
+                          (change)="distributionId = d.Id"
+                        />
+                        {{ d.Value }}
+                      </label>
+                    }
+                  </div>
                 </div>
 
                 <div class="labeled-field">
@@ -463,15 +479,33 @@
                       type="text"
                       inputmode="numeric"
                       appDigitsOnly
-                      maxlength="4"
+                      maxlength="3"
                       [ngModel]="runtimeText"
                       (ngModelChange)="onRuntimeText($event)"
                       name="runtimeMinutes"
                     />
-                    <select [ngModel]="runtimeUnit" (ngModelChange)="setRuntimeUnit($event)" name="runtimeUnit">
-                      <option value="pal">PAL</option>
-                      <option value="ntsc">NTSC</option>
-                    </select>
+                    <div class="radio-row" role="radiogroup" aria-label="Keston fps">
+                      <label class="radio">
+                        <input
+                          type="radio"
+                          name="runtimeUnit"
+                          value="ntsc"
+                          [ngModel]="runtimeUnit"
+                          (ngModelChange)="setRuntimeUnit($event)"
+                        />
+                        24fps
+                      </label>
+                      <label class="radio">
+                        <input
+                          type="radio"
+                          name="runtimeUnit"
+                          value="pal"
+                          [ngModel]="runtimeUnit"
+                          (ngModelChange)="setRuntimeUnit($event)"
+                        />
+                        25fps
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>

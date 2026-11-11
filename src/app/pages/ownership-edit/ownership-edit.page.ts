@@ -38,6 +38,7 @@ import {
 import { getSupabase } from '../../core/supabase.client';
 import { isPhoneViewport } from '../../core/viewport.util';
 import { SearchSelectComponent } from '../../shared/search-select.component';
+import { SentenceCaseDirective } from '../../shared/sentence-case.directive';
 
 export type OwnershipSeedMovie = {
   Id: number;
@@ -60,7 +61,7 @@ type CatalogKind =
 @Component({
   selector: 'app-ownership-edit-page',
   standalone: true,
-  imports: [FormsModule, SearchSelectComponent],
+  imports: [FormsModule, SearchSelectComponent, SentenceCaseDirective],
   templateUrl: './ownership-edit.page.html',
   styleUrl: './ownership-edit.page.scss',
 })

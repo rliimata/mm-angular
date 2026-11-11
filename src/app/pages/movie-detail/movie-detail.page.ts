@@ -34,14 +34,23 @@ import {
 import { UserLinkService } from '../../data/user-link.service';
 import { MemolistService } from '../../data/memolist.service';
 import { WatchlistService } from '../../data/watchlist.service';
+import { WishlistService } from '../../data/wishlist.service';
 import { ListPreviewItem, ListPreviewService } from '../../shared/list-preview.service';
 import { MediaImageComponent } from '../../shared/media-image.component';
 import { SearchSelectComponent } from '../../shared/search-select.component';
+import { SentenceCaseDirective } from '../../shared/sentence-case.directive';
 
 @Component({
   selector: 'app-movie-detail',
   standalone: true,
-  imports: [RouterLink, FormsModule, LowerCasePipe, MediaImageComponent, SearchSelectComponent],
+  imports: [
+    RouterLink,
+    FormsModule,
+    LowerCasePipe,
+    MediaImageComponent,
+    SearchSelectComponent,
+    SentenceCaseDirective,
+  ],
   templateUrl: './movie-detail.page.html',
   styleUrl: './movie-detail.page.scss',
 })
@@ -53,6 +62,7 @@ export class MovieDetailPage implements OnInit, OnDestroy {
   readonly ownerships = signal<OwnershipSummary[]>([]);
   readonly onWatchlist = signal(false);
   readonly onMemolist = signal(false);
+  readonly onWishlist = signal(false);
   readonly error = signal<string | null>(null);
   readonly loading = signal(true);
   readonly saving = signal(false);
@@ -95,6 +105,7 @@ export class MovieDetailPage implements OnInit, OnDestroy {
     private readonly userLinks: UserLinkService,
     private readonly watchlist: WatchlistService,
     private readonly memolist: MemolistService,
+    private readonly wishlist: WishlistService,
     private readonly ownershipApi: OwnershipService,
     private readonly lookups: LookupService,
     private readonly detailRefresh: DetailRefreshService,
@@ -309,20 +320,23 @@ export class MovieDetailPage implements OnInit, OnDestroy {
       );
       const me = this.auth.profile()?.Id;
       if (me) {
-        const [mine, watch, memo, owns] = await Promise.all([
+        const [mine, watch, memo, wish, owns] = await Promise.all([
           this.userLinks.getMine(this.movieId, me),
           this.watchlist.isOnWatchlist(this.movieId, me),
           this.memolist.isOnMemolist(this.movieId, me),
+          this.wishlist.isOnWishlist(this.movieId, me),
           this.ownershipApi.listForMovie(this.movieId, me),
         ]);
         this.scoreId = mine?.ScoreId && mine.ScoreId > 0 ? mine.ScoreId : null;
         this.reviewText = (mine?.Text ?? '').replace(/<br\s*\/?>/gi, '\n');
         this.onWatchlist.set(watch);
         this.onMemolist.set(memo);
+        this.onWishlist.set(wish);
         this.ownerships.set(owns);
       } else {
         this.onWatchlist.set(false);
         this.onMemolist.set(false);
+        this.onWishlist.set(false);
         this.ownerships.set([]);
       }
     } catch (e: unknown) {
@@ -484,6 +498,30 @@ export class MovieDetailPage implements OnInit, OnDestroy {
     } catch (e: unknown) {
       this.error.set(errorMessage(e));
     }
+  }
+
+  async toggleWishlist(): Promise<void> {
+    const userId = this.auth.profile()?.Id;
+    if (!userId) {
+      return;
+    }
+    try {
+      if (this.onWishlist()) {
+        await this.wishlist.remove(this.movieId, userId);
+        this.onWishlist.set(false);
+      } else {
+        await this.wishlist.add(this.movieId, userId);
+        this.onWishlist.set(true);
+      }
+    } catch (e: unknown) {
+      this.error.set(errorMessage(e));
+    }
+  }
+
+  openCopyEdit(): void {
+    void this.router.navigate(['/movie', this.movieId, 'edit'], {
+      queryParams: { copy: '1' },
+    });
   }
 
   imageSearchQuery(): string {

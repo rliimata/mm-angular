@@ -12,6 +12,7 @@ import { FlexibleDateComponent, FlexibleDateValue } from './flexible-date.compon
 import { SearchSelectComponent } from './search-select.component';
 import { CatalogAddModal } from '../pages/modals/catalog-add/catalog-add.modal';
 import { DigitsOnlyDirective } from './digits-only.directive';
+import { SentenceCaseDirective } from './sentence-case.directive';
 
 interface PersonLinkDraft {
   personId: number;
@@ -35,6 +36,7 @@ interface SalaryDraft {
     SearchSelectComponent,
     CatalogAddModal,
     DigitsOnlyDirective,
+    SentenceCaseDirective,
   ],
   template: `
     <form id="personEditForm" class="person-form" (ngSubmit)="$event.preventDefault()">
@@ -199,7 +201,7 @@ interface SalaryDraft {
 
       <label>
         Kuvaus
-        <textarea rows="2" [(ngModel)]="text" name="pfText"></textarea>
+        <textarea rows="2" [(ngModel)]="text" name="pfText" appSentenceCase></textarea>
       </label>
 
       <section class="plain-block">
@@ -227,6 +229,7 @@ interface SalaryDraft {
             name="pfTriviaDraft"
             placeholder="Uusi trivia…"
             autocomplete="off"
+            appSentenceCase
             enterkeyhint="done"
             (keydown.enter)="$event.preventDefault(); addTrivia()"
           />

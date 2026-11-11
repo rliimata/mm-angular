@@ -178,7 +178,8 @@ export class HomePage implements OnInit, AfterViewInit {
     if (this.mode !== 'text') {
       return;
     }
-    queueMicrotask(() => this.searchInput?.nativeElement.focus());
+    // Wait a tick so @if search input exists after mode switch.
+    setTimeout(() => this.searchInput?.nativeElement.focus(), 0);
   }
 
   private currentUserId(): number | null {

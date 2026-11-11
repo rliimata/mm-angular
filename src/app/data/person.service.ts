@@ -303,15 +303,21 @@ export class PersonService {
           []
         ).map((m) => [m.Id, m])
       );
-      awardList = aRows.map((a) => {
-        const m = movieMap.get(a.MovieId);
-        return {
-          MovieId: a.MovieId,
-          MovieTitle: m ? swapTitle(m.Title, m.TitleLanguageId) : `#${a.MovieId}`,
-          Year: m?.Year ?? null,
-          Award: awardMap.get(a.AwardId) ?? String(a.AwardId),
-        };
-      });
+      awardList = aRows
+        .map((a) => {
+          const m = movieMap.get(a.MovieId);
+          return {
+            MovieId: a.MovieId,
+            MovieTitle: m ? swapTitle(m.Title, m.TitleLanguageId) : `#${a.MovieId}`,
+            Year: m?.Year ?? null,
+            Award: awardMap.get(a.AwardId) ?? String(a.AwardId),
+          };
+        })
+        .sort(
+          (a, b) =>
+            (b.Year ?? 0) - (a.Year ?? 0) ||
+            a.MovieTitle.localeCompare(b.MovieTitle, 'fi', { sensitivity: 'base' })
+        );
     }
 
     const sRows = (salaryLinks.data as { MovieId: number; Year: number | null; Salary: number; CurrencyId: number }[]) ?? [];
@@ -330,17 +336,23 @@ export class PersonService {
           []
         ).map((m) => [m.Id, m])
       );
-      salaryList = sRows.map((s) => {
-        const m = movieMap.get(s.MovieId);
-        return {
-          MovieId: s.MovieId,
-          MovieTitle: m ? swapTitle(m.Title, m.TitleLanguageId) : `#${s.MovieId}`,
-          Year: s.Year ?? m?.Year ?? null,
-          Salary: s.Salary,
-          CurrencyId: s.CurrencyId,
-          Currency: curMap.get(s.CurrencyId) ?? '',
-        };
-      });
+      salaryList = sRows
+        .map((s) => {
+          const m = movieMap.get(s.MovieId);
+          return {
+            MovieId: s.MovieId,
+            MovieTitle: m ? swapTitle(m.Title, m.TitleLanguageId) : `#${s.MovieId}`,
+            Year: s.Year ?? m?.Year ?? null,
+            Salary: s.Salary,
+            CurrencyId: s.CurrencyId,
+            Currency: curMap.get(s.CurrencyId) ?? '',
+          };
+        })
+        .sort(
+          (a, b) =>
+            (b.Year ?? 0) - (a.Year ?? 0) ||
+            a.MovieTitle.localeCompare(b.MovieTitle, 'fi', { sensitivity: 'base' })
+        );
     }
 
     const label = (map: Map<number, string>, id: number | null | undefined) => {

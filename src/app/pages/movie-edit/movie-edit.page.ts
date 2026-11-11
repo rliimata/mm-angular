@@ -36,8 +36,16 @@ import { MediaImageComponent } from '../../shared/media-image.component';
 import { MultiCheckSelectComponent } from '../../shared/multi-check-select.component';
 import { PersonFormComponent } from '../../shared/person-form.component';
 import { SearchSelectComponent } from '../../shared/search-select.component';
+import { SentenceCaseDirective } from '../../shared/sentence-case.directive';
 import { CatalogAddModal } from '../modals/catalog-add/catalog-add.modal';
 import { PersonPreviewModal } from '../modals/person-preview/person-preview.modal';
+
+/** Fixed levitys choices shown as radios (DB Id → UI label). */
+const DISTRIBUTION_RADIOS: { Id: number; Value: string }[] = [
+  { Id: 0, Value: 'Valkokangas' },
+  { Id: 1, Value: 'TV' },
+  { Id: 2, Value: 'Video' },
+];
 
 type TitleMatch = { Id: number; Title: string; Year: number | null; Directors: string[] };
 
@@ -93,6 +101,7 @@ const REMAKE_REVERSE_UI_ID = -2;
     FormsModule,
     LowerCasePipe,
     DigitsOnlyDirective,
+    SentenceCaseDirective,
     MultiCheckSelectComponent,
     PersonFormComponent,
     MediaImageComponent,
@@ -109,6 +118,9 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('movieLinkInput') private movieLinkInput?: ElementRef<HTMLInputElement>;
 
   id = 0;
+  /** Original movie id when editing a copy (query ?copy=1). */
+  sourceId = 0;
+  copyMode = false;
   title = '';
   yearText = '';
   versionId: number | null = 0;
@@ -117,7 +129,7 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
   titleLanguageId: number | null = 1;
   age: number | null = null;
   runtimeMinutes: number | null = null;
-  runtimeUnit: 'ntsc' | 'pal' = 'pal';
+  runtimeUnit: 'ntsc' | 'pal' = 'ntsc';
   budgetText = '';
   currencyId: number | null = 0;
   text = '';
@@ -133,7 +145,11 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
   movieLinkItems: MovieLinkPick[] = [];
 
   akaTitle = '';
+  /** Default aka language: Suomi. */
   akaLangId = 2;
+  /** Aka language choices: Suomi + Englanti only. */
+  akaLanguages: LookupRow[] = [];
+  readonly distributionRadios = DISTRIBUTION_RADIOS;
   editingAkaIndex: number | null = null;
   roleQuery: Record<number, string> = {};
   roleHits: Record<number, Person[]> = {};
@@ -220,18 +236,24 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
     await this.reloadLookups();
     const param =
       this.route.snapshot.paramMap.get('id') ?? this.route.parent?.snapshot.paramMap.get('id');
+    this.copyMode = this.route.snapshot.queryParamMap.get('copy') === '1';
     if (param && param !== 'new') {
       this.id = Number(param);
+      this.sourceId = this.id;
       const details = await this.movies.getDetails(this.id);
       if (!details) {
         this.error.set('Elokuvaa ei löytynyt.');
-        this.pageTitle.set('Muokkaa elokuvaa');
+        this.pageTitle.set(this.copyMode ? 'Kopioi elokuva' : 'Muokkaa elokuvaa');
         return;
       }
       this.apply(details.movie);
       this.text = (details.text ?? '').replace(/<br\s*\/?>/gi, '\n');
       this.triviaItems = details.trivia.map((t) => t.replace(/<br\s*\/?>/gi, '\n'));
       await this.loadLinkIds(this.id);
+      if (this.copyMode) {
+        // Keep form data; save must create a new movie.
+        this.id = 0;
+      }
       this.roles = details.roles.map((r) => ({
         roleId: r.RoleId,
         personId: r.PersonId,
@@ -273,7 +295,11 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
             reverse: true,
           })),
       ];
-      this.pageTitle.set(swapTitle(this.title, this.titleLanguageId) || 'Muokkaa elokuvaa');
+      this.pageTitle.set(
+        this.copyMode
+          ? `Kopioi: ${swapTitle(this.title, this.titleLanguageId) || 'elokuva'}`
+          : swapTitle(this.title, this.titleLanguageId) || 'Muokkaa elokuvaa'
+      );
     } else {
       this.pageTitle.set('Uusi elokuva');
     }
@@ -490,6 +516,10 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
     this.ratios = this.sortAlpha(ratios.filter((r) => r.Id !== 0));
     this.distributions = this.sortAlpha(distributions.filter((r) => r.Id !== 65535));
     this.languages = languages;
+    // Aka: only Suomi (2, default) and Englanti (1) — Suomi first.
+    this.akaLanguages = [2, 1]
+      .map((id) => languages.find((r) => r.Id === id))
+      .filter((r): r is LookupRow => !!r);
     this.currencies = currencies;
     this.categories = this.sortAlpha(categories.filter((c) => c.Id !== 0));
     this.countries = this.sortAlpha(countries.filter((c) => c.Id !== 0));
@@ -558,8 +588,8 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   close(): void {
-    // No save → parent detail stays mounted; do not request a reload.
-    void this.navigateAfterEdit(this.id || null, false);
+    // No save → return to source movie when cancelling a copy.
+    void this.navigateAfterEdit(this.id || this.sourceId || null, false);
   }
 
   async onTitleBlur(): Promise<void> {
@@ -623,8 +653,8 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
     this.titleLanguageId = m.TitleLanguageId && m.TitleLanguageId > 0 ? m.TitleLanguageId : null;
     this.age = m.Age != null && m.Age !== 0 ? m.Age : null;
     const ntsc = resolveNtscMinutes(m.Ntsc, m.Pal);
-    this.runtimeUnit = 'pal';
-    this.runtimeMinutes = ntsc != null ? palMinutesFromNtsc(ntsc) : null;
+    this.runtimeUnit = 'ntsc';
+    this.runtimeMinutes = ntsc;
     this.budgetText = m.Budget != null && m.Budget > 0 ? String(m.Budget) : '';
     this.currencyId = m.CurrencyId && m.CurrencyId > 0 ? m.CurrencyId : null;
   }
@@ -1111,11 +1141,6 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
 
   canSave(): boolean {
     return !!this.title.trim() && !!this.yearText.trim() && !!this.titleLanguageId;
-  }
-
-  /** Save current form as a new movie (PHP "Tallenna kopio" / save_movie(0)). */
-  async saveCopy(): Promise<void> {
-    return this.save(true);
   }
 
   async save(asNew = false): Promise<void> {

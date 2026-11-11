@@ -31,6 +31,7 @@
             >
               Muokkaa
             </button>
+            <button type="button" class="ghost desktop-only" (click)="openCopyEdit()">Kopioi</button>
             <button type="button" class="danger-btn desktop-only" (click)="deleteMovie()">Poista</button>
           }
         </p>
@@ -238,6 +239,15 @@
                 <span class="list-action-icon list-action-memo" aria-hidden="true"></span>
                 {{ onMemolist() ? 'Muistilistalla' : 'Lisää muistilistalle' }}
               </button>
+              <button
+                type="button"
+                class="list-action"
+                [class.active]="onWishlist()"
+                (click)="toggleWishlist()"
+              >
+                <span class="list-action-icon list-action-wish" aria-hidden="true"></span>
+                {{ onWishlist() ? 'Toivelistalla' : 'Lisää toivelistalle' }}
+              </button>
             </p>
           }
 
@@ -398,7 +408,7 @@
         </div>
         <label class="block comment-label">
           Kommentti
-          <textarea rows="5" [(ngModel)]="reviewText" name="reviewText"></textarea>
+          <textarea rows="5" [(ngModel)]="reviewText" name="reviewText" appSentenceCase></textarea>
         </label>
         @if (message()) {
           <p class="msg">{{ message() }}</p>
