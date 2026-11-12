@@ -12,7 +12,9 @@ export type CatalogTable =
   | 'DeathReason'
   | 'TitleLanguage'
   | 'Award'
-  | 'MovieRelation';
+  | 'MovieRelation'
+  | 'PersonRelation'
+  | 'Currency';
 
 @Injectable({ providedIn: 'root' })
 export class CatalogService {
@@ -150,8 +152,41 @@ export class CatalogService {
       return false;
     }
 
+    if (table === 'Currency') {
+      for (const cfg of [
+        { table: 'Movie', column: 'CurrencyId' },
+        { table: 'SalaryLink', column: 'CurrencyId' },
+      ] as const) {
+        const { count, error } = await getSupabase()
+          .from(cfg.table)
+          .select(cfg.column, { count: 'exact', head: true })
+          .eq(cfg.column, id);
+        if (error) {
+          throw error;
+        }
+        if ((count ?? 0) > 0) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    if (table === 'PersonRelation') {
+      const { count, error } = await getSupabase()
+        .from('PersonLink')
+        .select('RelationId', { count: 'exact', head: true })
+        .eq('RelationId', id);
+      if (error) {
+        throw error;
+      }
+      return (count ?? 0) > 0;
+    }
+
     const checks: Record<
-      Exclude<CatalogTable, 'AgeRating' | 'Country' | 'DeathReason' | 'TitleLanguage'>,
+      Exclude<
+        CatalogTable,
+        'AgeRating' | 'Country' | 'DeathReason' | 'TitleLanguage' | 'Currency' | 'PersonRelation'
+      >,
       { table: string; column: string }
     > = {
       Category: { table: 'CategoryLink', column: 'CategoryId' },

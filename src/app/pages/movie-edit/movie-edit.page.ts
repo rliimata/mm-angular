@@ -620,7 +620,7 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
 
   selectExistingTitleMatch(movieId: number): void {
     this.closeTitleMatches();
-    void this.router.navigate(['/movie', movieId, 'edit']);
+    void this.router.navigate(['/movie', movieId]);
   }
 
   titleMatchDirectors(m: TitleMatch): string {

@@ -246,7 +246,38 @@ interface SalaryDraft {
       </section>
 
       <section class="plain-block">
-        <h3>Henkilölinkit</h3>
+        <div class="field-head">
+          <h3>Henkilölinkit</h3>
+          <button
+            type="button"
+            class="icon-btn icon-add" tabindex="-1"
+            (click)="openCatalogAdd('PersonRelation')"
+            aria-label="Lisää suhde"
+            title="Lisää"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            class="icon-btn icon-edit" tabindex="-1"
+            (click)="openCatalogEdit('PersonRelation', linkRelationId)"
+            [disabled]="!linkRelationId"
+            aria-label="Muokkaa suhdetta"
+            title="Muokkaa"
+          >
+            ✎
+          </button>
+          <button
+            type="button"
+            class="icon-btn icon-del" tabindex="-1"
+            (click)="deleteSelectedCatalog('PersonRelation')"
+            [disabled]="!linkRelationId"
+            aria-label="Poista suhde"
+            title="Poista"
+          >
+            ×
+          </button>
+        </div>
         <ul class="item-list">
           @for (l of links; track l.personId + '-' + l.relationId + '-' + $index) {
             <li>
@@ -303,7 +334,38 @@ interface SalaryDraft {
       </section>
 
       <section class="plain-block">
-        <h3>Palkkiot</h3>
+        <div class="field-head">
+          <h3>Palkkiot</h3>
+          <button
+            type="button"
+            class="icon-btn icon-add" tabindex="-1"
+            (click)="openCatalogAdd('Currency')"
+            aria-label="Lisää valuutta"
+            title="Lisää"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            class="icon-btn icon-edit" tabindex="-1"
+            (click)="openCatalogEdit('Currency', salaryCurrencyId)"
+            [disabled]="!salaryCurrencyId"
+            aria-label="Muokkaa valuuttaa"
+            title="Muokkaa"
+          >
+            ✎
+          </button>
+          <button
+            type="button"
+            class="icon-btn icon-del" tabindex="-1"
+            (click)="deleteSelectedCatalog('Currency')"
+            [disabled]="!salaryCurrencyId"
+            aria-label="Poista valuutta"
+            title="Poista"
+          >
+            ×
+          </button>
+        </div>
         <ul class="item-list">
           @for (s of salaries; track s.movieId + '-' + $index) {
             <li>
@@ -470,6 +532,11 @@ interface SalaryDraft {
         gap: 0.15rem 0.25rem;
         width: 100%;
         min-height: 1.7rem;
+      }
+      .field-head h3 {
+        margin: 0 0.15rem 0 0;
+        font-size: 1rem;
+        font-weight: 600;
       }
       .field-head .field-caption {
         margin-right: 0.15rem;
@@ -690,7 +757,7 @@ export class PersonFormComponent implements OnInit, OnChanges {
   triviaItems: string[] = [];
   triviaDraft = '';
   links: PersonLinkDraft[] = [];
-  linkRelationId = 0;
+  linkRelationId: number | null = null;
   linkQuery = '';
   linkHits: Person[] = [];
   private linkSearchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -709,7 +776,7 @@ export class PersonFormComponent implements OnInit, OnChanges {
   currencies: LookupRow[] = [];
 
   catalogAddOpen = false;
-  catalogAddTable: 'Country' | 'DeathReason' | null = null;
+  catalogAddTable: 'Country' | 'DeathReason' | 'PersonRelation' | 'Currency' | null = null;
   catalogAddTarget: 'birth' | 'death' | null = null;
   catalogAddValue = '';
   catalogAddError: string | null = null;
@@ -739,10 +806,8 @@ export class PersonFormComponent implements OnInit, OnChanges {
 
   async ngOnInit(): Promise<void> {
     await this.reloadLookups();
-    this.linkRelationId = this.personRelations[0]?.Id ?? 0;
-    if (this.salaryCurrencyId == null) {
-      this.salaryCurrencyId = this.currencies[0]?.Id ?? null;
-    }
+    this.linkRelationId = null;
+    this.salaryCurrencyId = null;
     await this.load();
   }
 
@@ -759,7 +824,10 @@ export class PersonFormComponent implements OnInit, OnChanges {
     this.currencies = currencies.filter((c) => c.Id !== 0);
   }
 
-  openCatalogAdd(table: 'Country' | 'DeathReason', target: 'birth' | 'death' | null = null): void {
+  openCatalogAdd(
+    table: 'Country' | 'DeathReason' | 'PersonRelation' | 'Currency',
+    target: 'birth' | 'death' | null = null
+  ): void {
     this.catalogAddTable = table;
     this.catalogAddTarget = target;
     this.catalogEditId = null;
@@ -769,14 +837,14 @@ export class PersonFormComponent implements OnInit, OnChanges {
   }
 
   openCatalogEdit(
-    table: 'Country' | 'DeathReason',
+    table: 'Country' | 'DeathReason' | 'PersonRelation' | 'Currency',
     id: number | null,
     target: 'birth' | 'death' | null = null
   ): void {
     if (id == null) {
       return;
     }
-    const rows = table === 'DeathReason' ? this.deathReasons : this.countries;
+    const rows = this.catalogRows(table);
     const opt = rows.find((r) => r.Id === id);
     if (!opt) {
       return;
@@ -798,12 +866,33 @@ export class PersonFormComponent implements OnInit, OnChanges {
     this.catalogAddError = null;
   }
 
+  private catalogRows(
+    table: 'Country' | 'DeathReason' | 'PersonRelation' | 'Currency'
+  ): LookupRow[] {
+    switch (table) {
+      case 'DeathReason':
+        return this.deathReasons;
+      case 'PersonRelation':
+        return this.personRelations;
+      case 'Currency':
+        return this.currencies;
+      default:
+        return this.countries;
+    }
+  }
+
   catalogAddTitle(): string {
     const edit = this.catalogEditId != null;
-    if (this.catalogAddTable === 'DeathReason') {
-      return edit ? 'Muokkaa kuolinsyytä' : 'Uusi kuolinsyy';
+    switch (this.catalogAddTable) {
+      case 'DeathReason':
+        return edit ? 'Muokkaa kuolinsyytä' : 'Uusi kuolinsyy';
+      case 'PersonRelation':
+        return edit ? 'Muokkaa suhdetta' : 'Uusi suhde';
+      case 'Currency':
+        return edit ? 'Muokkaa valuuttaa' : 'Uusi valuutta';
+      default:
+        return edit ? 'Muokkaa maata' : 'Uusi maa';
     }
-    return edit ? 'Muokkaa maata' : 'Uusi maa';
   }
 
   async saveCatalogAdd(): Promise<void> {
@@ -828,8 +917,12 @@ export class PersonFormComponent implements OnInit, OnChanges {
         } else {
           this.birthCountryId = id;
         }
-      } else {
+      } else if (table === 'DeathReason') {
         this.deathReasonId = id;
+      } else if (table === 'PersonRelation') {
+        this.linkRelationId = id;
+      } else if (table === 'Currency') {
+        this.salaryCurrencyId = id;
       }
       this.closeCatalogAdd();
     } catch (e: unknown) {
@@ -838,16 +931,20 @@ export class PersonFormComponent implements OnInit, OnChanges {
   }
 
   async deleteSelectedCatalog(
-    table: 'Country' | 'DeathReason',
+    table: 'Country' | 'DeathReason' | 'PersonRelation' | 'Currency',
     target: 'birth' | 'death' | null = null
   ): Promise<void> {
     const id =
       table === 'DeathReason'
         ? this.deathReasonId
-        : target === 'death'
-          ? this.deathCountryId
-          : this.birthCountryId;
-    const rows = table === 'DeathReason' ? this.deathReasons : this.countries;
+        : table === 'PersonRelation'
+          ? this.linkRelationId
+          : table === 'Currency'
+            ? this.salaryCurrencyId
+            : target === 'death'
+              ? this.deathCountryId
+              : this.birthCountryId;
+    const rows = this.catalogRows(table);
     const opt = rows.find((r) => r.Id === id);
     if (!opt) {
       return;
@@ -860,6 +957,12 @@ export class PersonFormComponent implements OnInit, OnChanges {
       this.lookups.invalidate(table);
       if (table === 'DeathReason' && this.deathReasonId === opt.Id) {
         this.deathReasonId = null;
+      }
+      if (table === 'PersonRelation' && this.linkRelationId === opt.Id) {
+        this.linkRelationId = null;
+      }
+      if (table === 'Currency' && this.salaryCurrencyId === opt.Id) {
+        this.salaryCurrencyId = null;
       }
       if (table === 'Country') {
         if (this.birthCountryId === opt.Id) {

@@ -972,7 +972,7 @@ export class ListPreviewComponent implements OnDestroy {
 
   personOwnershipLabel(movieId: number): string {
     const labels = this.personOwnership().get(movieId);
-    return labels?.length ? labels.join(', ') : '';
+    return labels?.length ? labels.join('+') : '';
   }
 
   personRoles(): string {

@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { AppDateTime, Person } from '../core/models';
 import { parseAppDateTime } from '../core/datetime.util';
+import { DetailRefreshService } from '../core/detail-refresh.service';
 import {
   accentInsensitiveNamePatterns,
   accentInsensitiveNameRegex,
@@ -40,6 +41,8 @@ export interface PersonDetails {
 
 @Injectable({ providedIn: 'root' })
 export class PersonService {
+  private readonly detailRefresh = inject(DetailRefreshService);
+
   async countAll(): Promise<number> {
     const { count, error } = await getSupabase()
       .from('Person')
@@ -499,6 +502,7 @@ export class PersonService {
       throw error;
     }
     const id = (data as { Id: number }).Id;
+    this.detailRefresh.catalogCountsChanged();
     await this.replaceText(id, text);
     if (extras?.trivia) {
       await this.replaceTrivia(id, extras.trivia);
@@ -600,6 +604,7 @@ export class PersonService {
     if (error) {
       throw error;
     }
+    this.detailRefresh.catalogCountsChanged();
   }
 }
 

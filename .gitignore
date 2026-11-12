@@ -44,3 +44,6 @@ Thumbs.db
 # Cloudflare
 .wrangler/
 .dev.vars
+
+# Local DB probe scripts
+/scripts/

@@ -6,4 +6,5 @@ export const environment = {
   mediaBaseUrl: 'https://pub-c0accf14a0674569abe285ec68c729fd.r2.dev',
   // Local ng serve → Cloudflare Pages Function
   mediaUploadUrl: 'https://mm-angular.pages.dev/api/media',
+  usersCreateUrl: 'https://mm-angular.pages.dev/api/users',
 };

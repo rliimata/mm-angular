@@ -6,6 +6,7 @@ import { filter, Observable, Subject } from 'rxjs';
 export class DetailRefreshService {
   private readonly movies = new Subject<number>();
   private readonly people = new Subject<number>();
+  private readonly catalogCounts = new Subject<void>();
 
   movieSaved(id: number): void {
     this.movies.next(id);
@@ -15,11 +16,20 @@ export class DetailRefreshService {
     this.people.next(id);
   }
 
+  /** Movie/person row added or removed — top-bar counts should refresh. */
+  catalogCountsChanged(): void {
+    this.catalogCounts.next();
+  }
+
   onMovie(id: number): Observable<number> {
     return this.movies.pipe(filter((x) => x === id));
   }
 
   onPerson(id: number): Observable<number> {
     return this.people.pipe(filter((x) => x === id));
+  }
+
+  onCatalogCounts(): Observable<void> {
+    return this.catalogCounts.asObservable();
   }
 }

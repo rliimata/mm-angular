@@ -1,13 +1,27 @@
 <div class="shell">
   <header class="top">
-    <a routerLink="/" class="brand">
-      <span class="logo" aria-hidden="true">mm</span>
-      <span class="brand-name">Movie Manager</span>
-    </a>
+    <div class="top-left">
+      <a routerLink="/" class="brand">
+        <span class="logo" aria-hidden="true">mm</span>
+        <span class="brand-name">Movie Manager</span>
+      </a>
+      @if (catalogCounts(); as counts) {
+        <div class="catalog-counts" aria-label="Katalogin määrät">
+          <span class="count-row" title="Elokuvia">
+            <span class="count-icon count-icon-movie" aria-hidden="true"></span>
+            <span class="count-num">{{ counts.movies }}</span>
+          </span>
+          <span class="count-row" title="Henkilöitä">
+            <span class="count-icon count-icon-person" aria-hidden="true"></span>
+            <span class="count-num">{{ counts.people }}</span>
+          </span>
+        </div>
+      }
+    </div>
     <div class="top-right">
       @if (auth.isLoggedIn()) {
         <div class="user">
-          <span>{{ auth.displayName() }}</span>
+          <span class="user-name">{{ auth.displayName() }}</span>
           <button
             type="button"
             class="logout-btn"
@@ -23,6 +37,13 @@
             aria-label="Vaihda salasana"
           ></button>
           @if (auth.isSuperUser()) {
+            <button
+              type="button"
+              class="user-add-btn"
+              (click)="openCreateUser()"
+              title="Uusi käyttäjä"
+              aria-label="Uusi käyttäjä"
+            ></button>
             <a
               routerLink="/movie/new"
               class="top-add desktop-only"
@@ -78,6 +99,69 @@
         Tallenna
       </button>
       <button type="button" class="ghost" (click)="closePasswordChange()">Peruuta</button>
+    </footer>
+  </div>
+}
+
+@if (userOpen()) {
+  <div class="pwd-backdrop" (click)="closeCreateUser()"></div>
+  <div class="pwd-modal" role="dialog" aria-modal="true" aria-labelledby="userTitle">
+    <header class="pwd-head">
+      <h2 id="userTitle">Uusi käyttäjä</h2>
+    </header>
+    <div class="pwd-body">
+      @if (userError()) {
+        <p class="pwd-error">{{ userError() }}</p>
+      }
+      <label>
+        Etunimi
+        <input
+          #userFirstNameInput
+          type="text"
+          [(ngModel)]="userFirstName"
+          name="userFirstName"
+          autocomplete="off"
+          autocapitalize="words"
+          (keydown.enter)="$event.preventDefault(); saveCreateUser()"
+        />
+      </label>
+      <label>
+        Sukunimi
+        <input
+          type="text"
+          [(ngModel)]="userLastName"
+          name="userLastName"
+          autocomplete="off"
+          autocapitalize="words"
+          (keydown.enter)="$event.preventDefault(); saveCreateUser()"
+        />
+      </label>
+      <label>
+        Sähköposti
+        <input
+          type="email"
+          [(ngModel)]="userEmail"
+          name="userEmail"
+          autocomplete="off"
+          (keydown.enter)="$event.preventDefault(); saveCreateUser()"
+        />
+      </label>
+      <label>
+        Salasana
+        <input
+          type="password"
+          [(ngModel)]="userPassword"
+          name="userPassword"
+          autocomplete="new-password"
+          (keydown.enter)="$event.preventDefault(); saveCreateUser()"
+        />
+      </label>
+    </div>
+    <footer class="pwd-foot">
+      <button type="button" class="primary" [disabled]="userSaving()" (click)="saveCreateUser()">
+        Luo
+      </button>
+      <button type="button" class="ghost" (click)="closeCreateUser()">Peruuta</button>
     </footer>
   </div>
 }

@@ -11,6 +11,7 @@ import {
 import { reverseMovieRelationLabel } from '../core/movie-relation.util';
 import { Movie, LookupRow } from '../core/models';
 import { getSupabase } from '../core/supabase.client';
+import { DetailRefreshService } from '../core/detail-refresh.service';
 import { OwnershipService, mediaFormatShort } from './ownership.service';
 
 export type MovieSearchMode =
@@ -71,6 +72,7 @@ export interface MovieDetails {
 @Injectable({ providedIn: 'root' })
 export class MovieService {
   private readonly ownershipApi = inject(OwnershipService);
+  private readonly detailRefresh = inject(DetailRefreshService);
 
   async countAll(): Promise<number> {
     const { count, error } = await getSupabase()
@@ -956,6 +958,7 @@ export class MovieService {
         throw error;
       }
       id = (data as { Id: number }).Id;
+      this.detailRefresh.catalogCountsChanged();
     }
     await this.replaceText(id, text);
     if (links) {
@@ -1158,6 +1161,7 @@ export class MovieService {
     if (error) {
       throw error;
     }
+    this.detailRefresh.catalogCountsChanged();
   }
 }
 

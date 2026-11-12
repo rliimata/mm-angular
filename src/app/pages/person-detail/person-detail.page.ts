@@ -49,7 +49,7 @@ export class PersonDetailPage implements OnInit, OnDestroy {
 
   ownershipLabel(movieId: number): string {
     const labels = this.ownershipByMovie().get(movieId);
-    return labels?.length ? labels.join(', ') : '';
+    return labels?.length ? labels.join('+') : '';
   }
 
   /** All unique movies linked to this person (filmography + awards + salaries). */
