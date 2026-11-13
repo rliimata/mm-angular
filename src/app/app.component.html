@@ -6,7 +6,7 @@
         <span class="brand-name">Movie Manager</span>
       </a>
       @if (catalogCounts(); as counts) {
-        <div class="catalog-counts" aria-label="Katalogin määrät">
+        <div class="catalog-counts desktop-only" aria-label="Katalogin määrät">
           <span class="count-row" title="Elokuvia">
             <span class="count-icon count-icon-movie" aria-hidden="true"></span>
             <span class="count-num">{{ counts.movies }}</span>
