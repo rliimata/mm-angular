@@ -79,6 +79,23 @@ function sortProviders(
   return [...rows].sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name, 'fi'));
 }
 
+/** Supports TMDB v3 api_key or v4 Read Access Token (JWT). */
+function tmdbFetch(path: string, apiKey: string, query: Record<string, string> = {}): Promise<Response> {
+  const key = apiKey.trim();
+  const url = new URL(`${TMDB_BASE}${path.startsWith('/') ? path : `/${path}`}`);
+  for (const [k, v] of Object.entries(query)) {
+    url.searchParams.set(k, v);
+  }
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  // v4 read token looks like a JWT; v3 key is a short hex-ish string.
+  if (key.startsWith('eyJ')) {
+    headers.Authorization = `Bearer ${key}`;
+  } else {
+    url.searchParams.set('api_key', key);
+  }
+  return fetch(url.toString(), { headers });
+}
+
 export const onRequestOptions: PagesFunction<Env> = async (context) =>
   new Response(null, { status: 204, headers: corsHeaders(context.request) });
 
@@ -105,17 +122,17 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       return json(request, 400, { error: 'Hakusana puuttuu.' });
     }
     const year = (url.searchParams.get('year') || '').trim();
-    const searchUrl = new URL(`${TMDB_BASE}/search/movie`);
-    searchUrl.searchParams.set('api_key', env.TMDB_API_KEY);
-    searchUrl.searchParams.set('query', q);
-    searchUrl.searchParams.set('include_adult', 'false');
-    searchUrl.searchParams.set('language', 'fi-FI');
+    const query: Record<string, string> = {
+      query: q,
+      include_adult: 'false',
+      language: 'fi-FI',
+    };
     if (/^\d{4}$/.test(year)) {
-      searchUrl.searchParams.set('year', year);
-      searchUrl.searchParams.set('primary_release_year', year);
+      query.year = year;
+      query.primary_release_year = year;
     }
 
-    const res = await fetch(searchUrl.toString());
+    const res = await tmdbFetch('/search/movie', env.TMDB_API_KEY, query);
     const text = await res.text();
     let body: { results?: TmdbSearchHit[]; status_message?: string } = {};
     try {
@@ -147,9 +164,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       return json(request, 400, { error: 'Virheellinen tmdbId.' });
     }
 
-    const res = await fetch(
-      `${TMDB_BASE}/movie/${tmdbId}/watch/providers?api_key=${encodeURIComponent(env.TMDB_API_KEY)}`
-    );
+    const res = await tmdbFetch(`/movie/${tmdbId}/watch/providers`, env.TMDB_API_KEY);
     const text = await res.text();
     let body: {
       results?: Record<
