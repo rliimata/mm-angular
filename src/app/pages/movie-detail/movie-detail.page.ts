@@ -123,7 +123,7 @@ export class MovieDetailPage implements OnInit, OnDestroy {
     if (!p) {
       return false;
     }
-    return !!(p.flatrate.length || p.rent.length || p.buy.length || p.free.length);
+    return !!(p.flatrate.length || p.free.length);
   }
 
   providerTrack(p: TmdbProvider): number {

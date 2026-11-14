@@ -178,8 +178,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       /* plain */
     }
     if (!res.ok) {
+      const keyMeta = cleanTmdbKey(env.TMDB_API_KEY);
       return json(request, res.status >= 400 ? res.status : 500, {
         error: body.status_message || text || 'TMDB-haku epäonnistui.',
+        debug: {
+          keyLen: keyMeta.length,
+          keyKind: keyMeta.startsWith('eyJ') ? 'jwt' : 'api_key',
+          keyTail: keyMeta.slice(-4),
+        },
       });
     }
 

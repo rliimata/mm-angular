@@ -46,14 +46,18 @@ export class TmdbService {
 
     const res = await fetch(href, { headers: await this.authHeaders() });
     const text = await res.text();
-    let json: T & { error?: string } = {} as T & { error?: string };
+    let json: T & { error?: string; debug?: { keyLen?: number; keyKind?: string; keyTail?: string } } =
+      {} as T & { error?: string; debug?: { keyLen?: number; keyKind?: string; keyTail?: string } };
     try {
-      json = JSON.parse(text) as T & { error?: string };
+      json = JSON.parse(text) as typeof json;
     } catch {
       /* plain */
     }
     if (!res.ok) {
-      throw new Error(json.error || text || `TMDB-pyyntö epäonnistui (${res.status})`);
+      const dbg = json.debug
+        ? ` [key ${json.debug.keyKind || '?'} len=${json.debug.keyLen ?? '?'} …${json.debug.keyTail || ''}]`
+        : '';
+      throw new Error((json.error || text || `TMDB-pyyntö epäonnistui (${res.status})`) + dbg);
     }
     return json;
   }
