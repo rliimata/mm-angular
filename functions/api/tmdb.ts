@@ -79,21 +79,58 @@ function sortProviders(
   return [...rows].sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name, 'fi'));
 }
 
-/** Supports TMDB v3 api_key or v4 Read Access Token (JWT). */
-function tmdbFetch(path: string, apiKey: string, query: Record<string, string> = {}): Promise<Response> {
-  const key = apiKey.trim();
-  const url = new URL(`${TMDB_BASE}${path.startsWith('/') ? path : `/${path}`}`);
-  for (const [k, v] of Object.entries(query)) {
-    url.searchParams.set(k, v);
+function cleanTmdbKey(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .replace(/\r|\n/g, '')
+    .trim();
+}
+
+/** Supports TMDB v3 api_key or v4 Read Access Token (JWT). Tries both if needed. */
+async function tmdbFetch(
+  path: string,
+  apiKey: string,
+  query: Record<string, string> = {}
+): Promise<Response> {
+  const key = cleanTmdbKey(apiKey);
+  const build = (mode: 'bearer' | 'api_key'): { url: string; headers: Record<string, string> } => {
+    const url = new URL(`${TMDB_BASE}${path.startsWith('/') ? path : `/${path}`}`);
+    for (const [k, v] of Object.entries(query)) {
+      url.searchParams.set(k, v);
+    }
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (mode === 'bearer') {
+      headers.Authorization = `Bearer ${key}`;
+    } else {
+      url.searchParams.set('api_key', key);
+    }
+    return { url: url.toString(), headers };
+  };
+
+  const preferBearer = key.startsWith('eyJ');
+  const first = preferBearer ? 'bearer' : 'api_key';
+  const second = preferBearer ? 'api_key' : 'bearer';
+
+  const a = build(first);
+  let res = await fetch(a.url, { headers: a.headers });
+  if (res.ok) {
+    return res;
   }
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  // v4 read token looks like a JWT; v3 key is a short hex-ish string.
-  if (key.startsWith('eyJ')) {
-    headers.Authorization = `Bearer ${key}`;
-  } else {
-    url.searchParams.set('api_key', key);
+
+  // Retry alternate auth if TMDB rejects the key format.
+  const errText = await res.text();
+  const invalid =
+    res.status === 401 ||
+    /invalid api key/i.test(errText) ||
+    /invalid.*token/i.test(errText) ||
+    /not be authenticated/i.test(errText);
+  if (!invalid || !key) {
+    return new Response(errText, { status: res.status, headers: res.headers });
   }
-  return fetch(url.toString(), { headers });
+
+  const b = build(second);
+  return fetch(b.url, { headers: b.headers });
 }
 
 export const onRequestOptions: PagesFunction<Env> = async (context) =>
