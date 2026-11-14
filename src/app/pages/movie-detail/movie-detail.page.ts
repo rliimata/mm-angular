@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
-import { confirmAction } from '../../core/confirm.util';
+import { confirmAction, showError, showInfo } from '../../core/confirm.util';
 import { DetailRefreshService } from '../../core/detail-refresh.service';
 import { errorMessage } from '../../core/error.util';
 import {
@@ -33,7 +33,12 @@ import {
 } from '../../data/ownership.service';
 import { UserLinkService } from '../../data/user-link.service';
 import { MemolistService } from '../../data/memolist.service';
-import { TmdbProvider, TmdbService, TmdbWatchProviders } from '../../data/tmdb.service';
+import {
+  TmdbProvider,
+  TmdbSearchResult,
+  TmdbService,
+  TmdbWatchProviders,
+} from '../../data/tmdb.service';
 import { WatchlistService } from '../../data/watchlist.service';
 import { WishlistService } from '../../data/wishlist.service';
 import { ListPreviewItem, ListPreviewService } from '../../shared/list-preview.service';
@@ -64,6 +69,10 @@ export class MovieDetailPage implements OnInit, OnDestroy {
   readonly watchProviders = signal<TmdbWatchProviders | null>(null);
   readonly watchProvidersLoading = signal(false);
   readonly watchProvidersError = signal<string | null>(null);
+  readonly tmdbLinking = signal(false);
+  readonly tmdbPickOpen = signal(false);
+  readonly tmdbPickError = signal<string | null>(null);
+  readonly tmdbHits = signal<TmdbSearchResult[]>([]);
   readonly onWatchlist = signal(false);
   readonly onMemolist = signal(false);
   readonly onWishlist = signal(false);
@@ -128,6 +137,69 @@ export class MovieDetailPage implements OnInit, OnDestroy {
 
   providerTrack(p: TmdbProvider): number {
     return p.id;
+  }
+
+  async linkTmdb(): Promise<void> {
+    const d = this.details();
+    if (!d || this.tmdbLinking()) {
+      return;
+    }
+    this.tmdbLinking.set(true);
+    this.tmdbPickError.set(null);
+    try {
+      const q = swapTitle(d.movie.Title, d.movie.TitleLanguageId).replace(/\s+/g, ' ').trim();
+      const res = await this.tmdb.searchMovies(q, d.movie.Year);
+      const hits = res.results ?? [];
+      if (!hits.length) {
+        await showInfo('Ei osumia TMDB:ssä.');
+        return;
+      }
+      if (hits.length === 1) {
+        await this.applyTmdbId(hits[0].id);
+        return;
+      }
+      this.tmdbHits.set(hits);
+      this.tmdbPickOpen.set(true);
+    } catch (e: unknown) {
+      await showError(errorMessage(e));
+    } finally {
+      this.tmdbLinking.set(false);
+    }
+  }
+
+  closeTmdbPick(): void {
+    this.tmdbPickOpen.set(false);
+    this.tmdbPickError.set(null);
+    this.tmdbHits.set([]);
+  }
+
+  async selectTmdbHit(hit: TmdbSearchResult): Promise<void> {
+    if (this.tmdbLinking()) {
+      return;
+    }
+    this.tmdbLinking.set(true);
+    this.tmdbPickError.set(null);
+    try {
+      await this.applyTmdbId(hit.id);
+      this.closeTmdbPick();
+    } catch (e: unknown) {
+      this.tmdbPickError.set(errorMessage(e));
+    } finally {
+      this.tmdbLinking.set(false);
+    }
+  }
+
+  private async applyTmdbId(tmdbId: number): Promise<void> {
+    await this.movies.setTmdbId(this.movieId, tmdbId);
+    const current = this.details();
+    if (current) {
+      this.details.set({
+        ...current,
+        movie: { ...current.movie, TmdbId: tmdbId },
+      });
+    }
+    await this.loadWatchProviders(tmdbId);
+    await showInfo(`TMDB-id ${tmdbId} tallennettu.`);
   }
 
   /** All unique people credited on this movie (roles + awards). */

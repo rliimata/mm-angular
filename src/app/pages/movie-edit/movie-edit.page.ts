@@ -10,18 +10,20 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { confirmAction, showError } from '../../core/confirm.util';
+import { confirmAction, showError, showInfo } from '../../core/confirm.util';
 import { formatAppDate } from '../../core/datetime.util';
 import { DetailRefreshService } from '../../core/detail-refresh.service';
 import { errorMessage } from '../../core/error.util';
 import {
   ageRatingLabel,
   decodeEntities,
+  initCapName,
   ntscMinutesFromPal,
   palMinutesFromNtsc,
   resolveNtscMinutes,
   swapNames,
   swapTitle,
+  titleArticles,
 } from '../../core/format.util';
 import { PageTitleService } from '../../core/page-title.service';
 import { isPhoneViewport } from '../../core/viewport.util';
@@ -30,7 +32,12 @@ import { CatalogService, CatalogTable } from '../../data/catalog.service';
 import { LookupService } from '../../data/lookup.service';
 import { MovieService } from '../../data/movie.service';
 import { PersonDetails, PersonService } from '../../data/person.service';
-import { TmdbSearchResult, TmdbService } from '../../data/tmdb.service';
+import {
+  TmdbCreditPerson,
+  TmdbMovieDetails,
+  TmdbSearchResult,
+  TmdbService,
+} from '../../data/tmdb.service';
 import { getSupabase } from '../../core/supabase.client';
 import { DigitsOnlyDirective } from '../../shared/digits-only.directive';
 import { MediaImageComponent } from '../../shared/media-image.component';
@@ -40,6 +47,89 @@ import { SearchSelectComponent } from '../../shared/search-select.component';
 import { SentenceCaseDirective } from '../../shared/sentence-case.directive';
 import { CatalogAddModal } from '../modals/catalog-add/catalog-add.modal';
 import { PersonPreviewModal } from '../modals/person-preview/person-preview.modal';
+
+const ROLE_DIRECTOR = 1;
+const ROLE_ACTOR = 2;
+const ROLE_WRITER = 3;
+const ROLE_COMPOSER = 4;
+
+/** TMDB original_language → TitleLanguage.Id */
+const TMDB_LANG_TO_ID: Record<string, number> = {
+  en: 1,
+  fi: 2,
+  sv: 3,
+  it: 4,
+  es: 5,
+  fr: 6,
+  zh: 7,
+  cn: 7,
+  de: 8,
+  ja: 9,
+  ko: 10,
+  id: 11,
+  pt: 12,
+  no: 13,
+  nb: 13,
+  nn: 13,
+  pl: 14,
+  nl: 15,
+  tr: 16,
+  da: 17,
+  el: 18,
+  ru: 19,
+  hi: 20,
+  et: 21,
+  hu: 22,
+  ro: 24,
+  sq: 25,
+  ka: 26,
+  is: 27,
+  cs: 28,
+};
+
+/** TMDB production country ISO → Country.Value aliases in our DB. */
+const TMDB_COUNTRY_ALIASES: Record<string, string[]> = {
+  US: ['USA', 'United States', 'United States of America'],
+  GB: ['UK', 'United Kingdom', 'Great Britain'],
+  UK: ['UK', 'United Kingdom'],
+};
+
+/** Extra genre name aliases → Category.Value. */
+const TMDB_GENRE_ALIASES: Record<string, string[]> = {
+  action: ['Toiminta'],
+  adventure: ['Seikkailu'],
+  animation: ['Animaatio', 'Piirretty'],
+  comedy: ['Komedia'],
+  crime: ['Gangsteri', 'Trilleri'],
+  documentary: ['Dokumentti'],
+  drama: ['Draama'],
+  family: ['Perhe', 'Lasten'],
+  fantasy: ['Fantasia'],
+  horror: ['Kauhu'],
+  music: ['Musiikki'],
+  mystery: ['Jännitys', 'Trilleri'],
+  romance: ['Romantiikka'],
+  'science fiction': ['Sci-fi'],
+  'sci-fi': ['Sci-fi'],
+  thriller: ['Trilleri', 'Jännitys'],
+  war: ['Sota'],
+  western: ['Lännen'],
+  toiminta: ['Toiminta'],
+  seikkailu: ['Seikkailu'],
+  animaatio: ['Animaatio'],
+  komedia: ['Komedia'],
+  dokumentti: ['Dokumentti'],
+  draama: ['Draama'],
+  perhe: ['Perhe'],
+  fantasia: ['Fantasia'],
+  kauhu: ['Kauhu'],
+  musiikki: ['Musiikki'],
+  romantiikka: ['Romantiikka'],
+  trilleri: ['Trilleri'],
+  jännitys: ['Jännitys'],
+  sota: ['Sota'],
+  lännen: ['Lännen'],
+};
 
 /** Fixed levitys choices shown as radios (DB Id → UI label). */
 const DISTRIBUTION_RADIOS: { Id: number; Value: string }[] = [
@@ -133,11 +223,6 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
   runtimeUnit: 'ntsc' | 'pal' = 'ntsc';
   budgetText = '';
   currencyId: number | null = 0;
-  tmdbId: number | null = null;
-  tmdbSearchOpen = false;
-  tmdbSearching = false;
-  tmdbSearchError: string | null = null;
-  tmdbHits: TmdbSearchResult[] = [];
   text = '';
   triviaItems: string[] = [];
   triviaDraft = '';
@@ -210,6 +295,13 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
   titleMatches: TitleMatch[] = [];
   private titleCheckedFor = '';
 
+  /** Linked / prefilled TMDB movie id (saved with the movie). */
+  tmdbId: number | null = null;
+  tmdbPickOpen = false;
+  tmdbPickError: string | null = null;
+  tmdbHits: TmdbSearchResult[] = [];
+  readonly tmdbPrefilling = signal(false);
+
   readonly error = signal<string | null>(null);
   readonly saving = signal(false);
   readonly swapNames = swapNames;
@@ -260,6 +352,7 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
       if (this.copyMode) {
         // Keep form data; save must create a new movie.
         this.id = 0;
+        this.tmdbId = null;
       }
       this.roles = details.roles.map((r) => ({
         roleId: r.RoleId,
@@ -309,6 +402,40 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
       );
     } else {
       this.pageTitle.set('Uusi elokuva');
+      await this.applyNewMovieQueryParams();
+    }
+  }
+
+  /** Seed new-movie form from `?title=&year=` or `?tmdb=` (from the + modal). */
+  private async applyNewMovieQueryParams(): Promise<void> {
+    const qp = this.route.snapshot.queryParamMap;
+    const title = (qp.get('title') || '').trim();
+    const year = (qp.get('year') || '').trim();
+    const tmdbRaw = Number(qp.get('tmdb') || '');
+    const hasTmdb = Number.isFinite(tmdbRaw) && tmdbRaw > 0;
+    if (!title && !year && !hasTmdb) {
+      return;
+    }
+    if (title) {
+      this.title = title;
+    }
+    if (/^\d{4}$/.test(year)) {
+      this.yearText = year;
+    }
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {},
+      replaceUrl: true,
+    });
+    if (hasTmdb) {
+      this.tmdbPrefilling.set(true);
+      try {
+        await this.applyTmdbDetails(tmdbRaw);
+      } catch (e: unknown) {
+        this.error.set(errorMessage(e));
+      } finally {
+        this.tmdbPrefilling.set(false);
+      }
     }
   }
 
@@ -664,47 +791,7 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
     this.runtimeMinutes = ntsc;
     this.budgetText = m.Budget != null && m.Budget > 0 ? String(m.Budget) : '';
     this.currencyId = m.CurrencyId && m.CurrencyId > 0 ? m.CurrencyId : null;
-    this.tmdbId = m.TmdbId && m.TmdbId > 0 ? m.TmdbId : null;
-  }
-
-  clearTmdbId(): void {
-    this.tmdbId = null;
-  }
-
-  async openTmdbSearch(): Promise<void> {
-    this.tmdbSearchOpen = true;
-    this.tmdbSearchError = null;
-    this.tmdbHits = [];
-    this.tmdbSearching = true;
-    try {
-      const year = this.yearText.trim() ? Number(this.yearText) : null;
-      const q = swapTitle(this.title, this.titleLanguageId).replace(/\s+/g, ' ').trim() || this.title.trim();
-      const res = await this.tmdb.searchMovies(q, year);
-      this.tmdbHits = res.results;
-      if (!this.tmdbHits.length) {
-        this.tmdbSearchError = 'Ei osumia TMDB:ssä.';
-      }
-    } catch (e: unknown) {
-      this.tmdbSearchError = errorMessage(e);
-    } finally {
-      this.tmdbSearching = false;
-    }
-  }
-
-  closeTmdbSearch(): void {
-    this.tmdbSearchOpen = false;
-    this.tmdbSearching = false;
-    this.tmdbSearchError = null;
-    this.tmdbHits = [];
-  }
-
-  selectTmdbHit(hit: TmdbSearchResult): void {
-    this.tmdbId = hit.id;
-    this.closeTmdbSearch();
-  }
-
-  tmdbMovieUrl(): string | null {
-    return this.tmdbId ? `https://www.themoviedb.org/movie/${this.tmdbId}` : null;
+    this.tmdbId = m.TmdbId != null && m.TmdbId > 0 ? m.TmdbId : null;
   }
 
   clearSelect(field: 'age' | 'versionId' | 'ratioId' | 'currencyId' | 'distributionId'): void {
@@ -1189,6 +1276,368 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
 
   canSave(): boolean {
     return !!this.title.trim() && !!this.yearText.trim() && !!this.titleLanguageId;
+  }
+
+  canPrefillFromTmdb(): boolean {
+    return !this.id && this.title.trim().length >= 1;
+  }
+
+  async prefillFromTmdb(): Promise<void> {
+    if (!this.canPrefillFromTmdb() || this.tmdbPrefilling()) {
+      return;
+    }
+    this.tmdbPrefilling.set(true);
+    this.tmdbPickError = null;
+    try {
+      const year = this.yearText.trim() ? Number(this.yearText) : null;
+      const res = await this.tmdb.searchMovies(
+        this.title.trim(),
+        year != null && Number.isFinite(year) ? year : null
+      );
+      const hits = res.results ?? [];
+      if (!hits.length) {
+        await showInfo('Ei osumia TMDB:ssä.');
+        return;
+      }
+      if (hits.length === 1) {
+        await this.applyTmdbDetails(hits[0].id);
+        return;
+      }
+      this.tmdbHits = hits;
+      this.tmdbPickOpen = true;
+    } catch (e: unknown) {
+      await showError(errorMessage(e));
+    } finally {
+      this.tmdbPrefilling.set(false);
+    }
+  }
+
+  closeTmdbPick(): void {
+    this.tmdbPickOpen = false;
+    this.tmdbPickError = null;
+    this.tmdbHits = [];
+  }
+
+  async selectTmdbHit(hit: TmdbSearchResult): Promise<void> {
+    if (this.tmdbPrefilling()) {
+      return;
+    }
+    this.tmdbPrefilling.set(true);
+    this.tmdbPickError = null;
+    try {
+      await this.applyTmdbDetails(hit.id);
+      this.closeTmdbPick();
+    } catch (e: unknown) {
+      this.tmdbPickError = errorMessage(e);
+    } finally {
+      this.tmdbPrefilling.set(false);
+    }
+  }
+
+  private async applyTmdbDetails(tmdbId: number): Promise<void> {
+    const d = await this.tmdb.movieDetails(tmdbId);
+    this.tmdbId = d.id;
+
+    const langId = TMDB_LANG_TO_ID[d.originalLanguage] ?? this.titleLanguageId ?? 1;
+    this.titleLanguageId = langId;
+
+    const storedTitle = this.toStoredTitle(d.originalTitle || d.title, langId);
+    if (storedTitle) {
+      this.title = storedTitle;
+    }
+    if (d.year) {
+      this.yearText = String(d.year);
+    }
+    if (d.overview?.trim()) {
+      this.text = d.overview.trim();
+    }
+    if (d.runtime != null && d.runtime > 0) {
+      this.runtimeUnit = 'ntsc';
+      this.runtimeMinutes = d.runtime;
+    }
+    if (d.budget != null && d.budget > 0) {
+      this.budgetText = String(d.budget);
+      this.currencyId = 1; // USD
+    }
+
+    const age = this.mapFiCertification(d.certificationFi);
+    if (age != null) {
+      this.age = age;
+    }
+
+    this.categoryIds = this.mergeUniqueIds(
+      this.categoryIds,
+      this.matchCategoryIds(d.genres.map((g) => g.name))
+    );
+    this.countryIds = this.mergeUniqueIds(
+      this.countryIds,
+      this.matchCountryIds(d.countries)
+    );
+    this.mergeAkaFromTmdb(d, langId);
+
+    const peopleStats = await this.mergeCreditsFromTmdb(d);
+    const bits = [
+      `TMDB #${d.id} täytetty`,
+      peopleStats.linked ? `${peopleStats.linked} henkilöä` : null,
+      peopleStats.created ? `${peopleStats.created} uutta` : null,
+      peopleStats.skipped ? `${peopleStats.skipped} ei löytynyt` : null,
+    ].filter(Boolean);
+    await showInfo(bits.join(' · '));
+  }
+
+  private mergeAkaFromTmdb(d: TmdbMovieDetails, originalLangId: number): void {
+    const add = (title: string, titleLanguageId: number) => {
+      const t = title.trim();
+      if (!t) {
+        return;
+      }
+      const stored = this.toStoredTitle(t, titleLanguageId);
+      const key = stored.toLocaleLowerCase('fi');
+      const origKey = this.title.trim().toLocaleLowerCase('fi');
+      if (key === origKey) {
+        return;
+      }
+      if (this.aka.some((a) => a.title.toLocaleLowerCase('fi') === key)) {
+        return;
+      }
+      this.aka = [...this.aka, { title: stored, titleLanguageId }];
+    };
+
+    // Localized FI title from TMDB (when original isn't Finnish).
+    if (d.title && originalLangId !== 2) {
+      add(d.title, 2);
+    }
+    // English title when original isn't English.
+    if (originalLangId !== 1) {
+      const en = d.alternativeTitles.find((t) => t.iso === 'US' || t.iso === 'GB');
+      if (en) {
+        add(en.title, 1);
+      }
+    }
+    for (const alt of d.alternativeTitles) {
+      if (alt.iso === 'FI') {
+        add(alt.title, 2);
+      } else if (alt.iso === 'US' || alt.iso === 'GB') {
+        add(alt.title, 1);
+      }
+    }
+  }
+
+  private async mergeCreditsFromTmdb(
+    d: TmdbMovieDetails
+  ): Promise<{ linked: number; created: number; skipped: number }> {
+    let linked = 0;
+    let created = 0;
+    let skipped = 0;
+
+    const applyGroup = async (
+      people: TmdbCreditPerson[],
+      roleId: number,
+      createMissing: boolean
+    ) => {
+      for (const p of people) {
+        const resolved = await this.resolvePersonForTmdb(p, createMissing);
+        if (!resolved) {
+          skipped += 1;
+          continue;
+        }
+        if (resolved.created) {
+          created += 1;
+        } else {
+          linked += 1;
+        }
+        if (!this.roles.some((r) => r.personId === resolved.person.Id && r.roleId === roleId)) {
+          this.roles = [
+            ...this.roles,
+            { roleId, personId: resolved.person.Id, name: decodeEntities(resolved.person.Name) },
+          ];
+        }
+      }
+    };
+
+    await applyGroup(d.credits.directors, ROLE_DIRECTOR, true);
+    await applyGroup(d.credits.writers, ROLE_WRITER, true);
+    await applyGroup(d.credits.composers, ROLE_COMPOSER, true);
+    // Cast: link existing only (avoid flooding Person with extras).
+    await applyGroup(d.credits.cast, ROLE_ACTOR, false);
+    return { linked, created, skipped };
+  }
+
+  private async resolvePersonForTmdb(
+    credit: TmdbCreditPerson,
+    createMissing: boolean
+  ): Promise<{ person: Person; created: boolean } | null> {
+    const display = credit.name.trim();
+    if (!display) {
+      return null;
+    }
+    const storageName = this.toPersonStorageName(display);
+    const hits = await this.people.searchNameExact(display, 20);
+    const match =
+      hits.find((p) => this.personNamesMatch(p.Name, display) || this.personNamesMatch(p.Name, storageName)) ??
+      null;
+    if (match) {
+      return { person: match, created: false };
+    }
+    if (!createMissing) {
+      return null;
+    }
+    const id = await this.people.savePerson(
+      {
+        Name: storageName.slice(0, 80),
+        RealName: '',
+        Gender: credit.gender ?? 0,
+        BirthCountryId: null,
+        DeathCountryId: null,
+        DeathReasonId: null,
+        BirthDate: null,
+        DeathDate: null,
+      },
+      null
+    );
+    return {
+      person: {
+        Id: id,
+        Name: storageName.slice(0, 80),
+        RealName: null,
+        BirthCountryId: null,
+        DeathCountryId: null,
+        DeathReasonId: null,
+        Type: 0,
+        Gender: credit.gender ?? 0,
+        BirthDate: null,
+        DeathDate: null,
+      },
+      created: true,
+    };
+  }
+
+  private personNamesMatch(stored: string, query: string): boolean {
+    const a = swapNames(decodeEntities(stored)).toLocaleLowerCase('fi').replace(/\s+/g, ' ').trim();
+    const b = swapNames(decodeEntities(query)).toLocaleLowerCase('fi').replace(/\s+/g, ' ').trim();
+    const aRaw = decodeEntities(stored).toLocaleLowerCase('fi').replace(/\s+/g, ' ').trim();
+    const bRaw = decodeEntities(query).toLocaleLowerCase('fi').replace(/\s+/g, ' ').trim();
+    return a === b || aRaw === bRaw || a === bRaw || aRaw === b;
+  }
+
+  private toPersonStorageName(displayName: string): string {
+    const parts = displayName.trim().replace(/\s+/g, ' ').split(' ');
+    if (parts.length < 2) {
+      return initCapName(displayName);
+    }
+    const last = parts[parts.length - 1];
+    const first = parts.slice(0, -1).join(' ');
+    return initCapName(`${last}, ${first}`);
+  }
+
+  /** "The Matrix" → "Matrix, The" for storage, matching existing catalog style. */
+  private toStoredTitle(title: string, titleLanguageId: number | null): string {
+    let s = title.trim().replace(/\s+/g, ' ');
+    if (!s) {
+      return '';
+    }
+    const articles = titleArticles(titleLanguageId);
+    for (const value of articles) {
+      if (value.endsWith("'")) {
+        if (s.toLocaleLowerCase('fi').startsWith(value.toLocaleLowerCase('fi'))) {
+          return `${s.slice(value.length)}, ${value}`;
+        }
+      } else {
+        const prefix = `${value} `;
+        if (s.toLocaleLowerCase('fi').startsWith(prefix.toLocaleLowerCase('fi'))) {
+          return `${s.slice(prefix.length)}, ${value}`;
+        }
+      }
+    }
+    return s;
+  }
+
+  private mapFiCertification(raw: string | null): number | null {
+    if (!raw) {
+      return null;
+    }
+    const c = raw.trim().toUpperCase().replace(/\s+/g, '');
+    if (c === 'S' || c === 'T' || c === 'ALL') {
+      return 254;
+    }
+    if (c === 'KK' || c === 'K18') {
+      return 18;
+    }
+    const n = Number(c.replace(/^K/, ''));
+    if ([7, 12, 16, 18].includes(n)) {
+      return n;
+    }
+    return null;
+  }
+
+  private matchCategoryIds(genreNames: string[]): number[] {
+    const ids: number[] = [];
+    for (const raw of genreNames) {
+      const name = decodeEntities(raw).trim();
+      if (!name) {
+        continue;
+      }
+      const lower = name.toLocaleLowerCase('fi');
+      let hit =
+        this.categories.find((c) => decodeEntities(String(c.Value)).toLocaleLowerCase('fi') === lower) ??
+        null;
+      if (!hit) {
+        const aliases = TMDB_GENRE_ALIASES[lower] ?? [];
+        for (const alias of aliases) {
+          hit =
+            this.categories.find(
+              (c) =>
+                decodeEntities(String(c.Value)).toLocaleLowerCase('fi') ===
+                alias.toLocaleLowerCase('fi')
+            ) ?? null;
+          if (hit) {
+            break;
+          }
+        }
+      }
+      if (hit && !ids.includes(hit.Id)) {
+        ids.push(hit.Id);
+      }
+    }
+    return ids;
+  }
+
+  private matchCountryIds(countries: { iso: string; name: string }[]): number[] {
+    const ids: number[] = [];
+    for (const c of countries) {
+      const aliases = [
+        ...(TMDB_COUNTRY_ALIASES[c.iso?.toUpperCase()] ?? []),
+        c.name,
+        c.iso,
+      ]
+        .map((v) => decodeEntities(v).trim())
+        .filter(Boolean);
+      let hit: LookupRow | null = null;
+      for (const alias of aliases) {
+        const lower = alias.toLocaleLowerCase('fi');
+        hit =
+          this.countries.find(
+            (row) => decodeEntities(String(row.Value)).toLocaleLowerCase('fi') === lower
+          ) ?? null;
+        if (hit) {
+          break;
+        }
+      }
+      if (hit && !ids.includes(hit.Id)) {
+        ids.push(hit.Id);
+      }
+    }
+    return ids;
+  }
+
+  private mergeUniqueIds(current: number[], extra: number[]): number[] {
+    const out = [...current];
+    for (const id of extra) {
+      if (!out.includes(id)) {
+        out.push(id);
+      }
+    }
+    return out;
   }
 
   async save(asNew = false): Promise<void> {

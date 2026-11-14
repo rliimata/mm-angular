@@ -27,6 +27,33 @@ export interface TmdbWatchProviders {
   free: TmdbProvider[];
 }
 
+export interface TmdbCreditPerson {
+  name: string;
+  gender: number | null;
+}
+
+export interface TmdbMovieDetails {
+  id: number;
+  title: string;
+  originalTitle: string;
+  originalLanguage: string;
+  overview: string;
+  runtime: number | null;
+  budget: number | null;
+  releaseDate: string | null;
+  year: number | null;
+  genres: { id: number; name: string }[];
+  countries: { iso: string; name: string }[];
+  alternativeTitles: { iso: string; title: string }[];
+  certificationFi: string | null;
+  credits: {
+    directors: TmdbCreditPerson[];
+    writers: TmdbCreditPerson[];
+    composers: TmdbCreditPerson[];
+    cast: TmdbCreditPerson[];
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class TmdbService {
   private async authHeaders(): Promise<HeadersInit> {
@@ -75,6 +102,13 @@ export class TmdbService {
       action: 'providers',
       tmdbId: String(tmdbId),
       region,
+    });
+  }
+
+  movieDetails(tmdbId: number): Promise<TmdbMovieDetails> {
+    return this.getJson({
+      action: 'details',
+      tmdbId: String(tmdbId),
     });
   }
 }

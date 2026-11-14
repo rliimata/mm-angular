@@ -878,6 +878,14 @@ export class MovieService {
     return data as Movie | null;
   }
 
+  async setTmdbId(movieId: number, tmdbId: number | null): Promise<void> {
+    const value = tmdbId != null && tmdbId > 0 ? tmdbId : null;
+    const { error } = await getSupabase().from('Movie').update({ TmdbId: value }).eq('Id', movieId);
+    if (error) {
+      throw error;
+    }
+  }
+
   async getText(movieId: number): Promise<string | null> {
     const { data, error } = await getSupabase()
       .from('MovieText')

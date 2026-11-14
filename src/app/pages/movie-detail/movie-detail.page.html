@@ -32,6 +32,15 @@
               Muokkaa
             </button>
             <button type="button" class="ghost desktop-only" (click)="openCopyEdit()">Kopioi</button>
+            <button
+              type="button"
+              class="ghost desktop-only"
+              (click)="linkTmdb()"
+              [disabled]="tmdbLinking()"
+              title="Hae ja linkitä TMDB-id"
+            >
+              TMDB
+            </button>
             <button type="button" class="danger-btn desktop-only" (click)="deleteMovie()">Poista</button>
           }
         </p>
@@ -417,6 +426,50 @@
     </div>
   }
 </section>
+
+@if (tmdbPickOpen()) {
+  <div class="modal-backdrop" (click)="closeTmdbPick()">
+    <div class="modal modal-small" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+      <header class="modal-head">
+        <h2>Valitse TMDB-elokuva</h2>
+      </header>
+      <div class="modal-body">
+        @if (tmdbPickError()) {
+          <p class="error">{{ tmdbPickError() }}</p>
+        }
+        <ul class="tmdb-pick-list">
+          @for (m of tmdbHits(); track m.id) {
+            <li>
+              <button
+                type="button"
+                class="tmdb-pick-btn"
+                (click)="selectTmdbHit(m)"
+                [disabled]="tmdbLinking()"
+              >
+                @if (m.posterUrl) {
+                  <img class="tmdb-pick-poster" [src]="m.posterUrl" alt="" />
+                }
+                <span class="tmdb-pick-text">
+                  <span class="tmdb-pick-main"
+                    >{{ m.title }}{{ m.year ? ' (' + m.year + ')' : '' }}</span
+                  >
+                  @if (m.originalTitle && m.originalTitle !== m.title) {
+                    <span class="tmdb-pick-sub">{{ m.originalTitle }}</span>
+                  }
+                </span>
+              </button>
+            </li>
+          }
+        </ul>
+      </div>
+      <footer class="modal-foot">
+        <button type="button" class="ghost" (click)="closeTmdbPick()" [disabled]="tmdbLinking()">
+          Peruuta
+        </button>
+      </footer>
+    </div>
+  </div>
+}
 
 @if (ratingOpen()) {
   <div class="modal-backdrop" (click)="closeRating()">

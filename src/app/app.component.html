@@ -44,13 +44,15 @@
               title="Uusi käyttäjä"
               aria-label="Uusi käyttäjä"
             ></button>
-            <a
-              routerLink="/movie/new"
+            <button
+              type="button"
               class="top-add desktop-only"
+              (click)="openNewMovie()"
               title="Uusi elokuva"
               aria-label="Uusi elokuva"
-              >+</a
             >
+              +
+            </button>
           }
         </div>
       }
@@ -162,6 +164,91 @@
         Luo
       </button>
       <button type="button" class="ghost" (click)="closeCreateUser()">Peruuta</button>
+    </footer>
+  </div>
+}
+
+@if (newMovieOpen()) {
+  <div class="pwd-backdrop" (click)="closeNewMovie()"></div>
+  <div class="pwd-modal new-movie-modal" role="dialog" aria-modal="true" aria-labelledby="newMovieTitle">
+    <header class="pwd-head">
+      <h2 id="newMovieTitle">{{ newMovieHits().length ? 'Valitse TMDB-elokuva' : 'Uusi elokuva' }}</h2>
+    </header>
+    <div class="pwd-body">
+      @if (newMovieError()) {
+        <p class="pwd-error">{{ newMovieError() }}</p>
+      }
+      @if (newMovieHits().length) {
+        <ul class="new-movie-hits">
+          @for (m of newMovieHits(); track m.id) {
+            <li>
+              <button
+                type="button"
+                class="new-movie-hit"
+                (click)="selectNewMovieTmdb(m)"
+                [disabled]="newMovieBusy()"
+              >
+                @if (m.posterUrl) {
+                  <img class="new-movie-poster" [src]="m.posterUrl" alt="" />
+                }
+                <span class="new-movie-hit-text">
+                  <span class="new-movie-hit-main"
+                    >{{ m.title }}{{ m.year ? ' (' + m.year + ')' : '' }}</span
+                  >
+                  @if (m.originalTitle && m.originalTitle !== m.title) {
+                    <span class="new-movie-hit-sub">{{ m.originalTitle }}</span>
+                  }
+                </span>
+              </button>
+            </li>
+          }
+        </ul>
+      } @else {
+        <label>
+          Nimi
+          <input
+            #newMovieTitleInput
+            type="text"
+            [(ngModel)]="newMovieTitle"
+            name="newMovieTitle"
+            autocomplete="off"
+            appSentenceCase
+            (keydown.enter)="$event.preventDefault(); startNewMovieTmdb()"
+          />
+        </label>
+        <label>
+          Vuosi
+          <input
+            type="text"
+            inputmode="numeric"
+            appDigitsOnly
+            [(ngModel)]="newMovieYear"
+            name="newMovieYear"
+            maxlength="4"
+            autocomplete="off"
+            (keydown.enter)="$event.preventDefault(); startNewMovieTmdb()"
+          />
+        </label>
+      }
+    </div>
+    <footer class="pwd-foot" [class.new-movie-foot-pick]="!!newMovieHits().length">
+      @if (newMovieHits().length) {
+        <button type="button" class="ghost" (click)="backNewMovieForm()" [disabled]="newMovieBusy()">
+          Takaisin
+        </button>
+      } @else {
+        <button
+          type="button"
+          class="primary"
+          (click)="startNewMovieTmdb()"
+          [disabled]="newMovieBusy() || !newMovieTitle.trim()"
+        >
+          {{ newMovieBusy() ? 'Haetaan…' : 'TMDB' }}
+        </button>
+        <button type="button" class="ghost" (click)="startNewMovieBlank()" [disabled]="newMovieBusy()">
+          Tyhjä pohja
+        </button>
+      }
     </footer>
   </div>
 }

@@ -256,5 +256,138 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     });
   }
 
-  return json(request, 400, { error: 'Tuntematon action (search|providers).' });
+  if (action === 'details') {
+    const tmdbId = Number(url.searchParams.get('tmdbId') || '');
+    if (!Number.isFinite(tmdbId) || tmdbId <= 0) {
+      return json(request, 400, { error: 'Virheellinen tmdbId.' });
+    }
+
+    const res = await tmdbFetch(`/movie/${tmdbId}`, env.TMDB_API_KEY, {
+      language: 'fi-FI',
+      append_to_response: 'credits,alternative_titles,release_dates',
+    });
+    const text = await res.text();
+    let body: TmdbMovieDetailsBody = {};
+    try {
+      body = JSON.parse(text) as TmdbMovieDetailsBody;
+    } catch {
+      /* plain */
+    }
+    if (!res.ok) {
+      return json(request, res.status >= 400 ? res.status : 500, {
+        error: body.status_message || text || 'TMDB-tiedot epäonnistuivat.',
+      });
+    }
+
+    return json(request, 200, mapMovieDetails(body));
+  }
+
+  return json(request, 400, { error: 'Tuntematon action (search|providers|details).' });
 };
+
+type TmdbMovieDetailsBody = {
+  id?: number;
+  title?: string;
+  original_title?: string;
+  original_language?: string;
+  overview?: string;
+  runtime?: number | null;
+  budget?: number | null;
+  release_date?: string;
+  genres?: { id: number; name: string }[];
+  production_countries?: { iso_3166_1: string; name: string }[];
+  credits?: {
+    cast?: { name?: string; gender?: number; order?: number }[];
+    crew?: { name?: string; gender?: number; job?: string; department?: string }[];
+  };
+  alternative_titles?: { titles?: { iso_3166_1?: string; title?: string }[] };
+  release_dates?: {
+    results?: { iso_3166_1?: string; release_dates?: { certification?: string; type?: number }[] }[];
+  };
+  status_message?: string;
+};
+
+function uniqueNames(rows: { name: string; gender: number | null }[]): { name: string; gender: number | null }[] {
+  const seen = new Set<string>();
+  const out: { name: string; gender: number | null }[] = [];
+  for (const row of rows) {
+    const key = row.name.toLocaleLowerCase('fi');
+    if (!key || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+}
+
+function mapGender(g: number | null | undefined): number | null {
+  // TMDB: 1 female, 2 male → app: 1 Nainen, 0 Mies
+  if (g === 1) {
+    return 1;
+  }
+  if (g === 2) {
+    return 0;
+  }
+  return null;
+}
+
+function mapMovieDetails(body: TmdbMovieDetailsBody) {
+  const crew = body.credits?.crew ?? [];
+  const cast = [...(body.credits?.cast ?? [])].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+
+  const directors = uniqueNames(
+    crew
+      .filter((c) => c.job === 'Director' && c.name)
+      .map((c) => ({ name: String(c.name).trim(), gender: mapGender(c.gender) }))
+  );
+  const writers = uniqueNames(
+    crew
+      .filter((c) => c.name && ['Screenplay', 'Writer', 'Story'].includes(c.job || ''))
+      .map((c) => ({ name: String(c.name).trim(), gender: mapGender(c.gender) }))
+  );
+  const composers = uniqueNames(
+    crew
+      .filter(
+        (c) =>
+          c.name &&
+          (c.job === 'Original Music Composer' || c.job === 'Music' || c.job === 'Composer')
+      )
+      .map((c) => ({ name: String(c.name).trim(), gender: mapGender(c.gender) }))
+  );
+  const actors = uniqueNames(
+    cast
+      .filter((c) => c.name)
+      .slice(0, 15)
+      .map((c) => ({ name: String(c.name).trim(), gender: mapGender(c.gender) }))
+  );
+
+  const fiReleases =
+    body.release_dates?.results?.find((r) => r.iso_3166_1 === 'FI')?.release_dates ?? [];
+  const certificationFi =
+    fiReleases.map((r) => (r.certification || '').trim()).find((c) => !!c) || null;
+
+  const alt = (body.alternative_titles?.titles ?? [])
+    .filter((t) => t.title && t.iso_3166_1)
+    .map((t) => ({ iso: String(t.iso_3166_1).toUpperCase(), title: String(t.title).trim() }));
+
+  return {
+    id: body.id,
+    title: body.title || '',
+    originalTitle: body.original_title || body.title || '',
+    originalLanguage: (body.original_language || '').toLowerCase(),
+    overview: body.overview || '',
+    runtime: body.runtime && body.runtime > 0 ? body.runtime : null,
+    budget: body.budget && body.budget > 0 ? body.budget : null,
+    releaseDate: body.release_date || null,
+    year: body.release_date ? Number(body.release_date.slice(0, 4)) || null : null,
+    genres: (body.genres ?? []).map((g) => ({ id: g.id, name: g.name })),
+    countries: (body.production_countries ?? []).map((c) => ({
+      iso: c.iso_3166_1,
+      name: c.name,
+    })),
+    alternativeTitles: alt,
+    certificationFi,
+    credits: { directors, writers, composers, cast: actors },
+  };
+}

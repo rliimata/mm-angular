@@ -150,14 +150,18 @@
   box-sizing: border-box;
   width: 2rem;
   height: 2rem;
+  margin: 0;
+  padding: 0;
   border: 1px solid #3f8a4c;
   border-radius: 4px;
   background: #2f6b3a;
   color: #fff;
   text-decoration: none;
+  font: inherit;
   font-size: 1.35rem;
   font-weight: 700;
   line-height: 1;
+  cursor: pointer;
 }
 
 .top-add:hover {
@@ -320,6 +324,73 @@
   margin: 0;
   color: #a11;
   font-size: 0.9rem;
+}
+
+.new-movie-modal {
+  width: min(28rem, calc(100vw - 2rem));
+}
+
+.new-movie-hits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  max-height: min(18rem, 50vh);
+  overflow: auto;
+}
+
+.new-movie-hit {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.65rem;
+  text-align: left;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #d0d8e0;
+  border-radius: 6px;
+  background: #f7fafc;
+  color: #111;
+  font: inherit;
+  cursor: pointer;
+}
+
+.new-movie-hit:hover:not(:disabled) {
+  border-color: #1f4b7a;
+  background: #eef4fa;
+}
+
+.new-movie-hit:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.new-movie-poster {
+  width: 40px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 3px;
+  background: #e8eef4;
+}
+
+.new-movie-hit-text {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.new-movie-hit-main {
+  font-weight: 600;
+}
+
+.new-movie-hit-sub {
+  color: #5a6570;
+  font-size: 0.95rem;
+}
+
+.pwd-foot.new-movie-foot-pick {
+  grid-auto-columns: 1fr;
 }
 
 main {

@@ -1141,6 +1141,64 @@ button.danger,
   text-underline-offset: 2px;
 }
 
+.tmdb-pick-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.tmdb-pick-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #d5dde6;
+  border-radius: 6px;
+  background: #f7f9fb;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tmdb-pick-btn:hover:not(:disabled) {
+  border-color: #1f4b7a;
+  background: #fff;
+}
+
+.tmdb-pick-btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.tmdb-pick-poster {
+  width: 2.5rem;
+  height: 3.75rem;
+  object-fit: cover;
+  border-radius: 3px;
+  background: #e8eef4;
+  flex: 0 0 auto;
+}
+
+.tmdb-pick-text {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.tmdb-pick-main {
+  font-weight: 600;
+}
+
+.tmdb-pick-sub {
+  font-size: 0.9rem;
+  color: #5a6b7d;
+}
+
 .reviews-section {
   width: 100%;
   min-width: 0;

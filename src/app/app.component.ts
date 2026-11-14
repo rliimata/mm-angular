@@ -8,19 +8,30 @@ import { DetailRefreshService } from './core/detail-refresh.service';
 import { errorMessage } from './core/error.util';
 import { MovieService } from './data/movie.service';
 import { PersonService } from './data/person.service';
+import { TmdbSearchResult, TmdbService } from './data/tmdb.service';
 import { UserAdminService } from './data/user-admin.service';
+import { DigitsOnlyDirective } from './shared/digits-only.directive';
 import { ListPreviewComponent } from './shared/list-preview.component';
+import { SentenceCaseDirective } from './shared/sentence-case.directive';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, ListPreviewComponent, FormsModule],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    ListPreviewComponent,
+    FormsModule,
+    DigitsOnlyDirective,
+    SentenceCaseDirective,
+  ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
 export class AppComponent implements OnInit {
   @ViewChild('passwordNewInput') private passwordNewInput?: ElementRef<HTMLInputElement>;
   @ViewChild('userFirstNameInput') private userFirstNameInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('newMovieTitleInput') private newMovieTitleInput?: ElementRef<HTMLInputElement>;
 
   private readonly destroyRef = inject(DestroyRef);
 
@@ -38,6 +49,13 @@ export class AppComponent implements OnInit {
   userFirstName = '';
   userLastName = '';
 
+  readonly newMovieOpen = signal(false);
+  readonly newMovieBusy = signal(false);
+  readonly newMovieError = signal<string | null>(null);
+  readonly newMovieHits = signal<TmdbSearchResult[]>([]);
+  newMovieTitle = '';
+  newMovieYear = '';
+
   readonly catalogCounts = signal<{ movies: number; people: number } | null>(null);
 
   constructor(
@@ -46,6 +64,7 @@ export class AppComponent implements OnInit {
     private readonly moviesApi: MovieService,
     private readonly peopleApi: PersonService,
     private readonly usersApi: UserAdminService,
+    private readonly tmdb: TmdbService,
     private readonly detailRefresh: DetailRefreshService
   ) {}
 
@@ -152,6 +171,108 @@ export class AppComponent implements OnInit {
     } finally {
       this.userSaving.set(false);
     }
+  }
+
+  openNewMovie(): void {
+    this.newMovieTitle = '';
+    this.newMovieYear = '';
+    this.newMovieError.set(null);
+    this.newMovieHits.set([]);
+    this.newMovieBusy.set(false);
+    this.newMovieOpen.set(true);
+    setTimeout(() => this.newMovieTitleInput?.nativeElement.focus(), 0);
+  }
+
+  closeNewMovie(): void {
+    if (this.newMovieBusy()) {
+      return;
+    }
+    this.newMovieOpen.set(false);
+    this.newMovieBusy.set(false);
+    this.newMovieError.set(null);
+    this.newMovieHits.set([]);
+    this.newMovieTitle = '';
+    this.newMovieYear = '';
+  }
+
+  backNewMovieForm(): void {
+    this.newMovieHits.set([]);
+    this.newMovieError.set(null);
+    setTimeout(() => this.newMovieTitleInput?.nativeElement.focus(), 0);
+  }
+
+  async startNewMovieBlank(): Promise<void> {
+    const title = this.newMovieTitle.trim();
+    const year = this.newMovieYear.trim();
+    const queryParams: Record<string, string> = {};
+    if (title) {
+      queryParams['title'] = title;
+    }
+    if (/^\d{4}$/.test(year)) {
+      queryParams['year'] = year;
+    }
+    this.closeNewMovie();
+    await this.navigateToNewMovie(queryParams);
+  }
+
+  async startNewMovieTmdb(): Promise<void> {
+    const title = this.newMovieTitle.trim();
+    if (!title || this.newMovieBusy()) {
+      return;
+    }
+    this.newMovieBusy.set(true);
+    this.newMovieError.set(null);
+    try {
+      const yearRaw = this.newMovieYear.trim();
+      const year = /^\d{4}$/.test(yearRaw) ? Number(yearRaw) : null;
+      const res = await this.tmdb.searchMovies(title, year);
+      const hits = res.results ?? [];
+      if (!hits.length) {
+        this.newMovieError.set('Ei osumia TMDB:ssä.');
+        return;
+      }
+      if (hits.length === 1) {
+        await this.goNewMovieWithTmdb(hits[0].id);
+        return;
+      }
+      this.newMovieHits.set(hits);
+    } catch (e: unknown) {
+      this.newMovieError.set(errorMessage(e));
+    } finally {
+      this.newMovieBusy.set(false);
+    }
+  }
+
+  async selectNewMovieTmdb(hit: TmdbSearchResult): Promise<void> {
+    if (this.newMovieBusy()) {
+      return;
+    }
+    this.newMovieBusy.set(true);
+    this.newMovieError.set(null);
+    try {
+      await this.goNewMovieWithTmdb(hit.id);
+    } catch (e: unknown) {
+      this.newMovieError.set(errorMessage(e));
+      this.newMovieBusy.set(false);
+    }
+  }
+
+  private async goNewMovieWithTmdb(tmdbId: number): Promise<void> {
+    this.newMovieOpen.set(false);
+    this.newMovieBusy.set(false);
+    this.newMovieHits.set([]);
+    this.newMovieError.set(null);
+    this.newMovieTitle = '';
+    this.newMovieYear = '';
+    await this.navigateToNewMovie({ tmdb: String(tmdbId) });
+  }
+
+  /** Remount edit page when already on /movie/new so query seed runs again. */
+  private async navigateToNewMovie(queryParams: Record<string, string>): Promise<void> {
+    if (this.router.url.split('?')[0] === '/movie/new') {
+      await this.router.navigateByUrl('/', { skipLocationChange: true });
+    }
+    await this.router.navigate(['/movie/new'], { queryParams });
   }
 }
 
