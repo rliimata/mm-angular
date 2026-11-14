@@ -131,6 +131,33 @@
                 </label>
               </div>
 
+              <div class="labeled-field tmdb-field">
+                <div class="field-head">
+                  <span class="field-caption">TMDB</span>
+                  <button
+                    type="button"
+                    class="icon-btn icon-clear"
+                    tabindex="-1"
+                    (click)="clearTmdbId()"
+                    [disabled]="!tmdbId"
+                    aria-label="Poista TMDB-linkitys"
+                    title="Poista"
+                  ></button>
+                </div>
+                <div class="tmdb-row">
+                  @if (tmdbId) {
+                    <a class="tmdb-id-link" [href]="tmdbMovieUrl()" target="_blank" rel="noopener">
+                      #{{ tmdbId }}
+                    </a>
+                  } @else {
+                    <span class="soft">Ei linkitetty</span>
+                  }
+                  <button type="button" class="ghost mini" (click)="openTmdbSearch()">
+                    Hae TMDB…
+                  </button>
+                </div>
+              </div>
+
               <section class="panel aka-panel">
                 <header class="panel-head"><h2>Tunnetaan myös nimillä</h2></header>
                 <ul class="aka-list">
@@ -779,6 +806,47 @@
       </div>
       <footer class="modal-foot">
         <button type="button" class="ghost" (click)="closeTitleMatches()">Jatka uutena</button>
+      </footer>
+    </div>
+  </div>
+}
+
+@if (tmdbSearchOpen) {
+  <div class="modal-backdrop nested" (click)="closeTmdbSearch()">
+    <div class="modal modal-small" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+      <header class="modal-head">
+        <h2>Linkitä TMDB-elokuva</h2>
+      </header>
+      <div class="modal-body">
+        @if (tmdbSearching) {
+          <p class="soft">Haetaan…</p>
+        } @else if (tmdbSearchError) {
+          <p class="error">{{ tmdbSearchError }}</p>
+        }
+        @if (tmdbHits.length) {
+          <ul class="title-match-list">
+            @for (m of tmdbHits; track m.id) {
+              <li>
+                <button type="button" class="title-match-btn tmdb-hit-btn" (click)="selectTmdbHit(m)">
+                  @if (m.posterUrl) {
+                    <img class="tmdb-hit-poster" [src]="m.posterUrl" alt="" />
+                  }
+                  <span class="tmdb-hit-text">
+                    <span class="title-match-main"
+                      >{{ m.title }}{{ m.year ? ' (' + m.year + ')' : '' }}</span
+                    >
+                    @if (m.originalTitle && m.originalTitle !== m.title) {
+                      <span class="title-match-dirs">{{ m.originalTitle }}</span>
+                    }
+                  </span>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+      <footer class="modal-foot">
+        <button type="button" class="ghost" (click)="closeTmdbSearch()">Peruuta</button>
       </footer>
     </div>
   </div>

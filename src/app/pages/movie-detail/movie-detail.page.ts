@@ -33,6 +33,7 @@ import {
 } from '../../data/ownership.service';
 import { UserLinkService } from '../../data/user-link.service';
 import { MemolistService } from '../../data/memolist.service';
+import { TmdbProvider, TmdbService, TmdbWatchProviders } from '../../data/tmdb.service';
 import { WatchlistService } from '../../data/watchlist.service';
 import { WishlistService } from '../../data/wishlist.service';
 import { ListPreviewItem, ListPreviewService } from '../../shared/list-preview.service';
@@ -60,6 +61,9 @@ export class MovieDetailPage implements OnInit, OnDestroy {
     { UserId: number; ScoreId: number | null; Text: string | null; Name: string; Formats: string }[]
   >([]);
   readonly ownerships = signal<OwnershipSummary[]>([]);
+  readonly watchProviders = signal<TmdbWatchProviders | null>(null);
+  readonly watchProvidersLoading = signal(false);
+  readonly watchProvidersError = signal<string | null>(null);
   readonly onWatchlist = signal(false);
   readonly onMemolist = signal(false);
   readonly onWishlist = signal(false);
@@ -107,11 +111,24 @@ export class MovieDetailPage implements OnInit, OnDestroy {
     private readonly memolist: MemolistService,
     private readonly wishlist: WishlistService,
     private readonly ownershipApi: OwnershipService,
+    private readonly tmdb: TmdbService,
     private readonly lookups: LookupService,
     private readonly detailRefresh: DetailRefreshService,
     private readonly pageTitle: PageTitleService,
     private readonly listPreview: ListPreviewService
   ) {}
+
+  hasWatchProviders(): boolean {
+    const p = this.watchProviders();
+    if (!p) {
+      return false;
+    }
+    return !!(p.flatrate.length || p.rent.length || p.buy.length || p.free.length);
+  }
+
+  providerTrack(p: TmdbProvider): number {
+    return p.id;
+  }
 
   /** All unique people credited on this movie (roles + awards). */
   allPeoplePreviewItems(): ListPreviewItem[] {
@@ -301,6 +318,8 @@ export class MovieDetailPage implements OnInit, OnDestroy {
   private async load(): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
+    this.watchProviders.set(null);
+    this.watchProvidersError.set(null);
     try {
       const details = await this.movies.getDetails(this.movieId);
       this.details.set(details);
@@ -318,6 +337,7 @@ export class MovieDetailPage implements OnInit, OnDestroy {
           details.movie.DistributionId
         )
       );
+      void this.loadWatchProviders(details.movie.TmdbId);
       const me = this.auth.profile()?.Id;
       if (me) {
         const [mine, watch, memo, wish, owns] = await Promise.all([
@@ -343,6 +363,25 @@ export class MovieDetailPage implements OnInit, OnDestroy {
       this.error.set(errorMessage(e));
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  private async loadWatchProviders(tmdbId: number | null | undefined): Promise<void> {
+    if (tmdbId == null || tmdbId <= 0) {
+      this.watchProviders.set(null);
+      this.watchProvidersLoading.set(false);
+      this.watchProvidersError.set(null);
+      return;
+    }
+    this.watchProvidersLoading.set(true);
+    this.watchProvidersError.set(null);
+    try {
+      this.watchProviders.set(await this.tmdb.watchProviders(tmdbId, 'FI'));
+    } catch (e: unknown) {
+      this.watchProviders.set(null);
+      this.watchProvidersError.set(errorMessage(e));
+    } finally {
+      this.watchProvidersLoading.set(false);
     }
   }
 

@@ -81,6 +81,49 @@
   text-align: center;
 }
 
+.tmdb-field {
+  max-width: 22rem;
+}
+
+.tmdb-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.tmdb-id-link {
+  font-variant-numeric: tabular-nums;
+  color: #1f4b7a;
+  text-decoration: none;
+}
+
+.tmdb-id-link:hover {
+  text-decoration: underline;
+}
+
+.tmdb-hit-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  text-align: left;
+}
+
+.tmdb-hit-poster {
+  width: 2.5rem;
+  height: 3.75rem;
+  object-fit: cover;
+  border-radius: 3px;
+  background: #e8eef4;
+  flex: 0 0 auto;
+}
+
+.tmdb-hit-text {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
 .lang-field {
   min-width: 0;
   width: 100%;

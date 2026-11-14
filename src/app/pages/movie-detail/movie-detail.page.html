@@ -125,6 +125,89 @@
           </section>
         }
 
+        @if (details()!.movie.TmdbId) {
+          <section class="watch-section" aria-label="Katsottavissa">
+            <div class="section-head">
+              <h2>Katsottavissa</h2>
+              @if (watchProviders()?.link; as watchLink) {
+                <a class="watch-more" [href]="watchLink" target="_blank" rel="noopener">Lisätiedot</a>
+              }
+            </div>
+            @if (watchProvidersLoading()) {
+              <p class="soft">Haetaan suoratoistoa…</p>
+            } @else if (watchProvidersError()) {
+              <p class="soft">{{ watchProvidersError() }}</p>
+            } @else if (hasWatchProviders()) {
+              @if (watchProviders()!.flatrate.length) {
+                <div class="watch-group">
+                  <h3>Suoratoisto</h3>
+                  <ul class="watch-providers">
+                    @for (p of watchProviders()!.flatrate; track providerTrack(p)) {
+                      <li>
+                        @if (p.logoUrl) {
+                          <img [src]="p.logoUrl" [alt]="p.name" />
+                        }
+                        <span>{{ p.name }}</span>
+                      </li>
+                    }
+                  </ul>
+                </div>
+              }
+              @if (watchProviders()!.free.length) {
+                <div class="watch-group">
+                  <h3>Ilmainen</h3>
+                  <ul class="watch-providers">
+                    @for (p of watchProviders()!.free; track providerTrack(p)) {
+                      <li>
+                        @if (p.logoUrl) {
+                          <img [src]="p.logoUrl" [alt]="p.name" />
+                        }
+                        <span>{{ p.name }}</span>
+                      </li>
+                    }
+                  </ul>
+                </div>
+              }
+              @if (watchProviders()!.rent.length) {
+                <div class="watch-group">
+                  <h3>Vuokrattavissa</h3>
+                  <ul class="watch-providers">
+                    @for (p of watchProviders()!.rent; track providerTrack(p)) {
+                      <li>
+                        @if (p.logoUrl) {
+                          <img [src]="p.logoUrl" [alt]="p.name" />
+                        }
+                        <span>{{ p.name }}</span>
+                      </li>
+                    }
+                  </ul>
+                </div>
+              }
+              @if (watchProviders()!.buy.length) {
+                <div class="watch-group">
+                  <h3>Ostettavissa</h3>
+                  <ul class="watch-providers">
+                    @for (p of watchProviders()!.buy; track providerTrack(p)) {
+                      <li>
+                        @if (p.logoUrl) {
+                          <img [src]="p.logoUrl" [alt]="p.name" />
+                        }
+                        <span>{{ p.name }}</span>
+                      </li>
+                    }
+                  </ul>
+                </div>
+              }
+            } @else {
+              <p class="soft">Ei tarjolla Suomessa juuri nyt.</p>
+            }
+            <p class="justwatch-attrib">
+              Data by
+              <a href="https://www.justwatch.com" target="_blank" rel="noopener">JustWatch</a>
+            </p>
+          </section>
+        }
+
         <div class="detail-narrow">
         @if (auth.profile() && ownerships().length) {
           <section class="ownership-section">

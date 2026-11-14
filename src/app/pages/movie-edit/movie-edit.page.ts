@@ -30,6 +30,7 @@ import { CatalogService, CatalogTable } from '../../data/catalog.service';
 import { LookupService } from '../../data/lookup.service';
 import { MovieService } from '../../data/movie.service';
 import { PersonDetails, PersonService } from '../../data/person.service';
+import { TmdbSearchResult, TmdbService } from '../../data/tmdb.service';
 import { getSupabase } from '../../core/supabase.client';
 import { DigitsOnlyDirective } from '../../shared/digits-only.directive';
 import { MediaImageComponent } from '../../shared/media-image.component';
@@ -132,6 +133,11 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
   runtimeUnit: 'ntsc' | 'pal' = 'ntsc';
   budgetText = '';
   currencyId: number | null = 0;
+  tmdbId: number | null = null;
+  tmdbSearchOpen = false;
+  tmdbSearching = false;
+  tmdbSearchError: string | null = null;
+  tmdbHits: TmdbSearchResult[] = [];
   text = '';
   triviaItems: string[] = [];
   triviaDraft = '';
@@ -218,6 +224,7 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
     private readonly people: PersonService,
     private readonly lookups: LookupService,
     private readonly catalog: CatalogService,
+    private readonly tmdb: TmdbService,
     private readonly detailRefresh: DetailRefreshService,
     private readonly pageTitle: PageTitleService
   ) {}
@@ -657,6 +664,47 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
     this.runtimeMinutes = ntsc;
     this.budgetText = m.Budget != null && m.Budget > 0 ? String(m.Budget) : '';
     this.currencyId = m.CurrencyId && m.CurrencyId > 0 ? m.CurrencyId : null;
+    this.tmdbId = m.TmdbId && m.TmdbId > 0 ? m.TmdbId : null;
+  }
+
+  clearTmdbId(): void {
+    this.tmdbId = null;
+  }
+
+  async openTmdbSearch(): Promise<void> {
+    this.tmdbSearchOpen = true;
+    this.tmdbSearchError = null;
+    this.tmdbHits = [];
+    this.tmdbSearching = true;
+    try {
+      const year = this.yearText.trim() ? Number(this.yearText) : null;
+      const q = swapTitle(this.title, this.titleLanguageId).replace(/\s+/g, ' ').trim() || this.title.trim();
+      const res = await this.tmdb.searchMovies(q, year);
+      this.tmdbHits = res.results;
+      if (!this.tmdbHits.length) {
+        this.tmdbSearchError = 'Ei osumia TMDB:ssä.';
+      }
+    } catch (e: unknown) {
+      this.tmdbSearchError = errorMessage(e);
+    } finally {
+      this.tmdbSearching = false;
+    }
+  }
+
+  closeTmdbSearch(): void {
+    this.tmdbSearchOpen = false;
+    this.tmdbSearching = false;
+    this.tmdbSearchError = null;
+    this.tmdbHits = [];
+  }
+
+  selectTmdbHit(hit: TmdbSearchResult): void {
+    this.tmdbId = hit.id;
+    this.closeTmdbSearch();
+  }
+
+  tmdbMovieUrl(): string | null {
+    return this.tmdbId ? `https://www.themoviedb.org/movie/${this.tmdbId}` : null;
   }
 
   clearSelect(field: 'age' | 'versionId' | 'ratioId' | 'currencyId' | 'distributionId'): void {
@@ -1167,6 +1215,7 @@ export class MovieEditPage implements OnInit, AfterViewInit, OnDestroy {
         Pal: null,
         Budget: budget,
         CurrencyId: fk(this.currencyId),
+        TmdbId: this.tmdbId != null && this.tmdbId > 0 ? this.tmdbId : null,
       };
       if (this.id && !asNew) {
         payload.Id = this.id;

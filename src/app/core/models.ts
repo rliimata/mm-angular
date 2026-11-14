@@ -22,6 +22,7 @@ export interface Movie {
   Ntsc: number | null;
   Budget: number | null;
   CurrencyId: number | null;
+  TmdbId: number | null;
 }
 
 export interface Person {

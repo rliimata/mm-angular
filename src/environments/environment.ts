@@ -6,4 +6,5 @@ export const environment = {
   mediaBaseUrl: 'https://pub-c0accf14a0674569abe285ec68c729fd.r2.dev',
   mediaUploadUrl: '/api/media',
   usersCreateUrl: '/api/users',
+  tmdbApiUrl: '/api/tmdb',
 };
